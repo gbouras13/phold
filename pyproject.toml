@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "phold"
+version = "0.1.0" # change VERSION too
+description = "Phage Annotations with Protein Structures"
+authors = ["George Bouras <george.bouras@adelaide.edu.au>", "Susanna Grigson <susie.grigson@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/gbouras13/phold"
+repository = "https://github.com/gbouras13/phold"
+keywords = ["phage", "bioinformatics", "protein", "structure"]
+include = [
+    "HISTORY.md"
+]
+
+[tool.poetry.scripts]
+phold = 'phold:main'
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+click = ">=8.0.0"
+loguru = ">=0.5.3"
+pyyaml = ">=6.0"
+pandas = ">=1.4.2"
+biopython = ">=1.76"
+pyrodigal = ">=2.0.0"
+
+
+[tool.poetry.dev-dependencies]
+black = ">=22.3.0"
+isort = ">=5.10.1"
+pytest = ">=6.2.5"
+pytest-cov = ">=3.0.0"
+flake8 = ">=3.0.1"
+
+[[tool.poetry.source]]
+name = "pypi-test"
+url = "https://test.pypi.org/simple/"
+priority = "primary"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
