@@ -10,11 +10,6 @@ from loguru import logger
 
 from phold.io.handle_genbank import get_genbank
 
-# from phold.utils.all import all_process_blast_output_and_reorient
-# from phold.utils.bulk import bulk_process_blast_output_and_reorient, run_bulk_blast
-# from phold.utils.cds_methods import run_blast_based_method, run_mystery, run_nearest
-# from phold.utils.constants import phold_DB
-# from phold.utils.external_tools import ExternalTool
 from phold.utils.util import (
     begin_phold,
     end_phold,
@@ -22,7 +17,14 @@ from phold.utils.util import (
     print_citation
 )
 
+from phold.features.predict_3Di import get_embeddings
+
+from phold.features.create_foldseek_db import  generate_foldseek_db_from_aa_3di
+
 from phold.utils.validation import instantiate_dirs
+
+from phold.features.run_foldseek import run_foldseek_search, create_result_tsv
+
 # from phold.utils.validation import (
 #     check_evalue,
 #     instantiate_dirs,
@@ -67,6 +69,7 @@ def common_options(func):
             "--threads",
             help="Number of threads to use with Foldseek",
             default=1,
+            type=int,
             show_default=True,
         ),
         click.option(
@@ -74,6 +77,7 @@ def common_options(func):
             "--prefix",
             default="phold",
             help="Prefix for output files",
+            type=str,
             show_default=True,
         ),
         click.option(
@@ -82,6 +86,21 @@ def common_options(func):
             is_flag=True,
             help="Force overwrites the output directory",
         ),
+        click.option(
+            "-m",
+            "--model",
+            required=False,
+            type=str,
+            default="Rostlab/ProstT5_fp16",
+            help='Either a path to a directory holding the checkpoint for a pre-trained model or a huggingface repository link.' 
+        ),
+        click.option(
+            "-d",
+            "--database",
+            required=True,
+            type=click.Path(),
+            help='Path to foldseek PHROGs database.' 
+        )
     ]
     for option in reversed(options):
         func = option(func)
@@ -108,7 +127,7 @@ Chromosome command
 @click.option(
     "-e",
     "--evalue",
-    default="1e-5",
+    default="1e-3",
     help="e value threshold for Foldseek",
     show_default=True,
 )
@@ -120,6 +139,8 @@ def run(
     prefix,
     evalue,
     force,
+    model,
+    database,
     **kwargs,
 ):
     """Runs phold"""
@@ -149,54 +170,76 @@ def run(
         logger.warning("Error: no sequences found in genbank file")
         logger.error("No sequences found in genbank file. Nothing to annotate")
 
-    for key, value in gb_dict.items():
-        logger.info(f"Parameter: {key} {value}.")
+    # for key, value in gb_dict.items():
+    #     logger.info(f"Parameter: {key} {value}.")
 
     # Create a nested dictionary to store CDS features by contig ID
     cds_dict = {}
 
+    fasta_aa: Path = Path(output) / "outputaa.fasta"
+
+    # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
+    
     for record_id, record in gb_dict.items():
         
-        # set level 1
         cds_dict[record_id] = {}
 
-        #print(record.features)
         for cds_feature in record.features:
             if cds_feature.type == 'CDS':
-                print(cds_feature.qualifiers['ID'][0])
                 cds_dict[record_id][cds_feature.qualifiers['ID'][0]] = cds_feature
 
-    print(cds_dict)
+    ## write the CDS to file
 
-        #         cds_sequence = cds_feature.extract(record.seq)
-        #         cds_sequences.append(str(cds_sequence))
+    with open(fasta_aa, 'w+') as out_f:
+        for contig_id, rest in cds_dict.items():
 
-        # Add the CDS sequences to the nested dictionary under the contig ID
-        # cds_dict[record_id] = cds_sequences
+            aa_contig_dict = cds_dict[contig_id]
 
-    # position = [
-    #     (int(this_CDS[i].location.start), int(this_CDS[i].location.end))
-    #     for i in range(len(this_CDS))
-    # ]
-    # sense = [
-    #     re.split("]", str(this_CDS[i].location))[1][1] for i in range(len(this_CDS))
-    # ]
-    # protein_id = [
-    #     this_CDS[i].qualifiers.get("protein_id") for i in range(len(this_CDS))
-    # ]
-    # protein_id = [p[0] if p is not None else None for p in protein_id]
-    # phrogs = [this_CDS[i].qualifiers.get("phrog") for i in range(len(this_CDS))]
-    # phrogs = ["No_PHROG" if i is None else i[0] for i in phrogs]
+            # writes the CDS to file
+            for seq_id, cds_feature in aa_contig_dict.items():
+                out_f.write(f">{contig_id}:{seq_id}\n")
+                out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
 
-    # return {
-    #     "length": phage_length,
-    #     "phrogs": phrogs,
-    #     "protein_id": protein_id,
-    #     "sense": sense,
-    #     "position": position,
-    # }
+    ############
+    # prostt5
+    ############
 
-    #print(gb_dict)
+    # generates the embeddings using ProstT5 and saves them to file
+    fasta_3di: Path = Path(output) / "output3di.fasta"
+    get_embeddings( cds_dict, output, model,  half_precision=True,    
+                   max_residues=3000, max_seq_len=1000, max_batch=100 ) 
+    
+    ############
+    # create foldseek db
+    ############
+
+    foldseek_query_db_path: Path = Path(output) / "foldseek_db"
+    foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
+
+    generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
+
+    ###########
+    # run foldseek search
+    ###########
+
+    short_db_name = f"{prefix}_foldseek_database"
+    query_db: Path = Path(foldseek_query_db_path) / short_db_name
+    target_db: Path = Path(database) / "toy_prophage_db"
+
+    # make result and temp dirs 
+    result_db: Path = Path(output) / "result_db"
+    result_db.mkdir(parents=True, exist_ok=True)
+    temp_db: Path = Path(output) / "temp_db"
+    temp_db.mkdir(parents=True, exist_ok=True)
+
+    # run foldseek search
+    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir )
+
+    # make result tsv 
+    result_tsv: Path =  Path(output) / "foldseek_results.tsv"
+    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
+
+
 
 
     # validates fasta

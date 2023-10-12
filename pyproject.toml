@@ -22,7 +22,6 @@ loguru = ">=0.5.3"
 pyyaml = ">=6.0"
 pandas = ">=1.4.2"
 biopython = ">=1.76"
-pyrodigal = ">=2.0.0"
 
 
 [tool.poetry.dev-dependencies]

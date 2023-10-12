@@ -7,6 +7,9 @@ import subprocess as sp
 import sys
 import time
 
+from pathlib import Path
+import shutil
+
 import click
 from loguru import logger
 
@@ -108,3 +111,11 @@ def print_splash():
 
 """
     )
+
+def remove_file(file_path: Path) -> None:
+    if file_path.exists():
+        file_path.unlink()  # Use unlink to remove the file
+
+def remove_directory(dir_path: Path) -> None:
+    if dir_path.exists():
+        shutil.rmtree(dir_path) 

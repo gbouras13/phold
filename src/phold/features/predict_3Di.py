@@ -8,7 +8,6 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 """
 
-import argparse
 import time
 from pathlib import Path
 from loguru import logger
@@ -20,32 +19,31 @@ import torch
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
-def run_prostt5():
+# def run_prostt5():
 
-    args       = parser.parse_args()
+#     args       = parser.parse_args()
     
-    seq_path   = Path( args.input ) # path to input FASTAS
-    out_path   = Path( args.output) # path where predictions should be written to
-    model_dir  = args.model # path/repo_link to checkpoint
+#     seq_path   = Path( args.input ) # path to input FASTAS
+#     out_path   = Path( args.output) # path where predictions should be written to
+#     model_dir  = args.model # path/repo_link to checkpoint
     
-    if out_path.is_file():
-        print("Output file is already existing and will be overwritten ...")
+#     if out_path.is_file():
+#         print("Output file is already existing and will be overwritten ...")
     
-    split_char = args.split_char
-    id_field   = args.id
+#     split_char = args.split_char
+#     id_field   = args.id
 
-    half_precision = False if int(args.half) == 0 else True
-    assert not (half_precision and device=="cpu"), print("Running fp16 on CPU is not supported, yet")
+#     half_precision = False if int(args.half) == 0 else True
+#     assert not (half_precision and device=="cpu"), print("Running fp16 on CPU is not supported, yet")
     
-    get_embeddings( 
-        seq_path, 
-        out_path, 
-        model_dir, 
-        split_char, 
-        id_field, 
-        half_precision=half_precision,
-        )
-
+#     get_embeddings( 
+#         seq_path, 
+#         out_path, 
+#         model_dir, 
+#         split_char, 
+#         id_field, 
+#         half_precision=half_precision,
+#         )
 
 if torch.cuda.is_available():
     device = torch.device('cuda:0')
@@ -89,35 +87,6 @@ def get_T5_model(model_dir):
     return model, vocab
 
 
-def read_fasta( fasta_path, split_char, id_field ):
-    '''
-        Reads in fasta file containing multiple sequences.
-        Returns dictionary of holding multiple sequences or only single 
-        sequence, depending on input file.
-    '''
-    
-    sequences = dict()
-    with open( fasta_path, 'r' ) as fasta_f:
-        for line in fasta_f:
-            # get uniprot ID from header and create new entry
-            if line.startswith('>'):
-                uniprot_id = line.replace('>', '').strip().split(split_char)[id_field]
-                # replace tokens that are mis-interpreted when loading h5
-                uniprot_id = uniprot_id.replace("/","_").replace(".","_")
-                sequences[ uniprot_id ] = ''
-            else:
-                s = ''.join( line.split() ).replace("-","")
-                
-                if s.islower(): # sanity check to avoid mix-up of 3Di and AA input
-                    print("The input file was in lower-case which indicates 3Di-input." + 
-                          "This predictor only operates on amino-acid-input (upper-case)." +
-                          "Exiting now ..."
-                          )
-                    return None
-                else:
-                    sequences[ uniprot_id ] += s
-    return sequences
-
 def write_predictions(predictions, out_path):
     ss_mapping = {
         0: "A",
@@ -141,15 +110,21 @@ def write_predictions(predictions, out_path):
         18: "W",
         19: "Y"
     }
-    
+
     with open(out_path, 'w+') as out_f:
-        out_f.write( '\n'.join(
-          [ ">{}\n{}".format(
-              seq_id, "".join(list(map(lambda yhat: ss_mapping[int(yhat)], yhats))) )
-          for seq_id, yhats in predictions.items()
-          ]
-            ) )
-    print(f"Finished writing results to {out_path}")
+        for contig_id, rest in predictions.items():
+
+            prediction_contig_dict = predictions[contig_id]
+
+            # writes each CDS to a 3di FASTA with header contig_id:CDS_id
+            out_f.write( ''.join(
+            [ ">{}\n{}\n".format(
+                f"{contig_id}:{seq_id}", "".join(list(map(lambda yhat: ss_mapping[int(yhat)], yhats))) )
+            for seq_id, yhats in prediction_contig_dict.items()
+            ]
+                ) )
+            
+    logger.info(f"Finished writing results to {out_path}")
     return None
 
 
@@ -195,14 +170,11 @@ def load_predictor( weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpn
     return model
 
 
-def get_embeddings( gb_dict, out_path, model_dir, split_char, id_field, half_precision,    
-                   max_residues=4000, max_seq_len=1000, max_batch=100 ):
+def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: bool,    
+                   max_residues: int =4000, max_seq_len: int=1000, max_batch: int=100 ) -> bool:
     
-    seq_dict = dict()
-    predictions = dict()
+    predictions = {}
 
-    # Read in fasta
-    seq_dict = gb_dict
     prefix = "<AA2fold>"
     
     model, vocab = get_T5_model(model_dir)
@@ -217,135 +189,140 @@ def get_embeddings( gb_dict, out_path, model_dir, split_char, id_field, half_pre
         predictor = predictor.full()
         logger.info("Using models in full-precision.")
         
+    # loop over each record in the cds dict
+    for record_id, cds_records in cds_dict.items():
 
-    print('########################################')
-    print('Example sequence: {}\n{}'.format( next(iter(
-            seq_dict.keys())), next(iter(seq_dict.values()))) )
+        # instantiate the nested dict
+        predictions[record_id] = {}
+
+
+        seq_record_dict = cds_dict[record_id]
+        seq_dict = {}
+
+        # gets the seq_dict with key for id and the translation
+        for key, seq_feature in seq_record_dict.items():
+            # get the protein seq
+            seq_dict[key] = seq_feature.qualifiers['translation'][0]
+
+        # sort sequences by length to trigger OOM at the beginning
+
+        #seq_dict = sorted( seq_dict.items(), key=lambda kv: len(seq_dict[kv[1][0]]), reverse=True)
+        seq_dict = dict(sorted(seq_dict.items(), key=lambda kv: len(kv[1][0]), reverse=True))
+
     
+    # print("Average sequence length: {}".format(avg_length))
+    # print("Number of sequences >{}: {}".format(max_seq_len, n_long))
     
-    print('########################################')
-    print('Total number of sequences: {}'.format(len(seq_dict)))
+        start = time.time()
+        batch = list()
+        for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(),1):
 
-    avg_length = sum([ len(seq) for _, seq in seq_dict.items()]) / len(seq_dict)
-    n_long     = sum([ 1 for _, seq in seq_dict.items() if len(seq)>max_seq_len])
-    # sort sequences by length to trigger OOM at the beginning
-    seq_dict   = sorted( seq_dict.items(), key=lambda kv: len( seq_dict[kv[0]] ), reverse=True )
-    
-    print("Average sequence length: {}".format(avg_length))
-    print("Number of sequences >{}: {}".format(max_seq_len, n_long))
-    
-    start = time.time()
-    batch = list()
-    for seq_idx, (pdb_id, seq) in enumerate(seq_dict,1):
-        # replace non-standard AAs
-        seq = seq.replace('U','X').replace('Z','X').replace('O','X')
-        seq_len = len(seq)
-        seq = prefix + ' ' + ' '.join(list(seq))
-        batch.append((pdb_id,seq,seq_len))
+            # print(pdb_id)
+            # print(seq)
 
-        # count residues in current batch and add the last sequence length to
-        # avoid that batches with (n_res_batch > max_residues) get processed 
-        n_res_batch = sum([ s_len for  _, _, s_len in batch ]) + seq_len 
-        if len(batch) >= max_batch or n_res_batch>=max_residues or seq_idx==len(seq_dict) or seq_len>max_seq_len:
-            pdb_ids, seqs, seq_lens = zip(*batch)
-            batch = list()
 
-            token_encoding = vocab.batch_encode_plus(seqs, 
-                                                     add_special_tokens=True, 
-                                                     padding="longest", 
-                                                     return_tensors='pt' 
-                                                     ).to(device)
-            try:
-                with torch.no_grad():
-                    embedding_repr = model(token_encoding.input_ids, 
-                                            attention_mask=token_encoding.attention_mask
-                                            )
-            except RuntimeError:
-                print("RuntimeError during embedding for {} (L={})".format(
-                    pdb_id, seq_len)
-                    )
-                continue
-            
-            # ProtT5 appends a special tokens at the end of each sequence
-            # Mask this also out during inference while taking into account the prefix
-            for idx, s_len in enumerate(seq_lens):
-                token_encoding.attention_mask[idx,s_len+1] = 0
+            # replace non-standard AAs
+            seq = seq.replace('U','X').replace('Z','X').replace('O','X')
+            seq_len = len(seq)
+            seq = prefix + ' ' + ' '.join(list(seq))
+            batch.append((pdb_id,seq,seq_len))
 
-            # extract last hidden states (=embeddings)
-            residue_embedding = embedding_repr.last_hidden_state.detach()
-            # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
-            residue_embedding = residue_embedding*token_encoding.attention_mask.unsqueeze(dim=-1)
-            # slice off embedding of special token prepended before to each sequence
-            residue_embedding = residue_embedding[:,1:]
-            
-            prediction = predictor(residue_embedding)
-            prediction = toCPU(torch.max( prediction, dim=1, keepdim=True )[1] ).astype(np.byte)
+            # count residues in current batch and add the last sequence length to
+            # avoid that batches with (n_res_batch > max_residues) get processed 
+            n_res_batch = sum([ s_len for  _, _, s_len in batch ]) + seq_len 
+            if len(batch) >= max_batch or n_res_batch>=max_residues or seq_idx==len(seq_dict) or seq_len>max_seq_len:
+                pdb_ids, seqs, seq_lens = zip(*batch)
+                batch = list()
 
-            # batch-size x seq_len x embedding_dim
-            # extra token is added at the end of the seq
-            for batch_idx, identifier in enumerate(pdb_ids):
-                s_len = seq_lens[batch_idx]
-                # slice off padding and special token appended to the end of the sequence
-                predictions[identifier] = prediction[batch_idx,:, 0:s_len].squeeze()
-                assert s_len == len(predictions[identifier]), print(f"Length mismatch for {identifier}: is:{len(predictions[identifier])} vs should:{s_len}")
-                if len(predictions) == 1:
-                    print(f"Example: predicted for protein {identifier} with length {s_len}: {predictions[identifier]}")
+                token_encoding = vocab.batch_encode_plus(seqs, 
+                                                        add_special_tokens=True, 
+                                                        padding="longest", 
+                                                        return_tensors='pt' 
+                                                        ).to(device)
+                try:
+                    with torch.no_grad():
+                        embedding_repr = model(token_encoding.input_ids, 
+                                                attention_mask=token_encoding.attention_mask
+                                                )
+                except RuntimeError:
+                    logger.warning("RuntimeError during embedding for {} (L={})".format(
+                        pdb_id, seq_len)
+                        )
+                    continue
                 
-    end = time.time()
-    print('\n############# STATS #############')
-    print('Total number of predictions: {}'.format(len(predictions)))
-    print('Total time: {:.2f}[s]; time/prot: {:.4f}[s]; avg. len= {:.2f}'.format( 
-            end-start, (end-start)/len(predictions), avg_length))
-    print("Writing results now to disk ...")
-    
-    write_predictions(predictions,out_path)
+                # ProtT5 appends a special tokens at the end of each sequence
+                # Mask this also out during inference while taking into account the prefix
+                for idx, s_len in enumerate(seq_lens):
+                    token_encoding.attention_mask[idx,s_len+1] = 0
 
+                # extract last hidden states (=embeddings)
+                residue_embedding = embedding_repr.last_hidden_state.detach()
+                # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
+                residue_embedding = residue_embedding*token_encoding.attention_mask.unsqueeze(dim=-1)
+                # slice off embedding of special token prepended before to each sequence
+                residue_embedding = residue_embedding[:,1:]
+                
+                prediction = predictor(residue_embedding)
+                prediction = toCPU(torch.max( prediction, dim=1, keepdim=True )[1] ).astype(np.byte)
+
+                # batch-size x seq_len x embedding_dim
+                # extra token is added at the end of the seq
+                for batch_idx, identifier in enumerate(pdb_ids):
+                    s_len = seq_lens[batch_idx]
+                    # slice off padding and special token appended to the end of the sequence
+                    predictions[record_id][identifier] = prediction[batch_idx,:, 0:s_len].squeeze()
+                    assert s_len == len(predictions[record_id][identifier]), print(f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier])} vs should:{s_len}")
+
+    
+    output_3di: Path = Path(out_path) / "output3di.fasta"
+
+    write_predictions(predictions, output_3di)
     return True
 
 
-def create_arg_parser():
-    """"Creates and returns the ArgumentParser object."""
+# def create_arg_parser():
+#     """"Creates and returns the ArgumentParser object."""
 
-    # Instantiate the parser
-    parser = argparse.ArgumentParser(description=( 
-            'embed.py creates ProstT5-Encoder embeddings for a given text '+
-            ' file containing sequence(s) in FASTA-format.' +
-            'Example: python predict_3Di.py --input /path/to/some_AA_sequences.fasta --output /path/to/some_3Di_sequences.fasta --half 1' ) )
+#     # Instantiate the parser
+#     parser = argparse.ArgumentParser(description=( 
+#             'embed.py creates ProstT5-Encoder embeddings for a given text '+
+#             ' file containing sequence(s) in FASTA-format.' +
+#             'Example: python predict_3Di.py --input /path/to/some_AA_sequences.fasta --output /path/to/some_3Di_sequences.fasta --half 1' ) )
     
-    # Required positional argument
-    parser.add_argument( '-i', '--input', required=True, type=str,
-                    help='A path to a fasta-formatted text file containing protein sequence(s).')
+#     # Required positional argument
+#     parser.add_argument( '-i', '--input', required=True, type=str,
+#                     help='A path to a fasta-formatted text file containing protein sequence(s).')
 
-    # Optional positional argument
-    parser.add_argument( '-o', '--output', required=True, type=str, 
-                    help='A path for saving the created embeddings as NumPy npz file.')
+#     # Optional positional argument
+#     parser.add_argument( '-o', '--output', required=True, type=str, 
+#                     help='A path for saving the created embeddings as NumPy npz file.')
 
-    # changed froom Rostlab/ProstT5_fp16 
-    # Rostlab/ProstT5_fp16  or Rostlab/ProstT5
-    # Required positional argument
-    parser.add_argument('--model', required=False, type=str,
-                    default="Rostlab/ProstT5_fp16",
-                    help='Either a path to a directory holding the checkpoint for a pre-trained model or a huggingface repository link.' )
+#     # changed froom Rostlab/ProstT5_fp16 
+#     # Rostlab/ProstT5_fp16  or Rostlab/ProstT5
+#     # Required positional argument
+#     parser.add_argument('--model', required=False, type=str,
+#                     default="Rostlab/ProstT5_fp16",
+#                     help='Either a path to a directory holding the checkpoint for a pre-trained model or a huggingface repository link.' )
 
-    # Optional argument
-    parser.add_argument('--split_char', type=str, 
-                    default='!',
-                    help='The character for splitting the FASTA header in order to retrieve ' +
-                        "the protein identifier. Should be used in conjunction with --id." +
-                        "Default: '!' ")
+#     # Optional argument
+#     parser.add_argument('--split_char', type=str, 
+#                     default='!',
+#                     help='The character for splitting the FASTA header in order to retrieve ' +
+#                         "the protein identifier. Should be used in conjunction with --id." +
+#                         "Default: '!' ")
     
-    # Optional argument
-    parser.add_argument('--id', type=int, 
-                    default=0,
-                    help='The index for the uniprot identifier field after splitting the ' +
-                        "FASTA header after each symbole in ['|', '#', ':', ' ']." +
-                        'Default: 0')
+#     # Optional argument
+#     parser.add_argument('--id', type=int, 
+#                     default=0,
+#                     help='The index for the uniprot identifier field after splitting the ' +
+#                         "FASTA header after each symbole in ['|', '#', ':', ' ']." +
+#                         'Default: 0')
 
-    parser.add_argument('--half', type=int, 
-                    default=1,
-                    help="Whether to use half_precision or not. Default: 1 (half-precision)")
+#     parser.add_argument('--half', type=int, 
+#                     default=1,
+#                     help="Whether to use half_precision or not. Default: 1 (half-precision)")
     
-    return parser
+#     return parser
 
 
 
