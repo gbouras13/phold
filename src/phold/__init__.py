@@ -21,6 +21,8 @@ from phold.features.predict_3Di import get_embeddings
 
 from phold.features.create_foldseek_db import  generate_foldseek_db_from_aa_3di
 
+from phold.features.tophits import get_tophits
+
 from phold.utils.validation import instantiate_dirs
 
 from phold.features.run_foldseek import run_foldseek_search, create_result_tsv
@@ -227,8 +229,10 @@ def run(
     target_db: Path = Path(database) / "toy_prophage_db"
 
     # make result and temp dirs 
-    result_db: Path = Path(output) / "result_db"
-    result_db.mkdir(parents=True, exist_ok=True)
+    result_db_base: Path = Path(output) / "result_db"
+    result_db_base.mkdir(parents=True, exist_ok=True)
+    result_db: Path = Path(result_db_base) / "result_db"
+
     temp_db: Path = Path(output) / "temp_db"
     temp_db.mkdir(parents=True, exist_ok=True)
 
@@ -238,6 +242,11 @@ def run(
     # make result tsv 
     result_tsv: Path =  Path(output) / "foldseek_results.tsv"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
+
+    # calculate tophits 
+    top_hits_tsv: Path = Path(output) / "tophits.tsv"
+
+    filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
 
 
 
