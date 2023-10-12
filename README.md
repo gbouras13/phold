@@ -3,11 +3,12 @@ Phage Annotations with Protein Structures
 
 * Works only with CUDA GPU for now.
 
-# To create the env
+## To create the env
 
 ```
 git clone "https://github.com/gbouras13/phold.git"
 cd phold
+pip install -e .
 
 # need foldseek
 # will add the python deps into pyproject.toml later
