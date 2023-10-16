@@ -25,6 +25,11 @@ pip install sentencepiece
 # need it choose the right version of torch compatible with your CUDA version
 
 mamba install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.6 -c pytorch -c nvidia
+
+# for macos (needed even though not used with remote)
+mamba install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 -c pytorch
+
+
 ```
 
 ## Tests
