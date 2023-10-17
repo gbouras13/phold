@@ -13,6 +13,7 @@ from pathlib import Path
 from loguru import logger
 from urllib import request
 import shutil
+import csv
 
 import numpy as np
 import torch
@@ -171,7 +172,8 @@ def load_predictor( weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpn
 
 
 def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: bool,    
-                   max_residues: int =4000, max_seq_len: int=1000, max_batch: int=100 ) -> bool:
+                   max_residues: int =4000, max_seq_len: int=1000, max_batch: int=100, 
+                   proteins: bool=False ) -> bool:
     
     predictions = {}
 
@@ -199,14 +201,18 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
         seq_record_dict = cds_dict[record_id]
         seq_dict = {}
 
+
         # gets the seq_dict with key for id and the translation
         for key, seq_feature in seq_record_dict.items():
-            # get the protein seq
-            seq_dict[key] = seq_feature.qualifiers['translation'][0]
+            # get the protein seq for normal
+            if proteins is False:
+                seq_dict[key] = seq_feature.qualifiers['translation'][0]
+            else: # proteins mode - it will be already in a dictionary
+                seq_dict = seq_record_dict
+
 
         # sort sequences by length to trigger OOM at the beginning
 
-        #seq_dict = sorted( seq_dict.items(), key=lambda kv: len(seq_dict[kv[1][0]]), reverse=True)
         seq_dict = dict(sorted(seq_dict.items(), key=lambda kv: len(kv[1][0]), reverse=True))
 
     
@@ -215,6 +221,7 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
     
         start = time.time()
         batch = list()
+        fail_ids = []
         for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(),1):
 
             # print(pdb_id)
@@ -248,33 +255,52 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
                     logger.warning("RuntimeError during embedding for {} (L={})".format(
                         pdb_id, seq_len)
                         )
+                    fail_ids.append(pdb_id)
                     continue
                 
                 # ProtT5 appends a special tokens at the end of each sequence
                 # Mask this also out during inference while taking into account the prefix
-                for idx, s_len in enumerate(seq_lens):
-                    token_encoding.attention_mask[idx,s_len+1] = 0
+                try:
+                    for idx, s_len in enumerate(seq_lens):
+                        token_encoding.attention_mask[idx,s_len+1] = 0
 
-                # extract last hidden states (=embeddings)
-                residue_embedding = embedding_repr.last_hidden_state.detach()
-                # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
-                residue_embedding = residue_embedding*token_encoding.attention_mask.unsqueeze(dim=-1)
-                # slice off embedding of special token prepended before to each sequence
-                residue_embedding = residue_embedding[:,1:]
-                
-                prediction = predictor(residue_embedding)
-                prediction = toCPU(torch.max( prediction, dim=1, keepdim=True )[1] ).astype(np.byte)
+                    # extract last hidden states (=embeddings)
+                    residue_embedding = embedding_repr.last_hidden_state.detach()
+                    # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
+                    residue_embedding = residue_embedding*token_encoding.attention_mask.unsqueeze(dim=-1)
+                    # slice off embedding of special token prepended before to each sequence
+                    residue_embedding = residue_embedding[:,1:]
+                    
+                    prediction = predictor(residue_embedding)
+                    prediction = toCPU(torch.max( prediction, dim=1, keepdim=True )[1] ).astype(np.byte)
 
-                # batch-size x seq_len x embedding_dim
-                # extra token is added at the end of the seq
-                for batch_idx, identifier in enumerate(pdb_ids):
-                    s_len = seq_lens[batch_idx]
-                    # slice off padding and special token appended to the end of the sequence
-                    predictions[record_id][identifier] = prediction[batch_idx,:, 0:s_len].squeeze()
-                    assert s_len == len(predictions[record_id][identifier]), print(f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier])} vs should:{s_len}")
-
+                    # batch-size x seq_len x embedding_dim
+                    # extra token is added at the end of the seq
+                    for batch_idx, identifier in enumerate(pdb_ids):
+                        s_len = seq_lens[batch_idx]
+                        # slice off padding and special token appended to the end of the sequence
+                        predictions[record_id][identifier] = prediction[batch_idx,:, 0:s_len].squeeze()
+                        assert s_len == len(predictions[record_id][identifier]), print(f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier])} vs should:{s_len}")
+                except IndexError:
+                    logger.warning("Index error during prediction for {} (L={})".format(
+                        pdb_id, seq_len)
+                        )
+                    fail_ids.append(pdb_id)
+                    continue
     
     output_3di: Path = Path(out_path) / "output3di.fasta"
+
+    # write list of fails if length > 0
+    if len(fail_ids) > 0:
+        fail_tsv: Path = Path(out_path) / "fails.tsv"
+
+        # Convert the list to a list of lists
+        data_as_list_of_lists = [[str(item)] for item in fail_ids]
+
+        # Write the list to a TSV file
+        with open(fail_tsv, "w", newline='') as file:
+            tsv_writer = csv.writer(file, delimiter='\t')
+            tsv_writer.writerows(data_as_list_of_lists)
 
     write_predictions(predictions, output_3di)
     return True
