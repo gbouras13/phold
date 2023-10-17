@@ -192,6 +192,7 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
         logger.info("Using models in full-precision.")
         
     # loop over each record in the cds dict
+    fail_ids = []
     for record_id, cds_records in cds_dict.items():
 
         # instantiate the nested dict
@@ -221,7 +222,6 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
     
         start = time.time()
         batch = list()
-        fail_ids = []
         for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(),1):
 
             # print(pdb_id)

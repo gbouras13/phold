@@ -529,11 +529,8 @@ def create(
     counter = 0 
 
 
+    # loops over all phrogs and adds them to dict - like a contig for normal phold
     for phrog_value in phrog_list:
-
-        counter += 1
-        if counter % 100 == 0:
-            print(counter)
 
         cds_dict[phrog_value] = {}
 

@@ -12,6 +12,7 @@ from Bio import SeqIO
 from pathlib import Path
 from phold.utils.external_tools import ExternalTool
 from phold.utils.util import remove_file
+from loguru import logger
 
 
 def generate_foldseek_db_from_aa_3di(fasta_aa: Path, fasta_3di: Path, foldseek_db_path: Path, logdir: Path, prefix: str ) -> None:
@@ -26,15 +27,16 @@ def generate_foldseek_db_from_aa_3di(fasta_aa: Path, fasta_3di: Path, foldseek_d
     sequences_3di = {}
     for record in SeqIO.parse(fasta_3di, "fasta"):
         if not record.id in sequences_aa.keys():
-            print("Warning: ignoring 3Di entry {}, since it is not in the amino-acid FASTA file".format(record.id))
+            logger.warning("Warning: ignoring 3Di entry {}, since it is not in the amino-acid FASTA file".format(record.id))
         else:
             sequences_3di[record.id] = str(record.seq).upper()
 
     # assert that we parsed 3Di strings for all sequences in the amino-acid FASTA file
     for id in sequences_aa.keys():
         if not id in sequences_3di.keys():
-            print("Error: entry {} in amino-acid FASTA file has no corresponding 3Di string".format(id))
-            quit()
+            logger.warning("Warning: entry {} in amino-acid FASTA file has no corresponding 3Di string".format(id))
+            logger.warning("Removing: entry {} from the Foldseek database ".format(id))
+            sequences_aa = {id: sequence for id, sequence in sequences_aa.items() if id in sequences_3di}
 
     # generate TSV file contents
     tsv_aa = ""
