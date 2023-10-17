@@ -1,5 +1,6 @@
 """
 Module for manipulating genbank files
+taken from phynteny
 """
 import binascii
 import gzip
@@ -68,6 +69,67 @@ def get_genbank(genbank: Path) -> dict:
     return gb_dict
 
 
+def get_proteins(fasta: Path) -> dict:
+    """
+    Convert an Amino Acid FASTA file to a dictionary.
+
+    This function reads a AA FASTA file and converts it into a dictionary.
+
+    Args:
+        fasta (Path): Path to the FASTA file.
+
+    Returns:
+        dict: A dictionary representation of the FASTA file.
+
+    Raises:
+        ValueError: If the provided file is not a FASTA file.
+    """
+
+    if is_gzip_file(fasta.strip()):
+        try:
+            fasta_dict = {}
+            with gzip.open(fasta.strip(), "rt") as handle:
+                sequence_id = ""
+                sequence = ""
+                for line in handle:
+                    line = line.strip()
+                    if line.startswith(">"):
+                        if sequence_id:
+                            fasta_dict[sequence_id] = sequence
+                        sequence_id = line[1:]
+                        sequence = ""
+                    else:
+                        sequence += line
+                if sequence_id:
+                    fasta_dict[sequence_id] = sequence
+            handle.close()
+        except ValueError:
+            logger.error(f"{fasta.strip()} is not a FASTA file!")
+            raise
+
+    else:
+        try:
+            fasta_dict = {}
+            with open(fasta.strip(), "rt", errors='ignore') as handle:
+                sequence_id = ""
+                sequence = ""
+                for line in handle:
+                    line = line.strip()
+                    if line.startswith(">"):
+                        if sequence_id:
+                            fasta_dict[sequence_id] = sequence
+                        sequence_id = line[1:]
+                        sequence = ""
+                    else:
+                        sequence += line
+                if sequence_id:
+                    fasta_dict[sequence_id] = sequence
+            handle.close()
+        except ValueError:
+            logger.error(f"{fasta.strip()} is not a FASTA file!")
+            raise
+
+    return fasta_dict
 
 def extract_features(this_phage):
     """
