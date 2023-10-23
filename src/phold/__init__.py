@@ -5,6 +5,7 @@ import os
 import shutil
 from pathlib import Path
 import pandas as pd
+import copy
 
 import click
 from loguru import logger
@@ -241,7 +242,7 @@ def run(
     temp_db.mkdir(parents=True, exist_ok=True)
 
     # run foldseek search
-    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir )
+    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue )
 
     # make result tsv 
     result_tsv: Path =  Path(output) / "foldseek_results.tsv"
@@ -250,6 +251,242 @@ def run(
     # calculate tophits 
     top_hits_tsv: Path = Path(output) / "tophits.tsv"
     filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
+    # split the first column
+    filtered_tophits_df[['record_id', 'cds_id']] = filtered_tophits_df['query'].str.split(':', expand=True, n=1)
+    # Remove the original 'query' column
+    filtered_tophits_df = filtered_tophits_df.drop(columns=['query'])
+
+    # split on target
+    filtered_tophits_df[['phrog', 'tophit_protein']] = filtered_tophits_df['target'].str.split(':', expand=True, n=1)
+    # Remove the original 'target' column
+    filtered_tophits_df = filtered_tophits_df.drop(columns=['target'])
+    filtered_tophits_df['phrog'] = filtered_tophits_df['phrog'].str.replace('phrog_', '')
+    filtered_tophits_df['phrog'] = filtered_tophits_df['phrog'].astype('str')
+
+    # read in the mapping tsv
+
+    phrog_annot_mapping_tsv: Path = Path(database) / "phrog_annot_v4.tsv"
+    phrog_mapping_df = pd.read_csv(phrog_annot_mapping_tsv, sep='\t')
+    phrog_mapping_df['phrog'] = phrog_mapping_df['phrog'].astype('str')
+
+    # join the dfs
+
+    filtered_tophits_df = filtered_tophits_df.merge(phrog_mapping_df, on='phrog', how='left')
+    # Replace NaN values in the 'product' column with 'hypothetical protein'
+    filtered_tophits_df['product'] = filtered_tophits_df['product'].fillna('hypothetical protein')
+
+    # Convert the DataFrame to a nested dictionary
+    result_dict = {}
+
+    # instantiate the unique contig ids
+
+    unique_contig_ids = filtered_tophits_df['record_id'].unique()
+
+    for record_id in unique_contig_ids:
+        result_dict[record_id] = {}
+    
+    for _, row in filtered_tophits_df.iterrows():
+        record_id = row['record_id']
+        cds_id = row['cds_id']
+        values_dict = {
+            'phrog': row['phrog'],
+            'product': row['product'],
+            'function': row['function'],
+            'tophit_protein': row['tophit_protein'],
+            'foldseek_alnScore': row['foldseek_alnScore'],
+            'foldseek_seqIdentity': row['foldseek_seqIdentity'],
+            'foldseek_eVal': row['foldseek_eVal'],
+            'qStart': row['qStart'],
+            'qEnd': row['qEnd'],
+            'qLen': row['qLen'],
+            'tStart': row['tStart'],
+            'tEnd': row['tEnd'],
+            'tLen': row['tLen'],
+        }
+        result_dict[record_id][cds_id] = values_dict
+
+    # get counds
+    # copy initial cds_dict 
+
+    updated_cds_dict = copy.deepcopy(cds_dict)
+
+    original_functions_count_dict = {}
+    new_functions_count_dict = {}
+    combined_functions_count_dict = {}
+
+    # iterates over the records
+    for record_id, record in updated_cds_dict.items():
+         
+         # instantiate the functions dicts 
+        original_functions_count_dict[record_id] = {}
+        new_functions_count_dict[record_id] = {}
+        combined_functions_count_dict[record_id] = {}
+
+        original_functions_count_dict[record_id]['cds_count'] = len(updated_cds_dict[record_id])
+        original_functions_count_dict[record_id]['phrog_count'] = 0
+        original_functions_count_dict[record_id]['connector'] = 0
+        original_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] = 0
+        original_functions_count_dict[record_id]['head and packaging'] = 0
+        original_functions_count_dict[record_id]['integration and excision'] = 0
+        original_functions_count_dict[record_id]['lysis'] = 0
+        original_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] = 0
+        original_functions_count_dict[record_id]['other'] = 0
+        original_functions_count_dict[record_id]['tail'] = 0
+        original_functions_count_dict[record_id]['transcription regulation'] = 0
+        original_functions_count_dict[record_id]['unknown function'] = 0
+
+        new_functions_count_dict[record_id]['cds_count'] = len(updated_cds_dict[record_id])
+        new_functions_count_dict[record_id]['phrog_count'] = 0
+        new_functions_count_dict[record_id]['connector'] = 0
+        new_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] = 0
+        new_functions_count_dict[record_id]['head and packaging'] = 0
+        new_functions_count_dict[record_id]['integration and excision'] = 0
+        new_functions_count_dict[record_id]['lysis'] = 0
+        new_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] = 0
+        new_functions_count_dict[record_id]['other'] = 0
+        new_functions_count_dict[record_id]['tail'] = 0
+        new_functions_count_dict[record_id]['transcription regulation'] = 0
+        new_functions_count_dict[record_id]['unknown function'] = 0
+        new_functions_count_dict[record_id]['changed_phrogs'] = 0
+        new_functions_count_dict[record_id]['same_phrogs'] = 0
+        new_functions_count_dict[record_id]['foldseek_only_phrogs'] = 0
+        new_functions_count_dict[record_id]['pharokka_only_phrogs'] = 0
+
+        combined_functions_count_dict[record_id]['cds_count'] = len(updated_cds_dict[record_id])
+        combined_functions_count_dict[record_id]['phrog_count'] = 0
+        combined_functions_count_dict[record_id]['connector'] = 0
+        combined_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] = 0
+        combined_functions_count_dict[record_id]['head and packaging'] = 0
+        combined_functions_count_dict[record_id]['integration and excision'] = 0
+        combined_functions_count_dict[record_id]['lysis'] = 0
+        combined_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] = 0
+        combined_functions_count_dict[record_id]['other'] = 0
+        combined_functions_count_dict[record_id]['tail'] = 0
+        combined_functions_count_dict[record_id]['transcription regulation'] = 0
+        combined_functions_count_dict[record_id]['unknown function'] = 0
+
+        # iterates over the features
+        # maybe can add 3DI as a genbank feature eventually?
+        for cds_id, cds_feature in updated_cds_dict[record_id].items():
+            # if pharokka got a phrog
+            if cds_feature.qualifiers['phrog'][0] != "No_PHROG":
+                original_functions_count_dict[record_id]['phrog_count'] += 1
+            # get original function counts
+            if cds_feature.qualifiers['function'][0] == "unknown function":
+                original_functions_count_dict[record_id]['unknown function'] += 1
+            elif cds_feature.qualifiers['function'][0] == "transcription regulation":
+                original_functions_count_dict[record_id]['transcription regulation'] += 1
+            elif cds_feature.qualifiers['function'][0] == "tail":
+                original_functions_count_dict[record_id]['tail'] += 1
+            elif cds_feature.qualifiers['function'][0] == "other":
+                original_functions_count_dict[record_id]['other'] += 1      
+            elif cds_feature.qualifiers['function'][0] == "moron":
+                original_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
+            elif cds_feature.qualifiers['function'][0] == "lysis":
+                original_functions_count_dict[record_id]['lysis'] += 1
+            elif cds_feature.qualifiers['function'][0] == "integration and excision":
+                original_functions_count_dict[record_id]['integration and excision'] += 1 
+            elif cds_feature.qualifiers['function'][0] == "head and packaging":
+                original_functions_count_dict[record_id]['head and packaging'] += 1
+            elif cds_feature.qualifiers['function'][0] == "DNA":
+                original_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
+            elif cds_feature.qualifiers['function'][0] == "connector":
+                original_functions_count_dict[record_id]['connector'] += 1 
+
+            # now the updated dictionary
+            if cds_id in result_dict[record_id].keys():
+                # increase the phrog count
+                new_functions_count_dict[record_id]['phrog_count'] += 1
+                combined_functions_count_dict[record_id]['phrog_count'] += 1
+                # update the counts
+                if result_dict[record_id][cds_id]['function'] == "unknown function":
+                    new_functions_count_dict[record_id]['unknown function'] += 1
+                    combined_functions_count_dict[record_id]['unknown function'] += 1
+                elif result_dict[record_id][cds_id]['function'] == "transcription regulation":
+                    new_functions_count_dict[record_id]['transcription regulation'] += 1
+                    combined_functions_count_dict[record_id]['transcription regulation'] += 1
+                elif result_dict[record_id][cds_id]['function'] == "tail":
+                    new_functions_count_dict[record_id]['tail'] += 1
+                    combined_functions_count_dict[record_id]['tail'] += 1
+                elif result_dict[record_id][cds_id]['function'] == "other":
+                    new_functions_count_dict[record_id]['other'] += 1    
+                    combined_functions_count_dict[record_id]['other'] += 1     
+                elif result_dict[record_id][cds_id]['function'] == "moron, auxiliary metabolic gene and host takeover":
+                    new_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
+                    combined_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
+                elif result_dict[record_id][cds_id]['function'] == "lysis":
+                    new_functions_count_dict[record_id]['lysis'] += 1
+                    combined_functions_count_dict[record_id]['lysis'] += 1
+                elif result_dict[record_id][cds_id]['function'] == "integration and excision":
+                    new_functions_count_dict[record_id]['integration and excision'] += 1 
+                    combined_functions_count_dict[record_id]['integration and excision'] += 1 
+                elif result_dict[record_id][cds_id]['function'] == "head and packaging":
+                    new_functions_count_dict[record_id]['head and packaging'] += 1
+                    combined_functions_count_dict[record_id]['head and packaging'] += 1
+                elif result_dict[record_id][cds_id]['function'] == "DNA, RNA and nucleotide metabolism":
+                    new_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
+                    combined_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
+                elif result_dict[record_id][cds_id]['function'] == "connector":
+                    new_functions_count_dict[record_id]['connector'] += 1 
+                    combined_functions_count_dict[record_id]['connector'] += 1 
+
+
+                # update the phrog if different
+                # same phrog
+                if result_dict[record_id][cds_id]['phrog'] == cds_feature.qualifiers['phrog'][0]:
+                    new_functions_count_dict[record_id]['same_phrogs'] += 1
+                # different chrog
+                if result_dict[record_id][cds_id]['phrog'] != cds_feature.qualifiers['phrog'][0]:
+                    # where there was no phrog in pharokka
+                    if cds_feature.qualifiers['phrog'][0] == "No_PHROG":
+                        new_functions_count_dict[record_id]['foldseek_only_phrogs'] += 1
+                    # different phrog to pharokka
+                    else:
+                        new_functions_count_dict[record_id]['changed_phrogs'] += 1
+                    # update
+                    updated_cds_dict[record_id][cds_id].qualifiers['phrog'][0] = result_dict[record_id][cds_id]['phrog']
+                    updated_cds_dict[record_id][cds_id].qualifiers['product'][0] = result_dict[record_id][cds_id]['product']
+                    updated_cds_dict[record_id][cds_id].qualifiers['function'][0] = result_dict[record_id][cds_id]['function']
+            else: # will not be in results - unknown function
+                new_functions_count_dict[record_id]['unknown function'] += 1
+                if cds_feature.qualifiers['phrog'][0] != "No_PHROG":
+                    new_functions_count_dict[record_id]['pharokka_only_phrogs'] +=1
+                    combined_functions_count_dict[record_id]['phrog_count'] += 1
+                    if cds_feature.qualifiers['function'][0] == "unknown function":
+                        combined_functions_count_dict[record_id]['unknown function'] += 1
+                    elif cds_feature.qualifiers['function'][0] == "transcription regulation":
+                        combined_functions_count_dict[record_id]['transcription regulation'] += 1
+                    elif cds_feature.qualifiers['function'][0] == "tail":
+                        combined_functions_count_dict[record_id]['tail'] += 1
+                    elif cds_feature.qualifiers['function'][0] == "other":
+                        combined_functions_count_dict[record_id]['other'] += 1      
+                    elif cds_feature.qualifiers['function'][0] == "moron":
+                        combined_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
+                    elif cds_feature.qualifiers['function'][0] == "lysis":
+                        combined_functions_count_dict[record_id]['lysis'] += 1
+                    elif cds_feature.qualifiers['function'][0] == "integration and excision":
+                        combined_functions_count_dict[record_id]['integration and excision'] += 1 
+                    elif cds_feature.qualifiers['function'][0] == "head and packaging":
+                        combined_functions_count_dict[record_id]['head and packaging'] += 1
+                    elif cds_feature.qualifiers['function'][0] == "DNA":
+                        combined_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
+                    elif cds_feature.qualifiers['function'][0] == "connector":
+                        combined_functions_count_dict[record_id]['connector'] += 1 
+                else:
+                    # no hits in either
+                    combined_functions_count_dict[record_id]['unknown function'] += 1
+
+
+                        
+    print(original_functions_count_dict)
+    print(new_functions_count_dict)
+    print(combined_functions_count_dict)
+
+
+
+
+
+
 
 
 
@@ -395,7 +632,7 @@ def remote(
     temp_db.mkdir(parents=True, exist_ok=True)
 
     # run foldseek search
-    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir )
+    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue )
 
     # make result tsv 
     result_tsv: Path =  Path(output) / "foldseek_results.tsv"
@@ -405,7 +642,6 @@ def remote(
     top_hits_tsv: Path = Path(output) / "tophits.tsv"
 
     filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
-
 
 
 
@@ -440,8 +676,8 @@ create command
 @click.option(
             "--tsv",
             help="Path to input tsv linking Amino Acid FASTA file to phrog id",
-            type=click.Path(),
-            required=True,
+            default="phrog_mapping.tsv",
+            type=click.Path()
         )
 @common_options
 @click.option(
@@ -453,18 +689,38 @@ create command
 )
 @click.option(
     "--min_phrog",
-    required=True,
+    default=1,
     type=int,
     help="min phrog as integer (e.g. 1)",
     show_default=True,
 )
 @click.option(
     "--max_phrog",
-    required=True,
+    default=1000,
     type=int,
     help="max phrog as integer (e.g. 1000)",
     show_default=True,
 )
+@click.option(
+    "--envhog_flag",
+    is_flag=True,
+    help="enhvog DB creation - assumes the input FASTA as already parsed.",
+)
+@click.option(
+    "--envhog_start",
+    type=int,
+    default=1,
+    help="enhvog db protein to start from.",
+    show_default=True
+)
+@click.option(
+    "--envhog_batch_size",
+    type=int,
+    default=1000,
+    help="enhvog db protein batch size.",
+    show_default=True
+)
+
 def create(
     ctx,
     input,
@@ -478,9 +734,12 @@ def create(
     database,
     min_phrog,
     max_phrog,
+    envhog_flag,
+    envhog_start,
+    envhog_batch_size,
     **kwargs,
 ):
-    """Creates phold PHROG db using ProstT5"""
+    """Creates phold compatible PHROG or ENVHOG foldseek db using ProstT5"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -498,9 +757,13 @@ def create(
         "--evalue": evalue,
         "--database": database,
         "--min_phrog": min_phrog,
-        "--max_phrog": max_phrog
-    }
+        "--max_phrog": max_phrog,
+        "--envhog_flag": envhog_flag,
+        "--envhog_start": envhog_start,
+        "--envhog_batch_size": envhog_batch_size
 
+    }
+    
 
     # initial logging etc
     start_time = begin_phold(params)
@@ -513,43 +776,86 @@ def create(
 
     if not prot_dict:
         logger.warning(f"Error: no sequences found in {input} FASTA file")
-        logger.error("No sequences found in {input} FASTA file. Nothing to annotate")
+        logger.error(f"No sequences found in {input} FASTA file. Nothing to annotate")
 
-    # read tsv
-    # needs to have 3 columns - seq_id, phrog and description
-    phrog_mapping_df = pd.read_csv(tsv, sep='\t', names=["seq_id", "phrog", "description"])
+    if envhog_flag is False:
 
-    # takes arguments gets all the desired phrogs
-    phrog_list =  ["phrog_" + str(i) for i in range(min_phrog, (max_phrog+1))]
+        # check if the tsv exists
+        tsv = Path(tsv)
+        if tsv.exists() is False:
+            logger.error(f"{tsv} does not exist. You need to specify a Path using --tsv to an input tsv linking Amino Acid FASTA file to phrog id")
 
-    # Create a nested dictionary to store CDS features by phrog ID
-    cds_dict = {}
+        # read tsv
+        # needs to have 3 columns - seq_id, phrog and description
+        phrog_mapping_df = pd.read_csv(tsv, sep='\t', names=["seq_id", "phrog", "description"])
 
-    logger.info('Creating dictionary to store all proteins for each phrog.')
-    counter = 0 
+        # takes arguments gets all the desired phrogs
+        phrog_list =  ["phrog_" + str(i) for i in range(min_phrog, (max_phrog+1))]
+
+        # Create a nested dictionary to store CDS features by phrog ID
+        cds_dict = {}
+
+        logger.info('Creating dictionary to store all proteins for each phrog.')
+        counter = 0 
 
 
-    # loops over all phrogs and adds them to dict - like a contig for normal phold
-    for phrog_value in phrog_list:
+        # loops over all phrogs and adds them to dict - like a contig for normal phold
+        for phrog_value in phrog_list:
 
-        cds_dict[phrog_value] = {}
+            cds_dict[phrog_value] = {}
 
-        # subset df
-        phrog_group_df = phrog_mapping_df[phrog_mapping_df['phrog'] == phrog_value]
-        # list of seq_ids
-        seq_ids = phrog_group_df['seq_id'].tolist() 
+            # subset df
+            phrog_group_df = phrog_mapping_df[phrog_mapping_df['phrog'] == phrog_value]
+            # list of seq_ids
+            seq_ids = phrog_group_df['seq_id'].tolist() 
 
-        # append to the cds dict
-        for seq_id in seq_ids:
-            if seq_id in prot_dict:
-                cds_dict[phrog_value][seq_id] = prot_dict[seq_id]
+            # append to the cds dict
+            for seq_id in seq_ids:
+                if seq_id in prot_dict:
+                    cds_dict[phrog_value][seq_id] = prot_dict[seq_id]
+    else:
 
+        envhog_end = envhog_start + envhog_batch_size - 1
+
+        logger.info(f"You are running ProstT5 on enVhogs. Ignoring any PHROG specific commands.")
+        logger.info(f"Taking the {envhog_start} to {envhog_end} proteins in your input file {input}.")
+        # Convert the dictionary to a list of items (key-value pairs)
+        dict_items = list(prot_dict.items())
+
+        if envhog_end - 1 > len(dict_items):
+            envhog_batch_size = len(dict_items) - envhog_end
+            logger.warning(f"batch size reduced to {envhog_batch_size} to the end of the number of records.")
+            envhog_end = len(dict_items)
+
+        # Get items from 100th to 1000th
+        entries = dict_items[envhog_start-1:envhog_end]
+
+        # to convert the selected items back to a dictionary:
+        prot_dict = dict(entries)
+        # need this hack to make it accept  the nested dictionary
+        cds_dict = {}
+
+        # get all unique phrogs in this set and instantiate the dict
+        unique_phrogs = []
+        for id, seq in prot_dict.items():
+            parts = id.split(":")
+            phrog = parts[0]
+            if phrog not in unique_phrogs:
+                unique_phrogs.append(phrog)
+
+        for phrog in unique_phrogs:
+            cds_dict[phrog] = {}
+
+        for key, seq in prot_dict.items():
+            parts = key.split(":")
+            phrog = parts[0]
+            prot_name = parts[1]
+            cds_dict[phrog][prot_name] = prot_dict[key]
 
     
     fasta_aa: Path = Path(output) / "outputaa.fasta"
 
-        ## write the CDS to file
-
+    ## write the CDS to file
     with open(fasta_aa, 'w+') as out_f:
         for phrog_id, rest in cds_dict.items():
 
@@ -561,6 +867,8 @@ def create(
                 out_f.write(f"{phrog_dict[seq_id]}\n")
 
 
+
+
     ############
     # prostt5
     ############
@@ -570,7 +878,7 @@ def create(
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
     get_embeddings( cds_dict, output, model,  half_precision=True,    
-                   max_residues=3000, max_seq_len=1000, max_batch=100, proteins=True ) 
+                   max_residues=3000, max_seq_len=500, max_batch=1, proteins=True ) 
     
     ############
     # create foldseek db
@@ -580,15 +888,6 @@ def create(
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
     generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
-
-    
-    # validates fasta
-    #validate_fasta(input)
-
-    # validate e value
-    #check_evalue(evalue)
-
-
 
     # end phold
     end_phold(start_time)
