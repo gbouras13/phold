@@ -172,7 +172,7 @@ def load_predictor( weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpn
 
 
 def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: bool,    
-                   max_residues: int =4000, max_seq_len: int=1000, max_batch: int=100, 
+                   max_residues: int =3000, max_seq_len: int=1000, max_batch: int=100, 
                    proteins: bool=False ) -> bool:
     
     predictions = {}
@@ -252,10 +252,14 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
                                                 attention_mask=token_encoding.attention_mask
                                                 )
                 except RuntimeError:
+                    logger.warning(f" number of residues in batch {n_res_batch}")
+                    logger.warning(f" seq length is {seq_len}")
+                    logger.warning(f" ids are {pdb_ids}")
                     logger.warning("RuntimeError during embedding for {} (L={})".format(
                         pdb_id, seq_len)
                         )
-                    fail_ids.append(pdb_id)
+                    for id in pdb_ids:
+                        fail_ids.append(id)
                     continue
                 
                 # ProtT5 appends a special tokens at the end of each sequence
@@ -285,7 +289,8 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
                     logger.warning("Index error during prediction for {} (L={})".format(
                         pdb_id, seq_len)
                         )
-                    fail_ids.append(pdb_id)
+                    for id in pdb_ids:
+                        fail_ids.append(id)
                     continue
     
     output_3di: Path = Path(out_path) / "output3di.fasta"

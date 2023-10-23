@@ -13,6 +13,8 @@ min_phrog=1
 batch_size=10
 total_phrog=38880
 
+#commit 1472f4f
+
 mkdir -p $output_dir
 
 for ((start_phrog = min_phrog; start_phrog <= total_phrog; start_phrog += batch_size)); do
@@ -27,6 +29,7 @@ for ((start_phrog = min_phrog; start_phrog <= total_phrog; start_phrog += batch_
     
     phold create -i "$input_file" --tsv "$tsv_file" -o "$output_subdir" -t "$num_threads" -d "$database_dir" -f --min_phrog "$start_phrog" --max_phrog "$end_phrog"
 done
+
 
 
 min_phrog=701
