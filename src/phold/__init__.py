@@ -384,7 +384,7 @@ def remote(
 
     short_db_name = f"{prefix}_foldseek_database"
     query_db: Path = Path(foldseek_query_db_path) / short_db_name
-    target_db: Path = Path(database) / "toy_prophage_db"
+    target_db: Path = Path(database) #/ "toy_prophage_db"
 
     # make result and temp dirs 
     result_db_base: Path = Path(output) / "result_db"
