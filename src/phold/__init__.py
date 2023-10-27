@@ -98,7 +98,15 @@ def common_options(func):
             "--database",
             required=True,
             type=click.Path(),
-            help='Path to foldseek PHROGs database.' 
+            help='Path to foldseek PHROGs or ENVHOGs database.' 
+        ),
+        click.option(
+            "--database_name",
+            default="all_phrogs",
+            type=str,
+            required=False,
+            show_default=True,
+            help='Name of foldseek PHROGs or ENVHOGs database.' 
         )
     ]
     for option in reversed(options):
@@ -137,6 +145,20 @@ run command
     help="e value threshold for Foldseek",
     show_default=True,
 )
+@click.option(
+    "-s",
+    "--sensitivity",
+    default="9.5",
+    help="sensitivity parameter for foldseek",
+    type=float,
+    show_default=True,
+)
+@click.option(
+    "--batch_size",
+    default=1,
+    help="batch size of ProstT5",
+    show_default=True,
+)
 def run(
     ctx,
     input,
@@ -147,6 +169,9 @@ def run(
     force,
     model,
     database,
+    database_name,
+    batch_size,
+    sensitivity,
     **kwargs,
 ):
     """Runs phold"""
@@ -164,7 +189,10 @@ def run(
         "--force": force,
         "--prefix": prefix,
         "--evalue": evalue,
-        "--database": database
+        "--database": database,
+        "--database_name": database_name,
+        "--batch_size": batch_size,
+        "--sensitivity": sensitivity
     }
 
 
@@ -214,7 +242,7 @@ def run(
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
     get_embeddings( cds_dict, output, model,  half_precision=True,    
-                   max_residues=3000, max_seq_len=1000, max_batch=100 ) 
+                   max_residues=3000, max_seq_len=1000, max_batch=batch_size ) 
     
     ############
     # create foldseek db
@@ -229,9 +257,11 @@ def run(
     # run foldseek search
     ###########
 
-    short_db_name = f"{prefix}_foldseek_database"
+    short_db_name = prefix
+    if short_db_name == database_name:
+        logger.error(f"Please choose a different {prefix} as this conflicts with the {database_name}")
     query_db: Path = Path(foldseek_query_db_path) / short_db_name
-    target_db: Path = Path(database) / "all_phrog"
+    target_db: Path = Path(database) / database_name
 
     # make result and temp dirs 
     result_db_base: Path = Path(output) / "result_db"
@@ -242,7 +272,7 @@ def run(
     temp_db.mkdir(parents=True, exist_ok=True)
 
     # run foldseek search
-    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue )
+    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue, sensitivity )
 
     # make result tsv 
     result_tsv: Path =  Path(output) / "foldseek_results.tsv"
@@ -478,16 +508,30 @@ def run(
 
 
                         
-    print(original_functions_count_dict)
-    print(new_functions_count_dict)
-    print(combined_functions_count_dict)
+    # print(original_functions_count_dict)
+    # print(new_functions_count_dict)
+    # print(combined_functions_count_dict)
 
 
 
+    # Convert the nested dictionary to a Pandas DataFrame
+    pharokka_df = pd.DataFrame.from_dict(original_functions_count_dict, orient='index')
+    pharokka_df['contig_id'] = pharokka_df.index
+    pharokka_df = pharokka_df[['contig_id'] + [col for col in pharokka_df.columns if col != 'contig_id']]
+    pharokka_tsv : Path = Path(output) / "pharokka_functions_output.tsv"
+    pharokka_df.to_csv(pharokka_tsv, sep='\t', index=False)
+    
+    foldseek_df = pd.DataFrame.from_dict(new_functions_count_dict, orient='index')
+    foldseek_df['contig_id'] = foldseek_df.index
+    foldseek_df = foldseek_df[['contig_id'] + [col for col in foldseek_df.columns if col != 'contig_id']]
+    foldseek_tsv : Path = Path(output) / "foldseek_functions_output.tsv"
+    foldseek_df.to_csv(foldseek_tsv, sep='\t', index=False)
 
-
-
-
+    combined_df = pd.DataFrame.from_dict(combined_functions_count_dict, orient='index')
+    combined_df['contig_id'] = combined_df.index
+    combined_df = combined_df[['contig_id'] + [col for col in combined_df.columns if col != 'contig_id']]
+    combined_tsv : Path = Path(output) / "combined_functions_output.tsv"
+    combined_df.to_csv(combined_tsv, sep='\t', index=False)
 
 
 
@@ -527,6 +571,14 @@ remote command
     help="e value threshold for Foldseek",
     show_default=True,
 )
+@click.option(
+    "-s",
+    "--sensitivity",
+    default="9.5",
+    help="sensitivity parameter for foldseek",
+    type=float,
+    show_default=True,
+)
 def remote(
     ctx,
     input,
@@ -535,11 +587,12 @@ def remote(
     prefix,
     evalue,
     force,
-    model,
     database,
+    database_name,
+    sensitivity,
     **kwargs,
 ):
-    """Runs phold"""
+    """Runs phold using foldseek API"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -554,7 +607,9 @@ def remote(
         "--force": force,
         "--prefix": prefix,
         "--evalue": evalue,
-        "--database": database
+        "--database": database,
+        "--database_name": database_name,
+        "--sensitivity": sensitivity
     }
 
 
@@ -621,7 +676,7 @@ def remote(
 
     short_db_name = f"{prefix}_foldseek_database"
     query_db: Path = Path(foldseek_query_db_path) / short_db_name
-    target_db: Path = Path(database) #/ "toy_prophage_db"
+    target_db: Path = Path(database) / database_name
 
     # make result and temp dirs 
     result_db_base: Path = Path(output) / "result_db"
@@ -632,7 +687,7 @@ def remote(
     temp_db.mkdir(parents=True, exist_ok=True)
 
     # run foldseek search
-    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue )
+    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue, sensitivity )
 
     # make result tsv 
     result_tsv: Path =  Path(output) / "foldseek_results.tsv"
@@ -645,12 +700,6 @@ def remote(
 
 
 
-    # validates fasta
-    #validate_fasta(input)
-
-    # validate e value
-    #check_evalue(evalue)
-
 
 
     # end phold
@@ -660,7 +709,6 @@ def remote(
 """
 create command
 """
-
 
 @main_cli.command()
 @click.help_option("--help", "-h")
@@ -764,7 +812,6 @@ def create(
 
     }
     
-
     # initial logging etc
     start_time = begin_phold(params)
 
@@ -891,6 +938,117 @@ def create(
 
     # end phold
     end_phold(start_time)
+
+
+
+
+
+"""
+createdb command
+"""
+
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+            "--fasta_aa",
+            help="Path to input Amino Acid FASTA file of proteins",
+            type=click.Path(),
+            required=True,
+        )
+@click.option(
+            "--fasta_3di",
+            help="Path to input 3Di FASTA file of proteins",
+            type=click.Path(),
+            required=True,
+        )
+@click.option(
+            "-o",
+            "--output",
+            default="output_phold_foldseek_db",
+            show_default=True,
+            type=click.Path(),
+            help="Output directory ",
+        )
+@click.option(
+            "-t",
+            "--threads",
+            help="Number of threads to use with Foldseek",
+            default=1,
+            type=int,
+            show_default=True,
+        )
+@click.option(
+            "-p",
+            "--prefix",
+            default="phold_foldseek_db",
+            help="Prefix for Foldseek database",
+            type=str,
+            show_default=True,
+        )
+@click.option(
+            "-f",
+            "--force",
+            is_flag=True,
+            help="Force overwrites the output directory",
+        )
+
+
+def createdb(
+    ctx,
+    fasta_aa,
+    fasta_3di,
+    output,
+    threads,
+    prefix,
+    force,
+    **kwargs,
+):
+    """Creates phold compatible Foldseek db from AA FASTA and 3Di FASTA input files"""
+
+    # validates the directory  (need to before I start phold or else no log file is written)
+    instantiate_dirs(output, force)
+
+    output: Path = Path(output)
+    logdir: Path = Path(output) / "logs"
+
+    params = {
+        "--aa_input": fasta_aa,
+        "--fasta_3di": fasta_3di,
+        "--output": output,
+        "--threads": threads,
+        "--force": force,
+        "--prefix": prefix,
+
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params)
+
+
+    logger.info(f"Creating the Foldseek database using {fasta_aa} and {fasta_3di}.")
+    logger.info(f"The database will be saved in the {output} directory and be called {prefix}.")
+    
+    ############
+    # create foldseek db
+    ############
+
+    foldseek_query_db_path: Path = Path(output) 
+    foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
+
+    generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
+
+    # end phold
+    end_phold(start_time)
+
+
+
+
+
+
+
 
 
 

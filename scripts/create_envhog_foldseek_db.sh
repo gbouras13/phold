@@ -8,7 +8,7 @@ input_file="phold_envhog_db/EnVhog_consensus_renamed.fasta"
 output_dir="out_envhog_dbs"
 database_dir="toy_foldseek_db"
 num_threads=8
-min_envhog=1
+min_envhog=605001
 batch_size=1000
 total_envhog=623000
 
@@ -28,6 +28,17 @@ for ((start_envhog = min_envhog; start_envhog <= total_envhog; start_envhog += b
     
     phold create -i "$input_file" --tsv "$tsv_file" -o "$output_subdir" -t "$num_threads" -d "$database_dir" -f --envhog_flag --envhog_start "$start_envhog" --envhog_batch_size "$batch_size"
 done
+
+
+
+
+cat out_envhog_dbs/*/output3di.fasta > all_envhog_output3di.fasta
+cat out_envhog_dbs/*/outputaa.fasta > all_envhog_outputaa.fasta
+
+
+# to make the combined foldseek db
+
+phold createdb --fasta_aa out_phrog_dbs_new/all_envhog_output3di.fasta --fasta_3di all_envhog_outputaa.fasta -o ENVHOG_ProstT5_Foldseek_db -t 16 -f -p all_envhogs
 
 
 
