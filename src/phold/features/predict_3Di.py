@@ -14,6 +14,7 @@ from loguru import logger
 from urllib import request
 import shutil
 import csv
+import os
 
 import numpy as np
 import torch
@@ -80,11 +81,17 @@ class CNN(nn.Module):
         return Yhat
 
 
-def get_T5_model(model_dir):
-    logger.info("Loading T5 from: {}".format(model_dir))
-    model = T5EncoderModel.from_pretrained(model_dir).to(device)
+def get_T5_model(model_dir, model_name):
+    # make dir
+    Path(model_dir).mkdir(parents=True, exist_ok=True)
+    # set as cache dir
+    #os.environ['TRANSFORMERS_CACHE'] = f"{model_dir}/"
+    # load
+    logger.info(f"Loading T5 from: {model_dir}/{model_name}")
+    logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded.")
+    model = T5EncoderModel.from_pretrained(model_name, cache_dir= f"{model_dir}/").to(device)
     model = model.eval()
-    vocab = T5Tokenizer.from_pretrained(model_dir, do_lower_case=False )
+    vocab = T5Tokenizer.from_pretrained(model_name, cache_dir= f"{model_dir}/", do_lower_case=False )
     return model, vocab
 
 
@@ -150,9 +157,9 @@ def download_file(url,local_path):
     return None
 
     
-def load_predictor( weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt" ):
+def load_predictor(model_dir, weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt" ):
     model = CNN()
-    checkpoint_p = Path.cwd() / "cnn_chkpnt" / "model.pt"
+    checkpoint_p = Path(model_dir) / "cnn_chkpnt" / "model.pt"
     # if no pre-trained model is available, yet --> download it
     if not checkpoint_p.exists():
         download_file(weights_link, checkpoint_p)
@@ -171,7 +178,7 @@ def load_predictor( weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpn
     return model
 
 
-def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: bool,    
+def get_embeddings( cds_dict: dict, out_path, model_dir: Path, model_name: str,   half_precision: bool,    
                    max_residues: int =3000, max_seq_len: int=1000, max_batch: int=100, 
                    proteins: bool=False ) -> bool:
     
@@ -179,8 +186,10 @@ def get_embeddings( cds_dict: dict, out_path, model_dir: Path,  half_precision: 
 
     prefix = "<AA2fold>"
     
-    model, vocab = get_T5_model(model_dir)
-    predictor = load_predictor()
+
+    model, vocab = get_T5_model(model_dir, model_name)
+    predictor = load_predictor(model_dir)
+
     
     if half_precision:
         model = model.half()

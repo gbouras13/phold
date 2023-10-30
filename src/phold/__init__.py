@@ -86,12 +86,20 @@ def common_options(func):
             help="Force overwrites the output directory",
         ),
         click.option(
+            "--model_dir",
+            required=False,
+            type=click.Path(),
+            default="ProstT5_fp16_directory",
+            help='Path to save ProstT5_fp16 model to.' 
+        ),
+        click.option(
             "-m",
-            "--model",
+            "--model_name",
             required=False,
             type=str,
             default="Rostlab/ProstT5_fp16",
-            help='Either a path to a directory holding the checkpoint for a pre-trained model or a huggingface repository link.' 
+            show_default=True,
+            help='Name of model: Rostlab/ProstT5_fp16.' 
         ),
         click.option(
             "-d",
@@ -167,7 +175,8 @@ def run(
     prefix,
     evalue,
     force,
-    model,
+    model_dir,
+    model_name,
     database,
     database_name,
     batch_size,
@@ -188,6 +197,8 @@ def run(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
+        "--model_dir": model_dir,
+        "--model_name": model_name,
         "--evalue": evalue,
         "--database": database,
         "--database_name": database_name,
@@ -241,8 +252,8 @@ def run(
 
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
-    get_embeddings( cds_dict, output, model,  half_precision=True,    
-                   max_residues=3000, max_seq_len=1000, max_batch=batch_size ) 
+    get_embeddings( cds_dict, output, model_dir, model_name,  half_precision=True,    
+                   max_residues=10000, max_seq_len=1000, max_batch=batch_size ) 
     
     ############
     # create foldseek db
@@ -424,7 +435,10 @@ def run(
                 original_functions_count_dict[record_id]['connector'] += 1 
 
             # now the updated dictionary
-            if cds_id in result_dict[record_id].keys():
+            # If record_id does not exist in result_dict, an empty dictionary {} is returned as the default value. 
+            # prevents KeyError
+            if cds_id in result_dict.get(record_id, {}):
+            #if cds_id in result_dict[record_id].keys():
                 # increase the phrog count
                 new_functions_count_dict[record_id]['phrog_count'] += 1
                 combined_functions_count_dict[record_id]['phrog_count'] += 1
