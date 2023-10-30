@@ -63,7 +63,7 @@ def generate_foldseek_db_from_aa_3di(fasta_aa: Path, fasta_3di: Path, foldseek_d
     
     # create foldseek db names
 
-    short_db_name = f"{prefix}_foldseek_database"
+    short_db_name = f"{prefix}"
     aa_db_name: Path = Path(foldseek_db_path) / short_db_name
     tsv_db_name: Path = Path(foldseek_db_path) / f"{short_db_name}_ss"
     header_db_name: Path = Path(foldseek_db_path) / f"{short_db_name}_h"

@@ -3,13 +3,13 @@ from pathlib import Path
 from phold.utils.external_tools import ExternalTool
 
 
-def run_foldseek_search( query_db: Path, target_db: Path, result_db: Path, temp_db: Path, threads: int, logdir: Path, evalue: float ) -> None:
+def run_foldseek_search( query_db: Path, target_db: Path, result_db: Path, temp_db: Path, threads: int, logdir: Path, evalue: float, sensitivity: float ) -> None:
 
     foldseek_search = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} ",
+        params=f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} ",
         logdir=logdir,
     )
 
