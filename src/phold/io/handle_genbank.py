@@ -48,6 +48,8 @@ def get_genbank(genbank: Path) -> dict:
         ValueError: If the provided file is not a GenBank file.
     """
 
+    logger.info(f"Parsing input genbank {genbank}")
+
     if is_gzip_file(genbank.strip()):
         try:
             with gzip.open(genbank.strip(), "rt") as handle:
