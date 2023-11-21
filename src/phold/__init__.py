@@ -427,11 +427,9 @@ def predict(
 
     # Create a nested dictionary to store CDS features by contig ID
     cds_dict = {}
-
     fasta_aa: Path = Path(output) / "outputaa.fasta"
 
     # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-
     for record_id, record in gb_dict.items():
         cds_dict[record_id] = {}
 
@@ -455,7 +453,8 @@ def predict(
     ############
 
     # generates the embeddings using ProstT5 and saves them to file
-    fasta_3di: Path = Path(output) / "output3di.fasta"
+    # written to this file
+    # output_3di: Path = Path(out_path) / "output3di.fasta"
     get_embeddings(
         cds_dict,
         output,

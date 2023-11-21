@@ -73,6 +73,7 @@ def begin_phold(params, subcommand: str):
 
     logger.info(f"You are using phold version {get_version()}")
     logger.info("Repository homepage is https://github.com/gbouras13/phold")
+    logger.info(f"You are running phold {subcommand}.")
     logger.info(f"Listing parameters.")
     for key, value in params.items():
         logger.info(f"Parameter: {key} {value}.")
