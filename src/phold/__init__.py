@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """phold"""
 
-import os
-import shutil
 from pathlib import Path
 import pandas as pd
-import copy
-
 import click
 from loguru import logger
 
@@ -51,6 +47,9 @@ log_fmt = (
     "<level>{message}</level>"
 )
 
+"""
+common options
+"""
 
 def common_options(func):
     """Common command line args
@@ -92,6 +91,9 @@ def common_options(func):
         func = option(func)
     return func
 
+"""
+predict only options
+"""
 
 def predict_options(func):
     """predict command line args"""
@@ -123,6 +125,9 @@ def predict_options(func):
         func = option(func)
     return func
 
+"""
+compare only options
+"""
 
 def compare_options(func):
     """compare command line args"""
@@ -177,11 +182,9 @@ def compare_options(func):
 def main_cli():
     1 + 1
 
-
 """
 run command
 """
-
 
 @main_cli.command()
 @click.help_option("--help", "-h")
@@ -214,7 +217,7 @@ def run(
     mode,
     **kwargs,
 ):
-    """Runs phold"""
+    """Runs phold predict (ProstT5) and comapare (Foldseek)"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -394,7 +397,7 @@ def predict(
     batch_size,
     **kwargs,
 ):
-    """Runs phold predict"""
+    """Runs phold predict (ProstT5)"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -517,7 +520,7 @@ def compare(
     unrelaxed,
     **kwargs,
 ):
-    """Runs phold compare"""
+    """Runs phold compared (Foldseek)"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -711,7 +714,7 @@ def remote(
     sensitivity,
     **kwargs,
 ):
-    """Runs phold using foldseek API"""
+    """Runs phold predict using foldseek API and compare locally"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)

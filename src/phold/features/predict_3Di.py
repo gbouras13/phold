@@ -21,40 +21,10 @@ import torch
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
-# def run_prostt5():
 
-#     args       = parser.parse_args()
 
-#     seq_path   = Path( args.input ) # path to input FASTAS
-#     out_path   = Path( args.output) # path where predictions should be written to
-#     model_dir  = args.model # path/repo_link to checkpoint
-
-#     if out_path.is_file():
-#         print("Output file is already existing and will be overwritten ...")
-
-#     split_char = args.split_char
-#     id_field   = args.id
-
-#     half_precision = False if int(args.half) == 0 else True
-#     assert not (half_precision and device=="cpu"), print("Running fp16 on CPU is not supported, yet")
-
-#     get_embeddings(
-#         seq_path,
-#         out_path,
-#         model_dir,
-#         split_char,
-#         id_field,
-#         half_precision=half_precision,
-#         )
-
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-else:
-    device = torch.device("cpu")
 
 # device = torch.device('cuda:0' if torch.cuda.is_available()  else 'cpu')
-logger.info("Using device: {}".format(device))
-
 
 # Convolutional neural network (two convolutional layers)
 class CNN(nn.Module):
@@ -84,6 +54,15 @@ class CNN(nn.Module):
 
 
 def get_T5_model(model_dir, model_name):
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+    else:
+        device = torch.device("cpu")
+
+    # logger device only if the function is called
+    logger.info("Using device: {}".format(device))
+
     # make dir
     Path(model_dir).mkdir(parents=True, exist_ok=True)
     # set as cache dir

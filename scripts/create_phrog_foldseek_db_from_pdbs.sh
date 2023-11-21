@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # chopped ones
-
 find phrog_prediction_chopped/ -name '*unrelaxed_rank_001*' -exec cp {} test_pdb/ \;
 
 # for the chopped ones
@@ -21,3 +20,4 @@ cd test_pdb ..
 # to actually create the db
 mkdir PHROG_Foldseek_PDB_db
 foldseek createdb test_pdb/ PHROG_Foldseek_PDB_db/all_phrogs_pdb
+
