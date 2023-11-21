@@ -14,6 +14,7 @@ from loguru import logger
 from pandas.errors import EmptyDataError
 from pathlib import Path
 
+
 def is_gzip_file(f: Path) -> bool:
     """
     Method copied from Phispy see https://github.com/linsalrob/PhiSpy/blob/master/PhiSpyModules/helper_functions.py
@@ -30,7 +31,6 @@ def is_gzip_file(f: Path) -> bool:
     with open(f, "rb") as i:
         return binascii.hexlify(i.read(2)) == b"1f8b"
 
-    
 
 def get_genbank(genbank: Path) -> dict:
     """
@@ -110,7 +110,7 @@ def get_proteins(fasta: Path) -> dict:
     else:
         try:
             fasta_dict = {}
-            with open(fasta.strip(), "rt", errors='ignore') as handle:
+            with open(fasta.strip(), "rt", errors="ignore") as handle:
                 sequence_id = ""
                 sequence = ""
                 for line in handle:
@@ -130,6 +130,7 @@ def get_proteins(fasta: Path) -> dict:
             raise
 
     return fasta_dict
+
 
 def extract_features(this_phage):
     """
@@ -212,9 +213,6 @@ def filter_mmseqs(phrog_output, Eval=1e-5):
     return dict(zip(phrog_output["seq"].values, phrog_output["phrog"].values))
 
 
-
-
-
 def add_predictions(gb_dict, predictions):
     """
     Add predictions to the genbank dictionary
@@ -229,8 +227,6 @@ def add_predictions(gb_dict, predictions):
     for i in range(len(predictions)):
         gb_dict[keys[i]]["phynteny"] = predictions[i]
     return gb_dict
-
-
 
 
 def write_genbank(gb_dict, filename):
@@ -252,5 +248,3 @@ def write_genbank(gb_dict, filename):
             for key in keys:
                 SeqIO.write(gb_dict.get(key), handle, "genbank")
         handle.close()
-
-

@@ -12,18 +12,20 @@ from loguru import logger
 
 from phold.io.handle_genbank import get_genbank, get_proteins
 
-from phold.utils.util import (
-    begin_phold,
-    end_phold,
-    get_version,
-    print_citation
-)
+from phold.utils.util import begin_phold, end_phold, get_version, print_citation
 
 from phold.features.predict_3Di import get_embeddings
 
-from phold.features.create_foldseek_db import  generate_foldseek_db_from_aa_3di
+from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs
 
-from phold.features.tophits import get_tophits
+from phold.results.tophit import get_tophits, parse_tophits, calculate_tophits_results
+
+from phold.results.topfunction import (
+    get_topfunctions,
+    calculate_topfunctions_results,
+)  # get_tophits, parse_tophits, calculate_tophits_results
+
+from phold.results.distribution import get_distribution
 
 from phold.utils.validation import instantiate_dirs
 
@@ -66,7 +68,7 @@ def common_options(func):
         click.option(
             "-t",
             "--threads",
-            help="Number of threads to use with Foldseek",
+            help="Number of threads",
             default=1,
             type=int,
             show_default=True,
@@ -85,12 +87,21 @@ def common_options(func):
             is_flag=True,
             help="Force overwrites the output directory",
         ),
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
+
+def predict_options(func):
+    """predict command line args"""
+    options = [
         click.option(
             "--model_dir",
             required=False,
             type=click.Path(),
             default="ProstT5_fp16_directory",
-            help='Path to save ProstT5_fp16 model to.' 
+            help="Path to save ProstT5_fp16 model to.",
         ),
         click.option(
             "-m",
@@ -99,14 +110,29 @@ def common_options(func):
             type=str,
             default="Rostlab/ProstT5_fp16",
             show_default=True,
-            help='Name of model: Rostlab/ProstT5_fp16.' 
+            help="Name of model: Rostlab/ProstT5_fp16.",
         ),
+        click.option(
+            "--batch_size",
+            default=1,
+            help="batch size for ProstT5. 1 is usually fastest.",
+            show_default=True,
+        ),
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
+
+def compare_options(func):
+    """compare command line args"""
+    options = [
         click.option(
             "-d",
             "--database",
             required=True,
             type=click.Path(),
-            help='Path to foldseek PHROGs or ENVHOGs database.' 
+            help="Path to foldseek PHROGs or ENVHOGs database.",
         ),
         click.option(
             "--database_name",
@@ -114,8 +140,31 @@ def common_options(func):
             type=str,
             required=False,
             show_default=True,
-            help='Name of foldseek PHROGs or ENVHOGs database.' 
-        )
+            help="Name of foldseek PHROGs or ENVHOGs database.",
+        ),
+        click.option(
+            "-e",
+            "--evalue",
+            default="1e-3",
+            help="e value threshold for Foldseek",
+            show_default=True,
+        ),
+        click.option(
+            "-s",
+            "--sensitivity",
+            default="9.5",
+            help="sensitivity parameter for foldseek",
+            type=float,
+            show_default=True,
+        ),
+        click.option(
+            "--mode",
+            "mode",
+            help="Mode to parse results.",
+            default="tophit",
+            show_default=True,
+            type=click.Choice(["tophit", "topfunction", "distribution"]),
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -139,34 +188,15 @@ run command
 @click.version_option(get_version(), "--version", "-V")
 @click.pass_context
 @click.option(
-            "-i",
-            "--input",
-            help="Path to input file in Genbank format",
-            type=click.Path(),
-            required=True,
-        )
+    "-i",
+    "--input",
+    help="Path to input file in Genbank format",
+    type=click.Path(),
+    required=True,
+)
 @common_options
-@click.option(
-    "-e",
-    "--evalue",
-    default="1e-3",
-    help="e value threshold for Foldseek",
-    show_default=True,
-)
-@click.option(
-    "-s",
-    "--sensitivity",
-    default="9.5",
-    help="sensitivity parameter for foldseek",
-    type=float,
-    show_default=True,
-)
-@click.option(
-    "--batch_size",
-    default=1,
-    help="batch size of ProstT5",
-    show_default=True,
-)
+@predict_options
+@compare_options
 def run(
     ctx,
     input,
@@ -181,6 +211,7 @@ def run(
     database_name,
     batch_size,
     sensitivity,
+    mode,
     **kwargs,
 ):
     """Runs phold"""
@@ -203,12 +234,12 @@ def run(
         "--database": database,
         "--database_name": database_name,
         "--batch_size": batch_size,
-        "--sensitivity": sensitivity
+        "--sensitivity": sensitivity,
+        "--mode": mode,
     }
 
-
     # initial logging etc
-    start_time = begin_phold(params)
+    start_time = begin_phold(params, "run")
 
     # validates fasta
     gb_dict = get_genbank(input)
@@ -225,20 +256,18 @@ def run(
     fasta_aa: Path = Path(output) / "outputaa.fasta"
 
     # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-    
+
     for record_id, record in gb_dict.items():
-        
         cds_dict[record_id] = {}
 
         for cds_feature in record.features:
-            if cds_feature.type == 'CDS':
-                cds_dict[record_id][cds_feature.qualifiers['ID'][0]] = cds_feature
+            if cds_feature.type == "CDS":
+                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
     ## write the CDS to file
 
-    with open(fasta_aa, 'w+') as out_f:
+    with open(fasta_aa, "w+") as out_f:
         for contig_id, rest in cds_dict.items():
-
             aa_contig_dict = cds_dict[contig_id]
 
             # writes the CDS to file
@@ -252,9 +281,17 @@ def run(
 
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
-    get_embeddings( cds_dict, output, model_dir, model_name,  half_precision=True,    
-                   max_residues=10000, max_seq_len=1000, max_batch=batch_size ) 
-    
+    get_embeddings(
+        cds_dict,
+        output,
+        model_dir,
+        model_name,
+        half_precision=True,
+        max_residues=10000,
+        max_seq_len=1000,
+        max_batch=batch_size,
+    )
+
     ############
     # create foldseek db
     ############
@@ -262,7 +299,9 @@ def run(
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
+    generate_foldseek_db_from_aa_3di(
+        fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+    )
 
     ###########
     # run foldseek search
@@ -270,11 +309,13 @@ def run(
 
     short_db_name = prefix
     if short_db_name == database_name:
-        logger.error(f"Please choose a different {prefix} as this conflicts with the {database_name}")
+        logger.error(
+            f"Please choose a different {prefix} as this conflicts with the {database_name}"
+        )
     query_db: Path = Path(foldseek_query_db_path) / short_db_name
     target_db: Path = Path(database) / database_name
 
-    # make result and temp dirs 
+    # make result and temp dirs
     result_db_base: Path = Path(output) / "result_db"
     result_db_base.mkdir(parents=True, exist_ok=True)
     result_db: Path = Path(result_db_base) / "result_db"
@@ -283,282 +324,346 @@ def run(
     temp_db.mkdir(parents=True, exist_ok=True)
 
     # run foldseek search
-    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue, sensitivity )
+    run_foldseek_search(
+        query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
+    )
 
-    # make result tsv 
-    result_tsv: Path =  Path(output) / "foldseek_results.tsv"
+    # make result tsv
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
-    # calculate tophits 
-    top_hits_tsv: Path = Path(output) / "tophits.tsv"
-    filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
-    # split the first column
-    filtered_tophits_df[['record_id', 'cds_id']] = filtered_tophits_df['query'].str.split(':', expand=True, n=1)
-    # Remove the original 'query' column
-    filtered_tophits_df = filtered_tophits_df.drop(columns=['query'])
+    # tophits
+    # calculate tophits
 
-    # split on target
-    filtered_tophits_df[['phrog', 'tophit_protein']] = filtered_tophits_df['target'].str.split(':', expand=True, n=1)
-    # Remove the original 'target' column
-    filtered_tophits_df = filtered_tophits_df.drop(columns=['target'])
-    filtered_tophits_df['phrog'] = filtered_tophits_df['phrog'].str.replace('phrog_', '')
-    filtered_tophits_df['phrog'] = filtered_tophits_df['phrog'].astype('str')
+    if mode == "tophit":
+        top_hits_tsv: Path = Path(output) / "tophits.tsv"
+        filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
 
-    # read in the mapping tsv
+        #####
+        # parsing tophits depend on type of db
+        #####
 
-    phrog_annot_mapping_tsv: Path = Path(database) / "phrog_annot_v4.tsv"
-    phrog_mapping_df = pd.read_csv(phrog_annot_mapping_tsv, sep='\t')
-    phrog_mapping_df['phrog'] = phrog_mapping_df['phrog'].astype('str')
+        filtered_tophits_df = parse_tophits(
+            filtered_tophits_df, database, database_name
+        )
 
-    # join the dfs
+        # calculate results and saves to tsvs
 
-    filtered_tophits_df = filtered_tophits_df.merge(phrog_mapping_df, on='phrog', how='left')
-    # Replace NaN values in the 'product' column with 'hypothetical protein'
-    filtered_tophits_df['product'] = filtered_tophits_df['product'].fillna('hypothetical protein')
+        calculate_tophits_results(filtered_tophits_df, cds_dict, output)
 
-    # Convert the DataFrame to a nested dictionary
-    result_dict = {}
+    elif mode == "topfunction":
+        filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name)
 
-    # instantiate the unique contig ids
+        calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
 
-    unique_contig_ids = filtered_tophits_df['record_id'].unique()
-
-    for record_id in unique_contig_ids:
-        result_dict[record_id] = {}
-    
-    for _, row in filtered_tophits_df.iterrows():
-        record_id = row['record_id']
-        cds_id = row['cds_id']
-        values_dict = {
-            'phrog': row['phrog'],
-            'product': row['product'],
-            'function': row['function'],
-            'tophit_protein': row['tophit_protein'],
-            'foldseek_alnScore': row['foldseek_alnScore'],
-            'foldseek_seqIdentity': row['foldseek_seqIdentity'],
-            'foldseek_eVal': row['foldseek_eVal'],
-            'qStart': row['qStart'],
-            'qEnd': row['qEnd'],
-            'qLen': row['qLen'],
-            'tStart': row['tStart'],
-            'tEnd': row['tEnd'],
-            'tLen': row['tLen'],
-        }
-        result_dict[record_id][cds_id] = values_dict
-
-    # get counds
-    # copy initial cds_dict 
-
-    updated_cds_dict = copy.deepcopy(cds_dict)
-
-    original_functions_count_dict = {}
-    new_functions_count_dict = {}
-    combined_functions_count_dict = {}
-
-    # iterates over the records
-    for record_id, record in updated_cds_dict.items():
-         
-         # instantiate the functions dicts 
-        original_functions_count_dict[record_id] = {}
-        new_functions_count_dict[record_id] = {}
-        combined_functions_count_dict[record_id] = {}
-
-        original_functions_count_dict[record_id]['cds_count'] = len(updated_cds_dict[record_id])
-        original_functions_count_dict[record_id]['phrog_count'] = 0
-        original_functions_count_dict[record_id]['connector'] = 0
-        original_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] = 0
-        original_functions_count_dict[record_id]['head and packaging'] = 0
-        original_functions_count_dict[record_id]['integration and excision'] = 0
-        original_functions_count_dict[record_id]['lysis'] = 0
-        original_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] = 0
-        original_functions_count_dict[record_id]['other'] = 0
-        original_functions_count_dict[record_id]['tail'] = 0
-        original_functions_count_dict[record_id]['transcription regulation'] = 0
-        original_functions_count_dict[record_id]['unknown function'] = 0
-
-        new_functions_count_dict[record_id]['cds_count'] = len(updated_cds_dict[record_id])
-        new_functions_count_dict[record_id]['phrog_count'] = 0
-        new_functions_count_dict[record_id]['connector'] = 0
-        new_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] = 0
-        new_functions_count_dict[record_id]['head and packaging'] = 0
-        new_functions_count_dict[record_id]['integration and excision'] = 0
-        new_functions_count_dict[record_id]['lysis'] = 0
-        new_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] = 0
-        new_functions_count_dict[record_id]['other'] = 0
-        new_functions_count_dict[record_id]['tail'] = 0
-        new_functions_count_dict[record_id]['transcription regulation'] = 0
-        new_functions_count_dict[record_id]['unknown function'] = 0
-        new_functions_count_dict[record_id]['changed_phrogs'] = 0
-        new_functions_count_dict[record_id]['same_phrogs'] = 0
-        new_functions_count_dict[record_id]['foldseek_only_phrogs'] = 0
-        new_functions_count_dict[record_id]['pharokka_only_phrogs'] = 0
-
-        combined_functions_count_dict[record_id]['cds_count'] = len(updated_cds_dict[record_id])
-        combined_functions_count_dict[record_id]['phrog_count'] = 0
-        combined_functions_count_dict[record_id]['connector'] = 0
-        combined_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] = 0
-        combined_functions_count_dict[record_id]['head and packaging'] = 0
-        combined_functions_count_dict[record_id]['integration and excision'] = 0
-        combined_functions_count_dict[record_id]['lysis'] = 0
-        combined_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] = 0
-        combined_functions_count_dict[record_id]['other'] = 0
-        combined_functions_count_dict[record_id]['tail'] = 0
-        combined_functions_count_dict[record_id]['transcription regulation'] = 0
-        combined_functions_count_dict[record_id]['unknown function'] = 0
-
-        # iterates over the features
-        # maybe can add 3DI as a genbank feature eventually?
-        for cds_id, cds_feature in updated_cds_dict[record_id].items():
-            # if pharokka got a phrog
-            if cds_feature.qualifiers['phrog'][0] != "No_PHROG":
-                original_functions_count_dict[record_id]['phrog_count'] += 1
-            # get original function counts
-            if cds_feature.qualifiers['function'][0] == "unknown function":
-                original_functions_count_dict[record_id]['unknown function'] += 1
-            elif cds_feature.qualifiers['function'][0] == "transcription regulation":
-                original_functions_count_dict[record_id]['transcription regulation'] += 1
-            elif cds_feature.qualifiers['function'][0] == "tail":
-                original_functions_count_dict[record_id]['tail'] += 1
-            elif cds_feature.qualifiers['function'][0] == "other":
-                original_functions_count_dict[record_id]['other'] += 1      
-            elif cds_feature.qualifiers['function'][0] == "moron":
-                original_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
-            elif cds_feature.qualifiers['function'][0] == "lysis":
-                original_functions_count_dict[record_id]['lysis'] += 1
-            elif cds_feature.qualifiers['function'][0] == "integration and excision":
-                original_functions_count_dict[record_id]['integration and excision'] += 1 
-            elif cds_feature.qualifiers['function'][0] == "head and packaging":
-                original_functions_count_dict[record_id]['head and packaging'] += 1
-            elif cds_feature.qualifiers['function'][0] == "DNA":
-                original_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
-            elif cds_feature.qualifiers['function'][0] == "connector":
-                original_functions_count_dict[record_id]['connector'] += 1 
-
-            # now the updated dictionary
-            # If record_id does not exist in result_dict, an empty dictionary {} is returned as the default value. 
-            # prevents KeyError
-            if cds_id in result_dict.get(record_id, {}):
-            #if cds_id in result_dict[record_id].keys():
-                # increase the phrog count
-                new_functions_count_dict[record_id]['phrog_count'] += 1
-                combined_functions_count_dict[record_id]['phrog_count'] += 1
-                # update the counts
-                if result_dict[record_id][cds_id]['function'] == "unknown function":
-                    new_functions_count_dict[record_id]['unknown function'] += 1
-                    combined_functions_count_dict[record_id]['unknown function'] += 1
-                elif result_dict[record_id][cds_id]['function'] == "transcription regulation":
-                    new_functions_count_dict[record_id]['transcription regulation'] += 1
-                    combined_functions_count_dict[record_id]['transcription regulation'] += 1
-                elif result_dict[record_id][cds_id]['function'] == "tail":
-                    new_functions_count_dict[record_id]['tail'] += 1
-                    combined_functions_count_dict[record_id]['tail'] += 1
-                elif result_dict[record_id][cds_id]['function'] == "other":
-                    new_functions_count_dict[record_id]['other'] += 1    
-                    combined_functions_count_dict[record_id]['other'] += 1     
-                elif result_dict[record_id][cds_id]['function'] == "moron, auxiliary metabolic gene and host takeover":
-                    new_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
-                    combined_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
-                elif result_dict[record_id][cds_id]['function'] == "lysis":
-                    new_functions_count_dict[record_id]['lysis'] += 1
-                    combined_functions_count_dict[record_id]['lysis'] += 1
-                elif result_dict[record_id][cds_id]['function'] == "integration and excision":
-                    new_functions_count_dict[record_id]['integration and excision'] += 1 
-                    combined_functions_count_dict[record_id]['integration and excision'] += 1 
-                elif result_dict[record_id][cds_id]['function'] == "head and packaging":
-                    new_functions_count_dict[record_id]['head and packaging'] += 1
-                    combined_functions_count_dict[record_id]['head and packaging'] += 1
-                elif result_dict[record_id][cds_id]['function'] == "DNA, RNA and nucleotide metabolism":
-                    new_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
-                    combined_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
-                elif result_dict[record_id][cds_id]['function'] == "connector":
-                    new_functions_count_dict[record_id]['connector'] += 1 
-                    combined_functions_count_dict[record_id]['connector'] += 1 
-
-
-                # update the phrog if different
-                # same phrog
-                if result_dict[record_id][cds_id]['phrog'] == cds_feature.qualifiers['phrog'][0]:
-                    new_functions_count_dict[record_id]['same_phrogs'] += 1
-                # different chrog
-                if result_dict[record_id][cds_id]['phrog'] != cds_feature.qualifiers['phrog'][0]:
-                    # where there was no phrog in pharokka
-                    if cds_feature.qualifiers['phrog'][0] == "No_PHROG":
-                        new_functions_count_dict[record_id]['foldseek_only_phrogs'] += 1
-                    # different phrog to pharokka
-                    else:
-                        new_functions_count_dict[record_id]['changed_phrogs'] += 1
-                    # update
-                    updated_cds_dict[record_id][cds_id].qualifiers['phrog'][0] = result_dict[record_id][cds_id]['phrog']
-                    updated_cds_dict[record_id][cds_id].qualifiers['product'][0] = result_dict[record_id][cds_id]['product']
-                    updated_cds_dict[record_id][cds_id].qualifiers['function'][0] = result_dict[record_id][cds_id]['function']
-            else: # will not be in results - unknown function
-                new_functions_count_dict[record_id]['unknown function'] += 1
-                if cds_feature.qualifiers['phrog'][0] != "No_PHROG":
-                    new_functions_count_dict[record_id]['pharokka_only_phrogs'] +=1
-                    combined_functions_count_dict[record_id]['phrog_count'] += 1
-                    if cds_feature.qualifiers['function'][0] == "unknown function":
-                        combined_functions_count_dict[record_id]['unknown function'] += 1
-                    elif cds_feature.qualifiers['function'][0] == "transcription regulation":
-                        combined_functions_count_dict[record_id]['transcription regulation'] += 1
-                    elif cds_feature.qualifiers['function'][0] == "tail":
-                        combined_functions_count_dict[record_id]['tail'] += 1
-                    elif cds_feature.qualifiers['function'][0] == "other":
-                        combined_functions_count_dict[record_id]['other'] += 1      
-                    elif cds_feature.qualifiers['function'][0] == "moron":
-                        combined_functions_count_dict[record_id]['moron, auxiliary metabolic gene and host takeover'] += 1 
-                    elif cds_feature.qualifiers['function'][0] == "lysis":
-                        combined_functions_count_dict[record_id]['lysis'] += 1
-                    elif cds_feature.qualifiers['function'][0] == "integration and excision":
-                        combined_functions_count_dict[record_id]['integration and excision'] += 1 
-                    elif cds_feature.qualifiers['function'][0] == "head and packaging":
-                        combined_functions_count_dict[record_id]['head and packaging'] += 1
-                    elif cds_feature.qualifiers['function'][0] == "DNA":
-                        combined_functions_count_dict[record_id]['DNA, RNA and nucleotide metabolism'] += 1
-                    elif cds_feature.qualifiers['function'][0] == "connector":
-                        combined_functions_count_dict[record_id]['connector'] += 1 
-                else:
-                    # no hits in either
-                    combined_functions_count_dict[record_id]['unknown function'] += 1
-
-
-                        
-    # print(original_functions_count_dict)
-    # print(new_functions_count_dict)
-    # print(combined_functions_count_dict)
-
-
-
-    # Convert the nested dictionary to a Pandas DataFrame
-    pharokka_df = pd.DataFrame.from_dict(original_functions_count_dict, orient='index')
-    pharokka_df['contig_id'] = pharokka_df.index
-    pharokka_df = pharokka_df[['contig_id'] + [col for col in pharokka_df.columns if col != 'contig_id']]
-    pharokka_tsv : Path = Path(output) / "pharokka_functions_output.tsv"
-    pharokka_df.to_csv(pharokka_tsv, sep='\t', index=False)
-    
-    foldseek_df = pd.DataFrame.from_dict(new_functions_count_dict, orient='index')
-    foldseek_df['contig_id'] = foldseek_df.index
-    foldseek_df = foldseek_df[['contig_id'] + [col for col in foldseek_df.columns if col != 'contig_id']]
-    foldseek_tsv : Path = Path(output) / "foldseek_functions_output.tsv"
-    foldseek_df.to_csv(foldseek_tsv, sep='\t', index=False)
-
-    combined_df = pd.DataFrame.from_dict(combined_functions_count_dict, orient='index')
-    combined_df['contig_id'] = combined_df.index
-    combined_df = combined_df[['contig_id'] + [col for col in combined_df.columns if col != 'contig_id']]
-    combined_tsv : Path = Path(output) / "combined_functions_output.tsv"
-    combined_df.to_csv(combined_tsv, sep='\t', index=False)
-
-
-
-    # validates fasta
-    #validate_fasta(input)
-
-    # validate e value
-    #check_evalue(evalue)
-
-
+    elif mode == "distribution":
+        foldseek_df = get_distribution(result_tsv, database, database_name, output)
 
     # end phold
-    end_phold(start_time)
+    end_phold(start_time, "run")
+
+
+"""
+predict command
+
+Uses ProstT5 to predict 3Di sequences from AA
+
+"""
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Path to input file in Genbank format",
+    type=click.Path(),
+    required=True,
+)
+@common_options
+@predict_options
+def predict(
+    ctx,
+    input,
+    output,
+    prefix,
+    force,
+    model_dir,
+    model_name,
+    batch_size,
+    **kwargs,
+):
+    """Runs phold predict"""
+
+    # validates the directory  (need to before I start phold or else no log file is written)
+    instantiate_dirs(output, force)
+
+    output: Path = Path(output)
+    logdir: Path = Path(output) / "logs"
+
+    params = {
+        "--input": input,
+        "--output": output,
+        "--force": force,
+        "--prefix": prefix,
+        "--model_dir": model_dir,
+        "--model_name": model_name,
+        "--batch_size": batch_size,
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "predict")
+
+    # validates fasta
+    gb_dict = get_genbank(input)
+    if not gb_dict:
+        logger.warning("Error: no sequences found in genbank file")
+        logger.error("No sequences found in genbank file. Nothing to annotate")
+
+
+    # Create a nested dictionary to store CDS features by contig ID
+    cds_dict = {}
+
+    fasta_aa: Path = Path(output) / "outputaa.fasta"
+
+    # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
+
+    for record_id, record in gb_dict.items():
+        cds_dict[record_id] = {}
+
+        for cds_feature in record.features:
+            if cds_feature.type == "CDS":
+                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
+
+    ## write the CDS to file
+
+    with open(fasta_aa, "w+") as out_f:
+        for contig_id, rest in cds_dict.items():
+            aa_contig_dict = cds_dict[contig_id]
+
+            # writes the CDS to file
+            for seq_id, cds_feature in aa_contig_dict.items():
+                out_f.write(f">{contig_id}:{seq_id}\n")
+                out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+
+    ############
+    # prostt5
+    ############
+
+    # generates the embeddings using ProstT5 and saves them to file
+    fasta_3di: Path = Path(output) / "output3di.fasta"
+    get_embeddings(
+        cds_dict,
+        output,
+        model_dir,
+        model_name,
+        half_precision=True,
+        max_residues=10000,
+        max_seq_len=1000,
+        max_batch=batch_size,
+    )
+
+    # end phold
+    end_phold(start_time, "predict")
+
+
+"""
+compare command
+"""
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Path to input file in Genbank format",
+    type=click.Path(),
+    required=True,
+)
+@click.option(
+    "--pdb",
+    is_flag=True,
+    help="Use if you have pdbs for the input proteins (with AF2/Colabfold).",
+)
+@click.option(
+    "--pdb_dir",
+    help="Path to directory with pdbs",
+    type=click.Path(),
+)
+@click.option(
+    "--unrelaxed",
+    help="Use unrelaxed top rank pdb. By default, relaxed will be used (if found).",
+    is_flag=True,
+)
+@common_options
+@compare_options
+def compare(
+    ctx,
+    input,
+    output,
+    threads,
+    prefix,
+    evalue,
+    force,
+    database,
+    database_name,
+    sensitivity,
+    mode,
+    pdb,
+    pdb_dir,
+    unrelaxed,
+    **kwargs,
+):
+    """Runs phold compare"""
+
+    # validates the directory  (need to before I start phold or else no log file is written)
+    instantiate_dirs(output, force)
+
+    output: Path = Path(output)
+    logdir: Path = Path(output) / "logs"
+
+    params = {
+        "--input": input,
+        "--output": output,
+        "--threads": threads,
+        "--force": force,
+        "--prefix": prefix,
+        "--evalue": evalue,
+        "--database": database,
+        "--database_name": database_name,
+        "--sensitivity": sensitivity,
+        "--mode": mode,
+        "--pdb": pdb,
+        "--pdb_dir": pdb_dir,
+        "--unrelaxed": unrelaxed
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "compare")
+
+    # validates fasta
+    gb_dict = get_genbank(input)
+    if not gb_dict:
+        logger.warning("Error: no sequences found in genbank file")
+        logger.error("No sequences found in genbank file. Nothing to annotate")
+
+    # for key, value in gb_dict.items():
+    #     logger.info(f"Parameter: {key} {value}.")
+
+    # Create a nested dictionary to store CDS features by contig ID
+    cds_dict = {}
+
+    # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
+    for record_id, record in gb_dict.items():
+        cds_dict[record_id] = {}
+
+        for cds_feature in record.features:
+            if cds_feature.type == "CDS":
+                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
+
+    # # assumes this has been run if pdb is false
+    fasta_aa: Path = Path(output) / "outputaa.fasta"
+
+    ## write the CDS to file id pdb is true
+    if pdb is True:
+        with open(fasta_aa, "w+") as out_f:
+            for contig_id, rest in cds_dict.items():
+                aa_contig_dict = cds_dict[contig_id]
+
+                # writes the CDS to file
+                for seq_id, cds_feature in aa_contig_dict.items():
+                    out_f.write(f">{contig_id}:{seq_id}\n")
+                    out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+    else:
+        # generates the embeddings using ProstT5 and saves them to file
+        fasta_3di: Path = Path(output) / "output3di.fasta"
+        logger.info("write a check here to check output.aa and fasta_3di exists")
+
+        
+
+
+    ############
+    # create foldseek db
+    ############
+
+    foldseek_query_db_path: Path = Path(output) / "foldseek_db"
+    foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
+
+    if pdb is True:
+        logger.info("Creating a foldseek query db from the pdbs.")
+        rank_001_pdb_path: Path = Path(output) / "rank_001_pdbs"
+        rank_001_pdb_path.mkdir(parents=True, exist_ok=True)
+        generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, logdir, rank_001_pdb_path, prefix, unrelaxed
+)
+    else:
+        generate_foldseek_db_from_aa_3di(
+            fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+        )
+
+    ###########
+    # run foldseek search
+    ###########
+
+    short_db_name = prefix
+    if short_db_name == database_name:
+        logger.error(
+            f"Please choose a different {prefix} as this conflicts with the {database_name}"
+        )
+    query_db: Path = Path(foldseek_query_db_path) / short_db_name
+    target_db: Path = Path(database) / database_name
+
+    # make result and temp dirs
+    result_db_base: Path = Path(output) / "result_db"
+    result_db_base.mkdir(parents=True, exist_ok=True)
+    result_db: Path = Path(result_db_base) / "result_db"
+
+    temp_db: Path = Path(output) / "temp_db"
+    temp_db.mkdir(parents=True, exist_ok=True)
+
+    # run foldseek search
+    run_foldseek_search(
+        query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
+    )
+
+    # make result tsv
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
+    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
+
+    # tophits
+    # calculate tophits
+
+    if mode == "tophit":
+        top_hits_tsv: Path = Path(output) / "tophits.tsv"
+        filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
+
+        #####
+        # parsing tophits depend on type of db
+        #####
+
+        filtered_tophits_df = parse_tophits(
+            filtered_tophits_df, database, database_name
+        )
+
+        # calculate results and saves to tsvs
+
+        calculate_tophits_results(filtered_tophits_df, cds_dict, output)
+
+    elif mode == "topfunction":
+        filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name)
+
+        calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
+
+    elif mode == "distribution":
+        foldseek_df = get_distribution(result_tsv, database, database_name, output)
+
+    # end phold
+    end_phold(start_time, "run")
+
+
+
 
 
 """
@@ -571,12 +676,12 @@ remote command
 @click.version_option(get_version(), "--version", "-V")
 @click.pass_context
 @click.option(
-            "-i",
-            "--input",
-            help="Path to input file in Genbank format",
-            type=click.Path(),
-            required=True,
-        )
+    "-i",
+    "--input",
+    help="Path to input file in Genbank format",
+    type=click.Path(),
+    required=True,
+)
 @common_options
 @click.option(
     "-e",
@@ -623,12 +728,11 @@ def remote(
         "--evalue": evalue,
         "--database": database,
         "--database_name": database_name,
-        "--sensitivity": sensitivity
+        "--sensitivity": sensitivity,
     }
 
-
     # initial logging etc
-    start_time = begin_phold(params)
+    start_time = begin_phold(params, "remote")
 
     # validates fasta
     gb_dict = get_genbank(input)
@@ -645,20 +749,18 @@ def remote(
     fasta_aa: Path = Path(output) / "outputaa.fasta"
 
     # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-    
+
     for record_id, record in gb_dict.items():
-        
         cds_dict[record_id] = {}
 
         for cds_feature in record.features:
-            if cds_feature.type == 'CDS':
-                cds_dict[record_id][cds_feature.qualifiers['ID'][0]] = cds_feature
+            if cds_feature.type == "CDS":
+                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
     ## write the CDS to file
 
-    with open(fasta_aa, 'w+') as out_f:
+    with open(fasta_aa, "w+") as out_f:
         for contig_id, rest in cds_dict.items():
-
             aa_contig_dict = cds_dict[contig_id]
 
             # writes the CDS to file
@@ -672,9 +774,9 @@ def remote(
 
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
-    
+
     query_remote_3di(cds_dict, output)
-    
+
     ############
     # create foldseek db
     ############
@@ -682,7 +784,9 @@ def remote(
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
+    generate_foldseek_db_from_aa_3di(
+        fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+    )
 
     ###########
     # run foldseek search
@@ -692,7 +796,7 @@ def remote(
     query_db: Path = Path(foldseek_query_db_path) / short_db_name
     target_db: Path = Path(database) / database_name
 
-    # make result and temp dirs 
+    # make result and temp dirs
     result_db_base: Path = Path(output) / "result_db"
     result_db_base.mkdir(parents=True, exist_ok=True)
     result_db: Path = Path(result_db_base) / "result_db"
@@ -701,46 +805,45 @@ def remote(
     temp_db.mkdir(parents=True, exist_ok=True)
 
     # run foldseek search
-    run_foldseek_search(query_db, target_db,result_db, temp_db, threads, logdir, evalue, sensitivity )
+    run_foldseek_search(
+        query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
+    )
 
-    # make result tsv 
-    result_tsv: Path =  Path(output) / "foldseek_results.tsv"
+    # make result tsv
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
-    # calculate tophits 
+    # calculate tophits
     top_hits_tsv: Path = Path(output) / "tophits.tsv"
 
     filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
 
-
-
-
-
     # end phold
-    end_phold(start_time)
+    end_phold(start_time, "remote")
 
 
 """
-create command
+create command 
 """
+
 
 @main_cli.command()
 @click.help_option("--help", "-h")
 @click.version_option(get_version(), "--version", "-V")
 @click.pass_context
 @click.option(
-            "-i",
-            "--input",
-            help="Path to input Amino Acid FASTA file in .faa",
-            type=click.Path(),
-            required=True,
-        )
+    "-i",
+    "--input",
+    help="Path to input Amino Acid FASTA file in .faa",
+    type=click.Path(),
+    required=True,
+)
 @click.option(
-            "--tsv",
-            help="Path to input tsv linking Amino Acid FASTA file to phrog id",
-            default="phrog_mapping.tsv",
-            type=click.Path()
-        )
+    "--tsv",
+    help="Path to input tsv linking Amino Acid FASTA file to phrog id",
+    default="phrog_mapping.tsv",
+    type=click.Path(),
+)
 @common_options
 @click.option(
     "-e",
@@ -773,16 +876,15 @@ create command
     type=int,
     default=1,
     help="enhvog db protein to start from.",
-    show_default=True
+    show_default=True,
 )
 @click.option(
     "--envhog_batch_size",
     type=int,
     default=1000,
     help="enhvog db protein batch size.",
-    show_default=True
+    show_default=True,
 )
-
 def create(
     ctx,
     input,
@@ -822,74 +924,78 @@ def create(
         "--max_phrog": max_phrog,
         "--envhog_flag": envhog_flag,
         "--envhog_start": envhog_start,
-        "--envhog_batch_size": envhog_batch_size
-
+        "--envhog_batch_size": envhog_batch_size,
     }
-    
+
     # initial logging etc
-    start_time = begin_phold(params)
+    start_time = begin_phold(params, "create")
 
     # gets proteins
-    logger.info('Creating protein dictionary')
+    logger.info("Creating protein dictionary")
     prot_dict = get_proteins(input)
-    logger.info('Protein dictionary created')
-
+    logger.info("Protein dictionary created")
 
     if not prot_dict:
         logger.warning(f"Error: no sequences found in {input} FASTA file")
         logger.error(f"No sequences found in {input} FASTA file. Nothing to annotate")
 
     if envhog_flag is False:
-
         # check if the tsv exists
         tsv = Path(tsv)
         if tsv.exists() is False:
-            logger.error(f"{tsv} does not exist. You need to specify a Path using --tsv to an input tsv linking Amino Acid FASTA file to phrog id")
+            logger.error(
+                f"{tsv} does not exist. You need to specify a Path using --tsv to an input tsv linking Amino Acid FASTA file to phrog id"
+            )
 
         # read tsv
         # needs to have 3 columns - seq_id, phrog and description
-        phrog_mapping_df = pd.read_csv(tsv, sep='\t', names=["seq_id", "phrog", "description"])
+        phrog_mapping_df = pd.read_csv(
+            tsv, sep="\t", names=["seq_id", "phrog", "description"]
+        )
 
         # takes arguments gets all the desired phrogs
-        phrog_list =  ["phrog_" + str(i) for i in range(min_phrog, (max_phrog+1))]
+        phrog_list = ["phrog_" + str(i) for i in range(min_phrog, (max_phrog + 1))]
 
         # Create a nested dictionary to store CDS features by phrog ID
         cds_dict = {}
 
-        logger.info('Creating dictionary to store all proteins for each phrog.')
-        counter = 0 
-
+        logger.info("Creating dictionary to store all proteins for each phrog.")
+        counter = 0
 
         # loops over all phrogs and adds them to dict - like a contig for normal phold
         for phrog_value in phrog_list:
-
             cds_dict[phrog_value] = {}
 
             # subset df
-            phrog_group_df = phrog_mapping_df[phrog_mapping_df['phrog'] == phrog_value]
+            phrog_group_df = phrog_mapping_df[phrog_mapping_df["phrog"] == phrog_value]
             # list of seq_ids
-            seq_ids = phrog_group_df['seq_id'].tolist() 
+            seq_ids = phrog_group_df["seq_id"].tolist()
 
             # append to the cds dict
             for seq_id in seq_ids:
                 if seq_id in prot_dict:
                     cds_dict[phrog_value][seq_id] = prot_dict[seq_id]
     else:
-
         envhog_end = envhog_start + envhog_batch_size - 1
 
-        logger.info(f"You are running ProstT5 on enVhogs. Ignoring any PHROG specific commands.")
-        logger.info(f"Taking the {envhog_start} to {envhog_end} proteins in your input file {input}.")
+        logger.info(
+            f"You are running ProstT5 on enVhogs. Ignoring any PHROG specific commands."
+        )
+        logger.info(
+            f"Taking the {envhog_start} to {envhog_end} proteins in your input file {input}."
+        )
         # Convert the dictionary to a list of items (key-value pairs)
         dict_items = list(prot_dict.items())
 
         if envhog_end - 1 > len(dict_items):
             envhog_batch_size = len(dict_items) - envhog_end
-            logger.warning(f"batch size reduced to {envhog_batch_size} to the end of the number of records.")
+            logger.warning(
+                f"batch size reduced to {envhog_batch_size} to the end of the number of records."
+            )
             envhog_end = len(dict_items)
 
         # Get items from 100th to 1000th
-        entries = dict_items[envhog_start-1:envhog_end]
+        entries = dict_items[envhog_start - 1 : envhog_end]
 
         # to convert the selected items back to a dictionary:
         prot_dict = dict(entries)
@@ -913,22 +1019,17 @@ def create(
             prot_name = parts[1]
             cds_dict[phrog][prot_name] = prot_dict[key]
 
-    
     fasta_aa: Path = Path(output) / "outputaa.fasta"
 
     ## write the CDS to file
-    with open(fasta_aa, 'w+') as out_f:
+    with open(fasta_aa, "w+") as out_f:
         for phrog_id, rest in cds_dict.items():
-
             phrog_dict = cds_dict[phrog_id]
 
             # writes the CDS to file
             for seq_id, cds_feature in phrog_dict.items():
                 out_f.write(f">{phrog_id}:{seq_id}\n")
                 out_f.write(f"{phrog_dict[seq_id]}\n")
-
-
-
 
     ############
     # prostt5
@@ -938,9 +1039,17 @@ def create(
 
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
-    get_embeddings( cds_dict, output, model,  half_precision=True,    
-                   max_residues=3000, max_seq_len=500, max_batch=1, proteins=True ) 
-    
+    get_embeddings(
+        cds_dict,
+        output,
+        model,
+        half_precision=True,
+        max_residues=3000,
+        max_seq_len=500,
+        max_batch=1,
+        proteins=True,
+    )
+
     ############
     # create foldseek db
     ############
@@ -948,13 +1057,12 @@ def create(
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
+    generate_foldseek_db_from_aa_3di(
+        fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+    )
 
     # end phold
-    end_phold(start_time)
-
-
-
+    end_phold(start_time, "create")
 
 
 """
@@ -967,49 +1075,47 @@ createdb command
 @click.version_option(get_version(), "--version", "-V")
 @click.pass_context
 @click.option(
-            "--fasta_aa",
-            help="Path to input Amino Acid FASTA file of proteins",
-            type=click.Path(),
-            required=True,
-        )
+    "--fasta_aa",
+    help="Path to input Amino Acid FASTA file of proteins",
+    type=click.Path(),
+    required=True,
+)
 @click.option(
-            "--fasta_3di",
-            help="Path to input 3Di FASTA file of proteins",
-            type=click.Path(),
-            required=True,
-        )
+    "--fasta_3di",
+    help="Path to input 3Di FASTA file of proteins",
+    type=click.Path(),
+    required=True,
+)
 @click.option(
-            "-o",
-            "--output",
-            default="output_phold_foldseek_db",
-            show_default=True,
-            type=click.Path(),
-            help="Output directory ",
-        )
+    "-o",
+    "--output",
+    default="output_phold_foldseek_db",
+    show_default=True,
+    type=click.Path(),
+    help="Output directory ",
+)
 @click.option(
-            "-t",
-            "--threads",
-            help="Number of threads to use with Foldseek",
-            default=1,
-            type=int,
-            show_default=True,
-        )
+    "-t",
+    "--threads",
+    help="Number of threads to use with Foldseek",
+    default=1,
+    type=int,
+    show_default=True,
+)
 @click.option(
-            "-p",
-            "--prefix",
-            default="phold_foldseek_db",
-            help="Prefix for Foldseek database",
-            type=str,
-            show_default=True,
-        )
+    "-p",
+    "--prefix",
+    default="phold_foldseek_db",
+    help="Prefix for Foldseek database",
+    type=str,
+    show_default=True,
+)
 @click.option(
-            "-f",
-            "--force",
-            is_flag=True,
-            help="Force overwrites the output directory",
-        )
-
-
+    "-f",
+    "--force",
+    is_flag=True,
+    help="Force overwrites the output directory",
+)
 def createdb(
     ctx,
     fasta_aa,
@@ -1035,35 +1141,29 @@ def createdb(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-
     }
 
     # initial logging etc
-    start_time = begin_phold(params)
-
+    start_time = begin_phold(params, "createdb")
 
     logger.info(f"Creating the Foldseek database using {fasta_aa} and {fasta_3di}.")
-    logger.info(f"The database will be saved in the {output} directory and be called {prefix}.")
-    
+    logger.info(
+        f"The database will be saved in the {output} directory and be called {prefix}."
+    )
+
     ############
     # create foldseek db
     ############
 
-    foldseek_query_db_path: Path = Path(output) 
+    foldseek_query_db_path: Path = Path(output)
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    generate_foldseek_db_from_aa_3di(fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix )
+    generate_foldseek_db_from_aa_3di(
+        fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+    )
 
     # end phold
-    end_phold(start_time)
-
-
-
-
-
-
-
-
+    end_phold(start_time, "createdb")
 
 
 @click.command()
