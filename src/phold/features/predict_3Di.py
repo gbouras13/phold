@@ -21,10 +21,12 @@ import torch
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
+# sets the device
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+else:
+    device = torch.device("cpu")
 
-
-
-# device = torch.device('cuda:0' if torch.cuda.is_available()  else 'cpu')
 
 # Convolutional neural network (two convolutional layers)
 class CNN(nn.Module):
@@ -54,11 +56,6 @@ class CNN(nn.Module):
 
 
 def get_T5_model(model_dir, model_name):
-
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-    else:
-        device = torch.device("cpu")
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(device))
