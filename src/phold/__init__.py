@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 import click
 from loguru import logger
+import shutil
 
 from phold.io.handle_genbank import get_genbank, get_proteins
 
@@ -486,6 +487,12 @@ compare command
     required=True,
 )
 @click.option(
+    "--predictions_dir",
+    help="Path to directory with output3di.faa",
+    type=click.Path(),
+    required=True,
+)
+@click.option(
     "--pdb",
     is_flag=True,
     help="Use if you have pdbs for the input proteins (with AF2/Colabfold).",
@@ -514,6 +521,7 @@ def compare(
     database_name,
     sensitivity,
     mode,
+    predictions_dir,
     pdb,
     pdb_dir,
     unrelaxed,
@@ -522,6 +530,7 @@ def compare(
     """Runs phold compared (Foldseek)"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
+    
     instantiate_dirs(output, force)
 
     output: Path = Path(output)
@@ -538,6 +547,7 @@ def compare(
         "--database_name": database_name,
         "--sensitivity": sensitivity,
         "--mode": mode,
+        "--predictions_dir": predictions_dir,
         "--pdb": pdb,
         "--pdb_dir": pdb_dir,
         "--unrelaxed": unrelaxed
@@ -566,25 +576,27 @@ def compare(
             if cds_feature.type == "CDS":
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
-    # # assumes this has been run if pdb is false
+    # # assumes these exist been run if pdb is false
+    fasta_aa_input: Path = Path(predictions_dir) / "outputaa.fasta"
+    fasta_3di_input: Path = Path(predictions_dir) / "output3di.fasta"
+
     fasta_aa: Path = Path(output) / "outputaa.fasta"
+    fasta_3di: Path = Path(output) / "output3di.fasta"
 
-    ## write the CDS to file id pdb is true
-    if pdb is True:
-        with open(fasta_aa, "w+") as out_f:
-            for contig_id, rest in cds_dict.items():
-                aa_contig_dict = cds_dict[contig_id]
-
-                # writes the CDS to file
-                for seq_id, cds_feature in aa_contig_dict.items():
-                    out_f.write(f">{contig_id}:{seq_id}\n")
-                    out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+    # copy the aa to file 
+    if fasta_aa_input.exists():
+        logger.info(f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict.")
+        shutil.copyfile(fasta_aa_input, fasta_aa)
     else:
-        # generates the embeddings using ProstT5 and saves them to file
-        fasta_3di: Path = Path(output) / "output3di.fasta"
-        logger.info("write a check here to check output.aa and fasta_3di exists")
+        logger.error(f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {output}.")
 
-        
+    ## write the 3Di to file id pdb is false
+    if pdb is False:
+        if fasta_3di_input.exists():
+            logger.info(f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict.")
+            shutil.copyfile(fasta_3di_input, fasta_3di)
+        else:
+            logger.error(f"The 3Di CDS file {fasta_3di} does not exist. Please run phold predict and/or check the prediction directory {output}.")
 
 
     ############
