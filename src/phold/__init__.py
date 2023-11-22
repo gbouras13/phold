@@ -490,7 +490,6 @@ compare command
     "--predictions_dir",
     help="Path to directory with output3di.faa",
     type=click.Path(),
-    required=True,
 )
 @click.option(
     "--pdb",
@@ -527,7 +526,7 @@ def compare(
     unrelaxed,
     **kwargs,
 ):
-    """Runs phold compared (Foldseek)"""
+    """Runs phold compare (Foldseek)"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     
@@ -577,26 +576,40 @@ def compare(
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
     # # assumes these exist been run if pdb is false
-    fasta_aa_input: Path = Path(predictions_dir) / "outputaa.fasta"
-    fasta_3di_input: Path = Path(predictions_dir) / "output3di.fasta"
+
+    if pdb is False:
+        fasta_aa_input: Path = Path(predictions_dir) / "outputaa.fasta"
+        fasta_3di_input: Path = Path(predictions_dir) / "output3di.fasta"
 
     fasta_aa: Path = Path(output) / "outputaa.fasta"
     fasta_3di: Path = Path(output) / "output3di.fasta"
 
-    # copy the aa to file 
-    if fasta_aa_input.exists():
-        logger.info(f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict.")
-        shutil.copyfile(fasta_aa_input, fasta_aa)
-    else:
-        logger.error(f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {output}.")
 
-    ## write the 3Di to file id pdb is false
+    ## copy the 3Di to file if pdb is false
     if pdb is False:
         if fasta_3di_input.exists():
             logger.info(f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict.")
             shutil.copyfile(fasta_3di_input, fasta_3di)
         else:
             logger.error(f"The 3Di CDS file {fasta_3di} does not exist. Please run phold predict and/or check the prediction directory {output}.")
+        # copy the aa to file 
+        if fasta_aa_input.exists():
+            logger.info(f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict.")
+            shutil.copyfile(fasta_aa_input, fasta_aa)
+        else:
+            logger.error(f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {output}.")
+    else:
+        ## write the CDS to file
+        logger.info(f"Writing the AAs to file {fasta_aa}.")
+        with open(fasta_aa, "w+") as out_f:
+            for contig_id, rest in cds_dict.items():
+                aa_contig_dict = cds_dict[contig_id]
+
+                # writes the CDS to file
+                for seq_id, cds_feature in aa_contig_dict.items():
+                    out_f.write(f">{contig_id}:{seq_id}\n")
+                    out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+
 
 
     ############
