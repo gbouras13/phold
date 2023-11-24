@@ -793,6 +793,7 @@ def proteins(
                                              "description": record.description,
                                              "translation": [str(record.seq)]})
         
+        
         cds_dict['proteins'][prot_id] = seq_feature
 
     if not cds_dict:
@@ -838,10 +839,11 @@ def proteins(
 
         header_parts = record.description.split(":")
 
-        # Keep everything after ":"
-        new_header = ":".join(header_parts[1:])
+        # Keep everything after ":" to be consistent with input fil
+        new_header = header_parts[1]
 
         # Update the record header
+        record.id = new_header
         record.description = new_header
 
     # Write the modified records back to the same file
