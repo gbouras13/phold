@@ -143,9 +143,7 @@ def calculate_tophits_results(
         new_functions_count_dict[record_id] = {}
         combined_functions_count_dict[record_id] = {}
 
-        original_functions_count_dict[record_id]["cds_count"] = len(
-            updated_cds_dict[record_id]
-        )
+        original_functions_count_dict[record_id]["cds_count"] = len(updated_cds_dict[record_id])
         original_functions_count_dict[record_id]["phrog_count"] = 0
         original_functions_count_dict[record_id]["connector"] = 0
         original_functions_count_dict[record_id][

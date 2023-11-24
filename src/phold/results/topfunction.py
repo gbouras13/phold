@@ -27,11 +27,10 @@ def get_topfunctions(
         result_tsv, delimiter="\t", index_col=False, names=col_list
     )
 
-    # cientific notation to 3dp
     foldseek_df[["record_id", "cds_id"]] = foldseek_df["query"].str.split(
         ":", expand=True, n=1
     )
-
+    
     if database_name == "all_phrogs" or database_name == "all_envhogs":
         # split the first column
         foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(

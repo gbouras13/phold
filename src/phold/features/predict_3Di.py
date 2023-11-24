@@ -186,6 +186,9 @@ def get_embeddings(
     model, vocab = get_T5_model(model_dir, model_name)
     predictor = load_predictor(model_dir)
 
+    if device == "cpu":
+        half_precision = False
+
     if half_precision:
         model = model.half()
         predictor = predictor.half()
