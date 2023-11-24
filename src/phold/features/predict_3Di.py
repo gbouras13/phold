@@ -55,7 +55,12 @@ class CNN(nn.Module):
         return Yhat
 
 
-def get_T5_model(model_dir, model_name):
+def get_T5_model(model_dir, model_name, cpu):
+
+    # force cpu if flagged
+
+    if cpu is True:
+        device = "cpu"
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(device))
@@ -178,24 +183,20 @@ def get_embeddings(
     max_seq_len: int = 1000,
     max_batch: int = 100,
     proteins: bool = False,
+    cpu: bool = False
 ) -> bool:
     predictions = {}
 
     prefix = "<AA2fold>"
 
-    model, vocab = get_T5_model(model_dir, model_name)
+    model, vocab = get_T5_model(model_dir, model_name, cpu)
     predictor = load_predictor(model_dir)
-
-    if device == "cpu":
-        half_precision = False
 
     if half_precision:
         model = model.half()
         predictor = predictor.half()
         logger.info("Using models in half-precision.")
     else:
-        model = model.full()
-        predictor = predictor.full()
         logger.info("Using models in full-precision.")
 
     # loop over each record in the cds dict

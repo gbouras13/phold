@@ -121,6 +121,11 @@ def predict_options(func):
             help="batch size for ProstT5. 1 is usually fastest.",
             show_default=True,
         ),
+            click.option(
+            "--cpu",
+            is_flag=True,
+            help="Use cpus only.",
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -216,6 +221,7 @@ def run(
     batch_size,
     sensitivity,
     mode,
+    cpu,
     **kwargs,
 ):
     """Runs phold predict (ProstT5) and comapare (Foldseek)"""
@@ -240,6 +246,7 @@ def run(
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
         "--mode": mode,
+        "--cpu": cpu
     }
 
     # initial logging etc
@@ -285,15 +292,23 @@ def run(
 
     # generates the embeddings using ProstT5 and saves them to file
     fasta_3di: Path = Path(output) / "output3di.fasta"
+
+    if cpu is True:
+        half_precision = False
+    else:
+        half_precision = True
+
     get_embeddings(
         cds_dict,
         output,
         model_dir,
         model_name,
-        half_precision=True,
+        half_precision=half_precision,
         max_residues=10000,
         max_seq_len=1000,
         max_batch=batch_size,
+        proteins=False,
+        cpu=cpu
     )
 
     ############
@@ -396,6 +411,7 @@ def predict(
     model_dir,
     model_name,
     batch_size,
+    cpu,
     **kwargs,
 ):
     """Runs phold predict (ProstT5)"""
@@ -414,6 +430,7 @@ def predict(
         "--model_dir": model_dir,
         "--model_name": model_name,
         "--batch_size": batch_size,
+        "--cpu": cpu
     }
 
     # initial logging etc
@@ -456,15 +473,23 @@ def predict(
     # generates the embeddings using ProstT5 and saves them to file
     # written to this file
     # output_3di: Path = Path(out_path) / "output3di.fasta"
+
+    if cpu is True:
+        half_precision = False
+    else:
+        half_precision = True
+
     get_embeddings(
         cds_dict,
         output,
         model_dir,
         model_name,
-        half_precision=True,
+        half_precision=half_precision,
         max_residues=10000,
         max_seq_len=1000,
         max_batch=batch_size,
+        proteins=False,
+        cpu=cpu
     )
 
     # end phold
@@ -675,7 +700,6 @@ def compare(
         )
 
         # calculate results and saves to tsvs
-
         calculate_tophits_results(filtered_tophits_df, cds_dict, output)
 
     elif mode == "topfunction":
@@ -1065,6 +1089,7 @@ def create(
     logger.info("Running ProstT5")
 
     # generates the embeddings using ProstT5 and saves them to file
+    # required gpu
     fasta_3di: Path = Path(output) / "output3di.fasta"
     get_embeddings(
         cds_dict,
@@ -1075,6 +1100,7 @@ def create(
         max_seq_len=500,
         max_batch=1,
         proteins=True,
+        cpu=False
     )
 
     ############
