@@ -60,11 +60,16 @@ def get_T5_model(model_dir, model_name, cpu):
     global device
 
     if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        dev_name = "cuda:0"
+        if cpu is True:
+            device = torch.device("cpu")
+            dev_name = "cpu"
+        else:
+            device = torch.device("cuda:0")
+            dev_name = "cuda:0"
     else:
         device = torch.device("cpu")
         dev_name = "cpu"
+        
 
 
     # logger device only if the function is called
