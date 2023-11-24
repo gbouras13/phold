@@ -3,10 +3,12 @@
 
 from pathlib import Path
 from Bio import SeqIO
+from Bio.Seq import Seq
 import pandas as pd
 import click
 from loguru import logger
 import shutil
+from Bio.SeqFeature import SeqFeature, FeatureLocation
 
 from phold.io.handle_genbank import get_genbank, get_proteins
 
@@ -453,6 +455,7 @@ def predict(
         for cds_feature in record.features:
             if cds_feature.type == "CDS":
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
+                
 
     ## write the CDS to file
 
@@ -599,6 +602,8 @@ def compare(
             if cds_feature.type == "CDS":
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
+
+
     # # assumes these exist been run if pdb is false
 
     if pdb is False:
@@ -633,7 +638,6 @@ def compare(
                 for seq_id, cds_feature in aa_contig_dict.items():
                     out_f.write(f">{contig_id}:{seq_id}\n")
                     out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
-
 
 
     ############
@@ -775,10 +779,21 @@ def proteins(
     cds_dict['proteins'] = {}
 
 
-    # Iterate through the multifasta file and save each record to the dictionary
+    # Iterate through the multifasta file and save each Seqfeature to the dictionary
+    # 1 dummy record = proteins
     for record in SeqIO.parse(input, "fasta"):
-        record_id = record.id
-        cds_dict['proteins'][record_id] = record
+
+        prot_id = record.id
+        feature_location = FeatureLocation(0, len(record.seq))
+        # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
+        seq_feature = SeqFeature(feature_location, 
+                                 type="CDS", 
+                                 strand=1,
+                                 qualifiers={"ID": record.id,
+                                             "description": record.description,
+                                             "translation": [str(record.seq)]})
+        
+        cds_dict['proteins'][prot_id] = seq_feature
 
     if not cds_dict:
         logger.error(f"Error: no sequences found in {input} file")

@@ -21,11 +21,6 @@ import torch
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
-# sets the device
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-else:
-    device = torch.device("cpu")
 
 
 # Convolutional neural network (two convolutional layers)
@@ -57,13 +52,23 @@ class CNN(nn.Module):
 
 def get_T5_model(model_dir, model_name, cpu):
 
-    # force cpu if flagged
+    # sets the device
 
-    if cpu is True:
-        device = "cpu"
+    # Torch load will map back to device from state, which often is GPU:0.
+    # to overcome, need to explicitly map to active device
+
+    global device
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        dev_name = "cuda:0"
+    else:
+        device = torch.device("cpu")
+        dev_name = "cpu"
+
 
     # logger device only if the function is called
-    logger.info("Using device: {}".format(device))
+    logger.info("Using device: {}".format(dev_name))
 
     # make dir
     Path(model_dir).mkdir(parents=True, exist_ok=True)
@@ -158,11 +163,7 @@ def load_predictor(
     # if no pre-trained model is available, yet --> download it
     if not checkpoint_p.exists():
         download_file(weights_link, checkpoint_p)
-
-    # Torch load will map back to device from state, which often is GPU:0.
-    # to overcome, need to explicitly map to active device
-    global device
-
+    
     state = torch.load(checkpoint_p, map_location=device)
 
     model.load_state_dict(state["state_dict"])
