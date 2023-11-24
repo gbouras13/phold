@@ -37,7 +37,7 @@ def extract_amino_acid_sequence_from_file(pdb_file):
                 # Check if the residue is an amino acid
                 if PDB.is_aa(residue):
                     # Get the three-letter code of the amino acid
-                    aa_code = PDB.Polypeptide.three_to_one(residue.get_resname())
+                    aa_code = PDB.Polypeptide.protein_letters_3to1(residue.get_resname())
                     
                     # Append the amino acid code to the sequence
                     sequence += aa_code
