@@ -58,7 +58,7 @@ def main():
     for pdb_file in pdb_files:
         pdb_file_path = os.path.join(args.indir, pdb_file)
         amino_acid_sequence = extract_amino_acid_sequence_from_file(pdb_file_path)
-        phrog_name = pdb_file.str.replace(".pdb", "")
+        phrog_name = pdb_file.replace(".pdb", "")
         pdb_sequences[phrog_name] = amino_acid_sequence
 
 
