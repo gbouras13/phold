@@ -2,6 +2,7 @@
 """phold"""
 
 from pathlib import Path
+from Bio import SeqIO
 import pandas as pd
 import click
 from loguru import logger
@@ -384,9 +385,7 @@ def run(
 
 """
 predict command
-
-Uses ProstT5 to predict 3Di sequences from AA
-
+Uses ProstT5 to predict 3Di sequences from AA, genbank
 """
 
 @main_cli.command()
@@ -430,7 +429,7 @@ def predict(
         "--model_dir": model_dir,
         "--model_name": model_name,
         "--batch_size": batch_size,
-        "--cpu": cpu
+        "--cpu": cpu,
     }
 
     # initial logging etc
@@ -715,6 +714,127 @@ def compare(
 
 
 
+"""
+proteins command
+Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
+"""
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Path to input multiFASTA file",
+    type=click.Path(),
+    required=True,
+)
+@common_options
+@predict_options
+def proteins(
+    ctx,
+    input,
+    output,
+    prefix,
+    force,
+    model_dir,
+    model_name,
+    batch_size,
+    cpu,
+    **kwargs,
+):
+    """Runs phold proteins (ProstT5 on a multiFASTA input)"""
+
+    # validates the directory  (need to before I start phold or else no log file is written)
+    instantiate_dirs(output, force)
+
+    output: Path = Path(output)
+    logdir: Path = Path(output) / "logs"
+
+    params = {
+        "--input": input,
+        "--output": output,
+        "--force": force,
+        "--prefix": prefix,
+        "--model_dir": model_dir,
+        "--model_name": model_name,
+        "--batch_size": batch_size,
+        "--cpu": cpu,
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "protein")
+
+    # validates fasta
+
+
+    # Dictionary to store the records
+    cds_dict = {}
+    # need a dummmy nested dict
+    cds_dict['proteins'] = {}
+
+
+    # Iterate through the multifasta file and save each record to the dictionary
+    for record in SeqIO.parse(input, "fasta"):
+        record_id = record.id
+        cds_dict['proteins'][record_id] = record
+
+    if not cds_dict:
+        logger.error(f"Error: no sequences found in {input} file")
+
+    # copy input to output
+    fasta_aa: Path = Path(output) / "outputaa.fasta"
+    shutil.copyfile(input, fasta_aa)
+
+    ############
+    # prostt5
+    ############
+
+    # generates the embeddings using ProstT5 and saves them to file
+    # written to this file
+    output_3di: Path = Path(output) / "output3di.fasta"
+
+    if cpu is True:
+        half_precision = False
+    else:
+        half_precision = True
+
+    get_embeddings(
+        cds_dict,
+        output,
+        model_dir,
+        model_name,
+        half_precision=half_precision,
+        max_residues=10000,
+        max_seq_len=1000,
+        max_batch=batch_size,
+        proteins=False,
+        cpu=cpu
+    )
+
+    ## Need this to remove the fake record id 
+
+    # Read the FASTA file
+    records = list(SeqIO.parse(output_3di, "fasta"))
+
+    # Process each record splitting the header to get rid of the fake record_id (DNE for this)
+    for record in records:
+
+        header_parts = record.description.split(":")
+
+        # Keep everything after ":"
+        new_header = ":".join(header_parts[1:])
+
+        # Update the record header
+        record.description = new_header
+
+    # Write the modified records back to the same file
+    with open(output_3di, "w") as output_file:
+        SeqIO.write(records, output_file, "fasta")
+
+    # end phold
+    end_phold(start_time, "proteins")
 
 
 """
