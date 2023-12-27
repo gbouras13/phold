@@ -129,6 +129,11 @@ def predict_options(func):
             is_flag=True,
             help="Use cpus only.",
         ),
+            click.option(
+            "--omit_probs",
+            is_flag=True,
+            help="Do not output 3Di probabilities from ProstT5",
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -225,6 +230,7 @@ def run(
     sensitivity,
     mode,
     cpu,
+    omit_probs,
     **kwargs,
 ):
     """Runs phold predict (ProstT5) and comapare (Foldseek)"""
@@ -249,7 +255,8 @@ def run(
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
         "--mode": mode,
-        "--cpu": cpu
+        "--cpu": cpu,
+        "--omit_probs": omit_probs
     }
 
     # initial logging etc
@@ -301,6 +308,11 @@ def run(
     else:
         half_precision = True
 
+    if omit_probs:
+        output_probs = False
+    else:
+        output_probs = True
+
     get_embeddings(
         cds_dict,
         output,
@@ -311,7 +323,8 @@ def run(
         max_seq_len=1000,
         max_batch=batch_size,
         proteins=False,
-        cpu=cpu
+        cpu=cpu,
+        output_probs=output_probs
     )
 
     ############
@@ -413,6 +426,7 @@ def predict(
     model_name,
     batch_size,
     cpu,
+    omit_probs,
     **kwargs,
 ):
     """Runs phold predict (ProstT5)"""
@@ -432,6 +446,7 @@ def predict(
         "--model_name": model_name,
         "--batch_size": batch_size,
         "--cpu": cpu,
+        "--omit_probs": omit_probs
     }
 
     # initial logging etc
@@ -481,6 +496,11 @@ def predict(
     else:
         half_precision = True
 
+    if omit_probs:
+        output_probs = False
+    else:
+        output_probs = True
+
     get_embeddings(
         cds_dict,
         output,
@@ -491,7 +511,8 @@ def predict(
         max_seq_len=1000,
         max_batch=batch_size,
         proteins=False,
-        cpu=cpu
+        cpu=cpu,
+        output_probs=output_probs
     )
 
     # end phold
@@ -746,6 +767,7 @@ def proteins(
     model_name,
     batch_size,
     cpu,
+    omit_probs,
     **kwargs,
 ):
     """Runs phold proteins (ProstT5 on a multiFASTA input)"""
@@ -765,6 +787,7 @@ def proteins(
         "--model_name": model_name,
         "--batch_size": batch_size,
         "--cpu": cpu,
+        "--omit_probs": omit_probs
     }
 
     # initial logging etc
@@ -816,6 +839,11 @@ def proteins(
     else:
         half_precision = True
 
+    if omit_probs:
+        output_probs = False
+    else:
+        output_probs = True
+
     get_embeddings(
         cds_dict,
         output,
@@ -826,7 +854,8 @@ def proteins(
         max_seq_len=1000,
         max_batch=batch_size,
         proteins=False,
-        cpu=cpu
+        cpu=cpu,
+        output_probs=output_probs
     )
 
     ## Need this to remove the fake record id 
@@ -837,10 +866,11 @@ def proteins(
     # Process each record splitting the header to get rid of the fake record_id (DNE for this)
     for record in records:
 
-        header_parts = record.description.split(":")
+        #header_parts = record.description.split(":")
 
-        # Keep everything after ":" to be consistent with input fil
-        new_header = header_parts[1]
+        # Keep everything after the 10th character (to strip off proteins: )
+        new_header = record.description[9:]
+        #new_header = ":".join(header_parts[1:])
 
         # Update the record header
         record.id = new_header

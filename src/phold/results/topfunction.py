@@ -30,13 +30,13 @@ def get_topfunctions(
     foldseek_df[["record_id", "cds_id"]] = foldseek_df["query"].str.split(
         ":", expand=True, n=1
     )
-    
+
     if database_name == "all_phrogs" or database_name == "all_envhogs":
         # split the first column
         foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
             ":", expand=True, n=1
         )
-    elif database_name == "all_phrogs_pdb":
+    elif database_name == "all_phrogs_pdb" or database_name == "all_phrogs_reps":
         foldseek_df["phrog"] = foldseek_df["target"].str.replace(".pdb", "")
         foldseek_df["tophit_protein"] = None
 

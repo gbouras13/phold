@@ -15,10 +15,12 @@ from urllib import request
 import shutil
 import csv
 import os
+import json
 
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 from transformers import T5EncoderModel, T5Tokenizer
 
 
@@ -130,7 +132,7 @@ def write_predictions(predictions, out_path):
                                 list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
                             ),
                         )
-                        for seq_id, yhats in prediction_contig_dict.items()
+                        for seq_id, (yhats, _, _) in prediction_contig_dict.items()
                     ]
                 )
             )
@@ -138,6 +140,48 @@ def write_predictions(predictions, out_path):
     logger.info(f"Finished writing results to {out_path}")
     return None
 
+def write_probs(predictions, out_path_mean, output_path_all):
+
+    with open(out_path_mean, 'w+') as out_f:
+        for contig_id, rest in predictions.items():
+                    
+            prediction_contig_dict = predictions[contig_id]
+
+            out_f.write('\n'.join(
+                ["{},{}".format(seq_id, mean_prob)
+                for seq_id, (N, mean_prob, N) in prediction_contig_dict.items()
+                ]
+            ))
+
+    with open(output_path_all, "w+") as out_f:
+
+        for contig_id, rest in predictions.items():
+            prediction_contig_dict = predictions[contig_id]
+
+
+            for seq_id, (N, N, all_probs) in prediction_contig_dict.items():
+                
+                # * 100
+                all_probs = all_probs * 100
+                # Convert NumPy array to list
+                all_probs_list = all_probs.flatten().tolist() if isinstance(all_probs, np.ndarray) else all_probs
+
+                # round to 2 dp
+                rounded_list = [round(num, 2) for num in all_probs_list]
+
+                # Create a dictionary for the specific items
+                specific_data = {
+                    "seq_id": seq_id,
+                    "probability": rounded_list
+                }
+
+                # Convert the dictionary to a JSON string
+                json_data = json.dumps(specific_data)
+
+                # Write the JSON string to the file
+                out_f.write(json_data + '\n')  # Add a newline after each JSON object
+
+    return None
 
 def toCPU(tensor):
     if len(tensor.shape) > 1:
@@ -189,7 +233,8 @@ def get_embeddings(
     max_seq_len: int = 1000,
     max_batch: int = 100,
     proteins: bool = False,
-    cpu: bool = False
+    cpu: bool = False,
+    output_probs: bool = True
 ) -> bool:
     predictions = {}
 
@@ -295,8 +340,14 @@ def get_embeddings(
                     )
                     # slice off embedding of special token prepended before to each sequence
                     residue_embedding = residue_embedding[:, 1:]
-
                     prediction = predictor(residue_embedding)
+
+                    if output_probs:  
+                    # compute max probabilities per token/residue if requested
+                        probabilities = toCPU(torch.max(
+                            F.softmax(prediction, dim=1), dim=1, keepdim=True)[0])
+
+
                     prediction = toCPU(
                         torch.max(prediction, dim=1, keepdim=True)[1]
                     ).astype(np.byte)
@@ -305,12 +356,23 @@ def get_embeddings(
                     # extra token is added at the end of the seq
                     for batch_idx, identifier in enumerate(pdb_ids):
                         s_len = seq_lens[batch_idx]
+                        
+                        # # slice off padding and special token appended to the end of the sequence
+                        # predictions[record_id][identifier] = prediction[
+                        #     batch_idx, :, 0:s_len
+                        # ].squeeze()
+
                         # slice off padding and special token appended to the end of the sequence
-                        predictions[record_id][identifier] = prediction[
-                            batch_idx, :, 0:s_len
-                        ].squeeze()
-                        assert s_len == len(predictions[record_id][identifier]), print(
-                            f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier])} vs should:{s_len}"
+                        pred = prediction[batch_idx, :, 0:s_len].squeeze()
+
+                        if output_probs:  # average over per-residue max.-probabilities
+                            mean_prob = round(100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2)
+                            all_prob = probabilities[batch_idx, :, 0:s_len]
+                            predictions[record_id][identifier] = (pred, mean_prob, all_prob)
+                        else:
+                            predictions[record_id][identifier] = (pred, None, None)
+                        assert s_len == len(predictions[record_id][identifier][0]), print(
+                            f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}"
                         )
                 except IndexError:
                     logger.warning(
@@ -337,5 +399,12 @@ def get_embeddings(
             tsv_writer.writerows(data_as_list_of_lists)
 
     write_predictions(predictions, output_3di)
+
+    mean_probs_out_path: Path = Path(out_path) / "output3di_mean_probabilities.csv"
+    all_probs_out_path: Path = Path(out_path) / "output3di_all_probabilities.json"
+
+    if output_probs:
+        write_probs(predictions, mean_probs_out_path, all_probs_out_path)
+
     return True
 
