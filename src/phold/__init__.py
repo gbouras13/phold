@@ -1041,7 +1041,7 @@ def remote(
 
 
 """
-create command 
+createphrog command 
 """
 
 
@@ -1103,7 +1103,7 @@ create command
     help="enhvog db protein batch size.",
     show_default=True,
 )
-def create(
+def createphrog(
     ctx,
     input,
     output,

@@ -23,7 +23,7 @@ for ((start_phrog = min_phrog; start_phrog <= total_phrog; start_phrog += batch_
 
     echo "Processing phrogs $start_phrog to $end_phrog..."
     
-    phold create -i "$input_file" --tsv "$tsv_file" -o "$output_subdir" -t "$num_threads" -d "$database_dir" -f --min_phrog "$start_phrog" --max_phrog "$end_phrog"
+    phold createphrog -i "$input_file" --tsv "$tsv_file" -o "$output_subdir" -t "$num_threads" -d "$database_dir" -f --min_phrog "$start_phrog" --max_phrog "$end_phrog"
 done
 
 
@@ -48,7 +48,7 @@ for ((start_phrog = min_phrog; start_phrog <= total_phrog; start_phrog += batch_
 
     echo "Processing phrogs $start_phrog to $end_phrog..."
     
-    phold create -i "$input_file" --tsv "$tsv_file" -o "$output_subdir" -t "$num_threads" -d "$database_dir" -f --min_phrog "$start_phrog" --max_phrog "$end_phrog"
+    phold createphrog -i "$input_file" --tsv "$tsv_file" -o "$output_subdir" -t "$num_threads" -d "$database_dir" -f --min_phrog "$start_phrog" --max_phrog "$end_phrog"
 done
 
 
