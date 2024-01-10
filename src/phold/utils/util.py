@@ -54,7 +54,7 @@ begin and end functions
 """
 
 
-def begin_phold(params):
+def begin_phold(params, subcommand: str):
     """
     begins phold
     params: dict params a dictionary of params for hazed
@@ -63,18 +63,17 @@ def begin_phold(params):
     # get start time
     start_time = time.time()
     # initial logging stuff
-    log_file = os.path.join(params["--output"], f"phold_{start_time}.log")
+    log_file = os.path.join(params["--output"], f"phold_{subcommand}_{start_time}.log")
     # adds log file
     logger.add(log_file)
     logger.add(lambda _: sys.exit(1), level="ERROR")
 
     print_splash()
-    logger.info(
-        "phold: annotating phage genomes with protein structures."
-    )
+    logger.info("phold: annotating phage genomes with protein structures.")
 
     logger.info(f"You are using phold version {get_version()}")
     logger.info("Repository homepage is https://github.com/gbouras13/phold")
+    logger.info(f"You are running phold {subcommand}.")
     logger.info(f"Listing parameters.")
     for key, value in params.items():
         logger.info(f"Parameter: {key} {value}.")
@@ -82,8 +81,7 @@ def begin_phold(params):
     return start_time
 
 
-
-def end_phold(start_time):
+def end_phold(start_time, subcommand: str):
     """
     finishes phold
     """
@@ -93,8 +91,9 @@ def end_phold(start_time):
     elapsed_time = round(elapsed_time, 2)
 
     # Show elapsed time for the process
-    logger.info("phold has finished")
+    logger.info(f"phold {subcommand} has finished")
     logger.info("Elapsed time: " + str(elapsed_time) + " seconds")
+
 
 # need the logo here eventually
 def print_splash():
@@ -112,10 +111,12 @@ def print_splash():
 """
     )
 
+
 def remove_file(file_path: Path) -> None:
     if file_path.exists():
         file_path.unlink()  # Use unlink to remove the file
 
+
 def remove_directory(dir_path: Path) -> None:
     if dir_path.exists():
-        shutil.rmtree(dir_path) 
+        shutil.rmtree(dir_path)

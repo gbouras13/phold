@@ -39,7 +39,6 @@ def instantiate_dirs(output_dir: Path, force: bool):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
-
 # def validate_fasta(input_fasta: Path):
 #     """
 #     Validates  FASTA input - that the input is a FASTA with 1 sequence
@@ -65,7 +64,6 @@ def instantiate_dirs(output_dir: Path, force: bool):
 #             logger.error(
 #                 f"{input_fasta} has more than one entry. Please check your input FASTA file!"
 #             )
-
 
 
 def is_protein_sequence(string):
@@ -113,4 +111,3 @@ def check_evalue(evalue):
         logger.error(
             f"Error: evalue {evalue} is neither numeric nor in scientific notation. Please check your evalue."
         )
-

@@ -3,8 +3,16 @@ from pathlib import Path
 from phold.utils.external_tools import ExternalTool
 
 
-def run_foldseek_search( query_db: Path, target_db: Path, result_db: Path, temp_db: Path, threads: int, logdir: Path, evalue: float, sensitivity: float ) -> None:
-
+def run_foldseek_search(
+    query_db: Path,
+    target_db: Path,
+    result_db: Path,
+    temp_db: Path,
+    threads: int,
+    logdir: Path,
+    evalue: float,
+    sensitivity: float,
+) -> None:
     foldseek_search = ExternalTool(
         tool="foldseek",
         input=f"",
@@ -15,10 +23,13 @@ def run_foldseek_search( query_db: Path, target_db: Path, result_db: Path, temp_
 
     ExternalTool.run_tool(foldseek_search)
 
+
 # foldseek createtsv viji_fs_db/viji toy_foldseek_db/toy_prophage_db resultDB/result result.tsv
 
-def create_result_tsv( query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path ) -> None:
 
+def create_result_tsv(
+    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path
+) -> None:
     foldseek_search = ExternalTool(
         tool="foldseek",
         input=f"",

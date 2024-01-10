@@ -9,7 +9,6 @@ import click
 from loguru import logger
 
 
-
 class ExternalTool:
     def __init__(self, tool: str, input: str, output: str, params: str, logdir: Path):
         self.command: List[str] = self._build_command(tool, input, output, params)
