@@ -123,22 +123,23 @@ Options:
     * need to make the ENVHOG mapping tsv work
 
 
-## `run` if you have a CUDA GPU available
+## `predict` if you have a CUDA GPU available
 ```
-phold run -i tests/test_data/pharokka.gbk -o test_output -t 16 -f -d PHROG_ProstT5_Foldseek_db_updated/
+phold predict -i tests/test_data/pharokka.gbk -o test_output -t 1 -f 
 ```
 
-## `remote` if you don't have a CUDA gpu (will take longer)
 ```
-phold run -i tests/test_data/pharokka.gbk -o test_output -t 16 -f -d PHROG_ProstT5_Foldseek_db_updated/
-phold remote -i tests/test_data/pharokka.gbk -o test_output -t 16 -f -d PHROG_ProstT5_Foldseek_db_updated/
+phold comapre --predictions_dir test_output -o output_phold -t 1 -f -d PHROG_ProstT5_Foldseek_db/
 ```
+
+
 
 
 ## TBD
 
-* LoRA on ProstT5
-* Better annotate PHROGs
-* Validate ProstT5 vs colabfold
-* Add the end glue code (to split out GFFs, GBKs etc)
-* Allow for specifying structures more easily.
+* LoRA on ProstT5.
+* Split the predict/compare commands better.
+* Better annotate PHROGs.
+* Validate ProstT5 vs colabfold.
+* Add the end glue code (to split out GFFs, GBKs etc).
+* Allow for specifying structures more easily and remove `--unrelaxed`.
