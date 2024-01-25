@@ -109,7 +109,7 @@ def foldseek_tsv2db(
 
 
 def generate_foldseek_db_from_pdbs(
-    fasta_aa: Path, foldseek_db_path: Path, pdb_dir: Path, logdir: Path, rank_001_pdb_path: Path, prefix: str, unrelaxed: bool
+    fasta_aa: Path, foldseek_db_path: Path, pdb_dir: Path, logdir:  Path, prefix: str
 ) -> None:
     
 
@@ -118,47 +118,39 @@ def generate_foldseek_db_from_pdbs(
     for record in SeqIO.parse(fasta_aa, "fasta"):
         sequences_aa[record.id] = str(record.seq)
 
-
-    # default to relaxed
-    if unrelaxed is False:
-        rank_001_files = [file for file in os.listdir(pdb_dir) if file.endswith('.pdb') and '_relaxed_rank_001' in file]
-    else:
-        rank_001_files = [file for file in os.listdir(pdb_dir) if file.endswith('.pdb') and '_unrelaxed_rank_001' in file]
-
-    num_pdbs = len(rank_001_files)
+    # lists all the pdb files
+    pdb_files = [file for file in os.listdir(pdb_dir) if file.endswith('.pdb')]
+    
+    num_pdbs = len(pdb_files)
 
     if num_pdbs == 0:
         logger.exit(f"No rank_001 pdbs found. Check the {pdb_dir}.")
 
+    num_pdbs = 0 
+    
+    # Checks that ID is in the pdbs
 
-    num_copied_pdbs = 0 
-    # find the pdb with rank_001 with the cds_id and copy it to the pdb path
+    no_pdb_cds_ids = []
+
     for id in sequences_aa.keys():
         cds_id = id.split(':')[1]
-        # get all matching files
-        matching_files = [file for file in rank_001_files if cds_id in file]
+        # this is potentially an issue if a contig has > 9999 AAs
+        # need to fix with Pharokka possibly. Unlikely to occur but might!
+        matching_files = [file for file in pdb_files if cds_id in file]
+        num_pdbs += 1
         if len(matching_files) > 1:
-            logger.warning(f"More than 1 rank_001 pdb found for {id}.")
+            logger.warning(f"More than 1 pdb found for {id}.")
             logger.warning("Taking the first one")
-        if matching_files:
-            # Assuming you want to return the first matching file
-            # matching_files[0]
-            # Construct source and destination paths
-            # the name of the pdb = {contig_id}:{cds_id} for later parsing
-            source_path = os.path.join(pdb_dir, matching_files[0])
-            destination_path = os.path.join(rank_001_pdb_path, f"{id}") # don't include pdb on the end or else is in name
-            # Copy the file
-            shutil.copyfile(source_path, destination_path)
-            num_copied_pdbs += 1
-        else:
+            num_pdbs += 1
+        elif len(matching_files) == 0:
             logger.warning(f"No pdb found for {id}.")
-
+            logger.warning(f"{id} will be ignored in annotation.")
+            no_pdb_cds_ids.append(cds_id)
     
-    if num_copied_pdbs == 0:
-        logger.exit(f"No rank_001 pdbs with matching ids found. Check the {pdb_dir}.")   
+    if num_pdbs == 0:
+        logger.error(f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir}.")   
 
     # generate the db
-
     short_db_name = f"{prefix}"
     pdb_db_name: Path = Path(foldseek_db_path) / short_db_name
 
@@ -166,7 +158,7 @@ def generate_foldseek_db_from_pdbs(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"createdb {rank_001_pdb_path} {pdb_db_name} ",
+        params=f"createdb {pdb_dir} {pdb_db_name} ",
         logdir=logdir,
     )
 

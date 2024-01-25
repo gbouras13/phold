@@ -159,12 +159,12 @@ def compare_options(func):
             type=str,
             required=False,
             show_default=True,
-            help="Name of foldseek PHROGs or ENVHOGs database.",
+            help="Name of foldseek PHROGs database.",
         ),
         click.option(
             "-e",
             "--evalue",
-            default="1e-3",
+            default="1e-2",
             help="e value threshold for Foldseek",
             show_default=True,
         ),
@@ -542,17 +542,12 @@ compare command
 @click.option(
     "--pdb",
     is_flag=True,
-    help="Use if you have pdbs for the input proteins (with AF2/Colabfold).",
+    help="Use if you have pdbs for the input proteins (with AF2/Colabfold). The CDS Ids need to be in the name of the file.",
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with pdbs",
+    help="Path to directory with pdbs.",
     type=click.Path(),
-)
-@click.option(
-    "--unrelaxed",
-    help="Use unrelaxed top rank pdb. By default, relaxed will be used (if found).",
-    is_flag=True,
 )
 @common_options
 @compare_options
@@ -571,7 +566,6 @@ def compare(
     predictions_dir,
     pdb,
     pdb_dir,
-    unrelaxed,
     **kwargs,
 ):
     """Runs phold compare (Foldseek)"""
@@ -596,8 +590,7 @@ def compare(
         "--mode": mode,
         "--predictions_dir": predictions_dir,
         "--pdb": pdb,
-        "--pdb_dir": pdb_dir,
-        "--unrelaxed": unrelaxed
+        "--pdb_dir": pdb_dir
     }
 
     # initial logging etc
@@ -624,16 +617,13 @@ def compare(
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
 
-
-    # # assumes these exist been run if pdb is false
-
     if pdb is False:
+        # prostT5
         fasta_aa_input: Path = Path(predictions_dir) / "outputaa.fasta"
         fasta_3di_input: Path = Path(predictions_dir) / "output3di.fasta"
 
     fasta_aa: Path = Path(output) / "outputaa.fasta"
     fasta_3di: Path = Path(output) / "output3di.fasta"
-
 
     ## copy the 3Di to file if pdb is false
     if pdb is False:
@@ -670,9 +660,7 @@ def compare(
 
     if pdb is True:
         logger.info("Creating a foldseek query db from the pdbs.")
-        rank_001_pdb_path: Path = Path(output) / "rank_001_pdbs"
-        rank_001_pdb_path.mkdir(parents=True, exist_ok=True)
-        generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, logdir, rank_001_pdb_path, prefix, unrelaxed
+        generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, logdir, prefix
 )
     else:
         generate_foldseek_db_from_aa_3di(
@@ -688,6 +676,7 @@ def compare(
         logger.error(
             f"Please choose a different {prefix} as this conflicts with the {database_name}"
         )
+
     query_db: Path = Path(foldseek_query_db_path) / short_db_name
     target_db: Path = Path(database) / database_name
 
@@ -1040,249 +1029,249 @@ def remote(
     end_phold(start_time, "remote")
 
 
-"""
-createphrog command 
-"""
+# """
+# createphrog command  - dont need this in the end
+# """
 
 
-@main_cli.command()
-@click.help_option("--help", "-h")
-@click.version_option(get_version(), "--version", "-V")
-@click.pass_context
-@click.option(
-    "-i",
-    "--input",
-    help="Path to input Amino Acid FASTA file in .faa",
-    type=click.Path(),
-    required=True,
-)
-@click.option(
-    "--tsv",
-    help="Path to input tsv linking Amino Acid FASTA file to phrog id",
-    default="phrog_mapping.tsv",
-    type=click.Path(),
-)
-@common_options
-@click.option(
-    "-e",
-    "--evalue",
-    default="1e-3",
-    help="e value threshold for Foldseek",
-    show_default=True,
-)
-@click.option(
-    "--min_phrog",
-    default=1,
-    type=int,
-    help="min phrog as integer (e.g. 1)",
-    show_default=True,
-)
-@click.option(
-    "--max_phrog",
-    default=1000,
-    type=int,
-    help="max phrog as integer (e.g. 1000)",
-    show_default=True,
-)
-@click.option(
-    "--envhog_flag",
-    is_flag=True,
-    help="enhvog DB creation - assumes the input FASTA as already parsed.",
-)
-@click.option(
-    "--envhog_start",
-    type=int,
-    default=1,
-    help="enhvog db protein to start from.",
-    show_default=True,
-)
-@click.option(
-    "--envhog_batch_size",
-    type=int,
-    default=1000,
-    help="enhvog db protein batch size.",
-    show_default=True,
-)
-def createphrog(
-    ctx,
-    input,
-    output,
-    tsv,
-    threads,
-    prefix,
-    evalue,
-    force,
-    model,
-    database,
-    min_phrog,
-    max_phrog,
-    envhog_flag,
-    envhog_start,
-    envhog_batch_size,
-    **kwargs,
-):
-    """Creates phold compatible PHROG or ENVHOG foldseek db using ProstT5"""
+# @main_cli.command()
+# @click.help_option("--help", "-h")
+# @click.version_option(get_version(), "--version", "-V")
+# @click.pass_context
+# @click.option(
+#     "-i",
+#     "--input",
+#     help="Path to input Amino Acid FASTA file in .faa",
+#     type=click.Path(),
+#     required=True,
+# )
+# @click.option(
+#     "--tsv",
+#     help="Path to input tsv linking Amino Acid FASTA file to phrog id",
+#     default="phrog_mapping.tsv",
+#     type=click.Path(),
+# )
+# @common_options
+# @click.option(
+#     "-e",
+#     "--evalue",
+#     default="1e-3",
+#     help="e value threshold for Foldseek",
+#     show_default=True,
+# )
+# @click.option(
+#     "--min_phrog",
+#     default=1,
+#     type=int,
+#     help="min phrog as integer (e.g. 1)",
+#     show_default=True,
+# )
+# @click.option(
+#     "--max_phrog",
+#     default=1000,
+#     type=int,
+#     help="max phrog as integer (e.g. 1000)",
+#     show_default=True,
+# )
+# @click.option(
+#     "--envhog_flag",
+#     is_flag=True,
+#     help="enhvog DB creation - assumes the input FASTA as already parsed.",
+# )
+# @click.option(
+#     "--envhog_start",
+#     type=int,
+#     default=1,
+#     help="enhvog db protein to start from.",
+#     show_default=True,
+# )
+# @click.option(
+#     "--envhog_batch_size",
+#     type=int,
+#     default=1000,
+#     help="enhvog db protein batch size.",
+#     show_default=True,
+# )
+# def createphrog(
+#     ctx,
+#     input,
+#     output,
+#     tsv,
+#     threads,
+#     prefix,
+#     evalue,
+#     force,
+#     model,
+#     database,
+#     min_phrog,
+#     max_phrog,
+#     envhog_flag,
+#     envhog_start,
+#     envhog_batch_size,
+#     **kwargs,
+# ):
+#     """Creates phold compatible PHROG or ENVHOG foldseek db using ProstT5"""
 
-    # validates the directory  (need to before I start phold or else no log file is written)
-    instantiate_dirs(output, force)
+#     # validates the directory  (need to before I start phold or else no log file is written)
+#     instantiate_dirs(output, force)
 
-    output: Path = Path(output)
-    logdir: Path = Path(output) / "logs"
+#     output: Path = Path(output)
+#     logdir: Path = Path(output) / "logs"
 
-    params = {
-        "--input": input,
-        "--output": output,
-        "--tsv": tsv,
-        "--threads": threads,
-        "--force": force,
-        "--prefix": prefix,
-        "--evalue": evalue,
-        "--database": database,
-        "--min_phrog": min_phrog,
-        "--max_phrog": max_phrog,
-        "--envhog_flag": envhog_flag,
-        "--envhog_start": envhog_start,
-        "--envhog_batch_size": envhog_batch_size,
-    }
+#     params = {
+#         "--input": input,
+#         "--output": output,
+#         "--tsv": tsv,
+#         "--threads": threads,
+#         "--force": force,
+#         "--prefix": prefix,
+#         "--evalue": evalue,
+#         "--database": database,
+#         "--min_phrog": min_phrog,
+#         "--max_phrog": max_phrog,
+#         "--envhog_flag": envhog_flag,
+#         "--envhog_start": envhog_start,
+#         "--envhog_batch_size": envhog_batch_size,
+#     }
 
-    # initial logging etc
-    start_time = begin_phold(params, "create")
+#     # initial logging etc
+#     start_time = begin_phold(params, "create")
 
-    # gets proteins
-    logger.info("Creating protein dictionary")
-    prot_dict = get_proteins(input)
-    logger.info("Protein dictionary created")
+#     # gets proteins
+#     logger.info("Creating protein dictionary")
+#     prot_dict = get_proteins(input)
+#     logger.info("Protein dictionary created")
 
-    if not prot_dict:
-        logger.warning(f"Error: no sequences found in {input} FASTA file")
-        logger.error(f"No sequences found in {input} FASTA file. Nothing to annotate")
+#     if not prot_dict:
+#         logger.warning(f"Error: no sequences found in {input} FASTA file")
+#         logger.error(f"No sequences found in {input} FASTA file. Nothing to annotate")
 
-    if envhog_flag is False:
-        # check if the tsv exists
-        tsv = Path(tsv)
-        if tsv.exists() is False:
-            logger.error(
-                f"{tsv} does not exist. You need to specify a Path using --tsv to an input tsv linking Amino Acid FASTA file to phrog id"
-            )
+#     if envhog_flag is False:
+#         # check if the tsv exists
+#         tsv = Path(tsv)
+#         if tsv.exists() is False:
+#             logger.error(
+#                 f"{tsv} does not exist. You need to specify a Path using --tsv to an input tsv linking Amino Acid FASTA file to phrog id"
+#             )
 
-        # read tsv
-        # needs to have 3 columns - seq_id, phrog and description
-        phrog_mapping_df = pd.read_csv(
-            tsv, sep="\t", names=["seq_id", "phrog", "description"]
-        )
+#         # read tsv
+#         # needs to have 3 columns - seq_id, phrog and description
+#         phrog_mapping_df = pd.read_csv(
+#             tsv, sep="\t", names=["seq_id", "phrog", "description"]
+#         )
 
-        # takes arguments gets all the desired phrogs
-        phrog_list = ["phrog_" + str(i) for i in range(min_phrog, (max_phrog + 1))]
+#         # takes arguments gets all the desired phrogs
+#         phrog_list = ["phrog_" + str(i) for i in range(min_phrog, (max_phrog + 1))]
 
-        # Create a nested dictionary to store CDS features by phrog ID
-        cds_dict = {}
+#         # Create a nested dictionary to store CDS features by phrog ID
+#         cds_dict = {}
 
-        logger.info("Creating dictionary to store all proteins for each phrog.")
-        counter = 0
+#         logger.info("Creating dictionary to store all proteins for each phrog.")
+#         counter = 0
 
-        # loops over all phrogs and adds them to dict - like a contig for normal phold
-        for phrog_value in phrog_list:
-            cds_dict[phrog_value] = {}
+#         # loops over all phrogs and adds them to dict - like a contig for normal phold
+#         for phrog_value in phrog_list:
+#             cds_dict[phrog_value] = {}
 
-            # subset df
-            phrog_group_df = phrog_mapping_df[phrog_mapping_df["phrog"] == phrog_value]
-            # list of seq_ids
-            seq_ids = phrog_group_df["seq_id"].tolist()
+#             # subset df
+#             phrog_group_df = phrog_mapping_df[phrog_mapping_df["phrog"] == phrog_value]
+#             # list of seq_ids
+#             seq_ids = phrog_group_df["seq_id"].tolist()
 
-            # append to the cds dict
-            for seq_id in seq_ids:
-                if seq_id in prot_dict:
-                    cds_dict[phrog_value][seq_id] = prot_dict[seq_id]
-    else:
-        envhog_end = envhog_start + envhog_batch_size - 1
+#             # append to the cds dict
+#             for seq_id in seq_ids:
+#                 if seq_id in prot_dict:
+#                     cds_dict[phrog_value][seq_id] = prot_dict[seq_id]
+#     else:
+#         envhog_end = envhog_start + envhog_batch_size - 1
 
-        logger.info(
-            f"You are running ProstT5 on enVhogs. Ignoring any PHROG specific commands."
-        )
-        logger.info(
-            f"Taking the {envhog_start} to {envhog_end} proteins in your input file {input}."
-        )
-        # Convert the dictionary to a list of items (key-value pairs)
-        dict_items = list(prot_dict.items())
+#         logger.info(
+#             f"You are running ProstT5 on enVhogs. Ignoring any PHROG specific commands."
+#         )
+#         logger.info(
+#             f"Taking the {envhog_start} to {envhog_end} proteins in your input file {input}."
+#         )
+#         # Convert the dictionary to a list of items (key-value pairs)
+#         dict_items = list(prot_dict.items())
 
-        if envhog_end - 1 > len(dict_items):
-            envhog_batch_size = len(dict_items) - envhog_end
-            logger.warning(
-                f"batch size reduced to {envhog_batch_size} to the end of the number of records."
-            )
-            envhog_end = len(dict_items)
+#         if envhog_end - 1 > len(dict_items):
+#             envhog_batch_size = len(dict_items) - envhog_end
+#             logger.warning(
+#                 f"batch size reduced to {envhog_batch_size} to the end of the number of records."
+#             )
+#             envhog_end = len(dict_items)
 
-        # Get items from 100th to 1000th
-        entries = dict_items[envhog_start - 1 : envhog_end]
+#         # Get items from 100th to 1000th
+#         entries = dict_items[envhog_start - 1 : envhog_end]
 
-        # to convert the selected items back to a dictionary:
-        prot_dict = dict(entries)
-        # need this hack to make it accept  the nested dictionary
-        cds_dict = {}
+#         # to convert the selected items back to a dictionary:
+#         prot_dict = dict(entries)
+#         # need this hack to make it accept  the nested dictionary
+#         cds_dict = {}
 
-        # get all unique phrogs in this set and instantiate the dict
-        unique_phrogs = []
-        for id, seq in prot_dict.items():
-            parts = id.split(":")
-            phrog = parts[0]
-            if phrog not in unique_phrogs:
-                unique_phrogs.append(phrog)
+#         # get all unique phrogs in this set and instantiate the dict
+#         unique_phrogs = []
+#         for id, seq in prot_dict.items():
+#             parts = id.split(":")
+#             phrog = parts[0]
+#             if phrog not in unique_phrogs:
+#                 unique_phrogs.append(phrog)
 
-        for phrog in unique_phrogs:
-            cds_dict[phrog] = {}
+#         for phrog in unique_phrogs:
+#             cds_dict[phrog] = {}
 
-        for key, seq in prot_dict.items():
-            parts = key.split(":")
-            phrog = parts[0]
-            prot_name = parts[1]
-            cds_dict[phrog][prot_name] = prot_dict[key]
+#         for key, seq in prot_dict.items():
+#             parts = key.split(":")
+#             phrog = parts[0]
+#             prot_name = parts[1]
+#             cds_dict[phrog][prot_name] = prot_dict[key]
 
-    fasta_aa: Path = Path(output) / "outputaa.fasta"
+#     fasta_aa: Path = Path(output) / "outputaa.fasta"
 
-    ## write the CDS to file
-    with open(fasta_aa, "w+") as out_f:
-        for phrog_id, rest in cds_dict.items():
-            phrog_dict = cds_dict[phrog_id]
+#     ## write the CDS to file
+#     with open(fasta_aa, "w+") as out_f:
+#         for phrog_id, rest in cds_dict.items():
+#             phrog_dict = cds_dict[phrog_id]
 
-            # writes the CDS to file
-            for seq_id, cds_feature in phrog_dict.items():
-                out_f.write(f">{phrog_id}:{seq_id}\n")
-                out_f.write(f"{phrog_dict[seq_id]}\n")
+#             # writes the CDS to file
+#             for seq_id, cds_feature in phrog_dict.items():
+#                 out_f.write(f">{phrog_id}:{seq_id}\n")
+#                 out_f.write(f"{phrog_dict[seq_id]}\n")
 
-    ############
-    # prostt5
-    ############
+#     ############
+#     # prostt5
+#     ############
 
-    logger.info("Running ProstT5")
+#     logger.info("Running ProstT5")
 
-    # generates the embeddings using ProstT5 and saves them to file
-    # required gpu
-    fasta_3di: Path = Path(output) / "output3di.fasta"
-    get_embeddings(
-        cds_dict,
-        output,
-        model,
-        half_precision=True,
-        max_residues=3000,
-        max_seq_len=500,
-        max_batch=1,
-        proteins=True,
-        cpu=False
-    )
+#     # generates the embeddings using ProstT5 and saves them to file
+#     # required gpu
+#     fasta_3di: Path = Path(output) / "output3di.fasta"
+#     get_embeddings(
+#         cds_dict,
+#         output,
+#         model,
+#         half_precision=True,
+#         max_residues=3000,
+#         max_seq_len=500,
+#         max_batch=1,
+#         proteins=True,
+#         cpu=False
+#     )
 
-    ############
-    # create foldseek db
-    ############
+#     ############
+#     # create foldseek db
+#     ############
 
-    foldseek_query_db_path: Path = Path(output) / "foldseek_db"
-    foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
+#     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
+#     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    generate_foldseek_db_from_aa_3di(
-        fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
-    )
+#     generate_foldseek_db_from_aa_3di(
+#         fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+#     )
 
-    # end phold
-    end_phold(start_time, "create")
+#     # end phold
+#     end_phold(start_time, "create")
 
 
 """
