@@ -134,6 +134,11 @@ def predict_options(func):
             is_flag=True,
             help="Do not output 3Di probabilities from ProstT5",
         ),
+        click.option(
+            "--finetune",
+            is_flag=True,
+            help="Finetune",
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -231,6 +236,7 @@ def run(
     mode,
     cpu,
     omit_probs,
+    finetune,
     **kwargs,
 ):
     """Runs phold predict (ProstT5) and comapare (Foldseek)"""
@@ -256,7 +262,8 @@ def run(
         "--sensitivity": sensitivity,
         "--mode": mode,
         "--cpu": cpu,
-        "--omit_probs": omit_probs
+        "--omit_probs": omit_probs,
+        "--finetune": finetune
     }
 
     # initial logging etc
@@ -324,7 +331,7 @@ def run(
         max_batch=batch_size,
         proteins=False,
         cpu=cpu,
-        output_probs=output_probs
+        output_probs=output_probs,
     )
 
     ############
@@ -379,7 +386,7 @@ def run(
         #####
 
         filtered_tophits_df = parse_tophits(
-            filtered_tophits_df, database, database_name
+            filtered_tophits_df, database, database_name, pdb=False
         )
 
         # calculate results and saves to tsvs
@@ -427,6 +434,7 @@ def predict(
     batch_size,
     cpu,
     omit_probs,
+    finetune,
     **kwargs,
 ):
     """Runs phold predict (ProstT5)"""
@@ -446,7 +454,8 @@ def predict(
         "--model_name": model_name,
         "--batch_size": batch_size,
         "--cpu": cpu,
-        "--omit_probs": omit_probs
+        "--omit_probs": omit_probs,
+        "--finetune": finetune
     }
 
     # initial logging etc
@@ -512,7 +521,8 @@ def predict(
         max_batch=batch_size,
         proteins=False,
         cpu=cpu,
-        output_probs=output_probs
+        output_probs=output_probs,
+        finetune_flag=finetune
     )
 
     # end phold
@@ -709,11 +719,11 @@ def compare(
         #####
 
         filtered_tophits_df = parse_tophits(
-            filtered_tophits_df, database, database_name
+            filtered_tophits_df, database, database_name, pdb
         )
 
         # calculate results and saves to tsvs
-        calculate_tophits_results(filtered_tophits_df, cds_dict, output)
+        calculate_tophits_results(filtered_tophits_df, cds_dict, output, pdb=False)
 
     elif mode == "topfunction":
         filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name)
@@ -757,6 +767,7 @@ def proteins(
     batch_size,
     cpu,
     omit_probs,
+    finetune,
     **kwargs,
 ):
     """Runs phold proteins (ProstT5 on a multiFASTA input)"""
@@ -776,7 +787,8 @@ def proteins(
         "--model_name": model_name,
         "--batch_size": batch_size,
         "--cpu": cpu,
-        "--omit_probs": omit_probs
+        "--omit_probs": omit_probs,
+        "--finetune": finetune
     }
 
     # initial logging etc
@@ -844,7 +856,8 @@ def proteins(
         max_batch=batch_size,
         proteins=False,
         cpu=cpu,
-        output_probs=output_probs
+        output_probs=output_probs,
+        finetune_flag=finetune
     )
 
     ## Need this to remove the fake record id 

@@ -124,7 +124,7 @@ def generate_foldseek_db_from_pdbs(
     num_pdbs = len(pdb_files)
 
     if num_pdbs == 0:
-        logger.exit(f"No rank_001 pdbs found. Check the {pdb_dir}.")
+        logger.exit(f"No pdbs found. Check the {pdb_dir}.")
 
     num_pdbs = 0 
     
@@ -134,17 +134,20 @@ def generate_foldseek_db_from_pdbs(
 
     for id in sequences_aa.keys():
         cds_id = id.split(':')[1]
+        record_id = id.split(':')[0]
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
-        matching_files = [file for file in pdb_files if cds_id in file]
+        # enforce names as '{cds_id}.pdb'
+        matching_files = [file for file in pdb_files if f'{cds_id}.pdb' == file]
         num_pdbs += 1
+        # should neve happen but in case
         if len(matching_files) > 1:
-            logger.warning(f"More than 1 pdb found for {id}.")
+            logger.warning(f"More than 1 pdb found for {cds_id}.")
             logger.warning("Taking the first one")
             num_pdbs += 1
         elif len(matching_files) == 0:
-            logger.warning(f"No pdb found for {id}.")
-            logger.warning(f"{id} will be ignored in annotation.")
+            logger.warning(f"No pdb found for {cds_id}.")
+            logger.warning(f"{cds_id} will be ignored in annotation.")
             no_pdb_cds_ids.append(cds_id)
     
     if num_pdbs == 0:

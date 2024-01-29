@@ -23,6 +23,7 @@ from torch import nn
 import torch.nn.functional as F
 from transformers import T5EncoderModel, T5Tokenizer
 
+from phold.utils.constants import MODEL_DB
 
 
 # Convolutional neural network (two convolutional layers)
@@ -52,7 +53,7 @@ class CNN(nn.Module):
         return Yhat
 
 
-def get_T5_model(model_dir, model_name, cpu):
+def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag):
 
     # sets the device
 
@@ -87,10 +88,26 @@ def get_T5_model(model_dir, model_name, cpu):
     model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
         device
     )
+
+    # finetuned weights
+    if finetune_flag is True:
+        # Load the non-frozen parameters from the saved file
+        non_frozen_params = torch.load(finetuned_model_path, map_location=device)
+
+        # Assign the non-frozen parameters to the corresponding parameters of the model
+        for param_name, param in model.named_parameters():
+            if param_name in non_frozen_params:
+                param.data = non_frozen_params[param_name].data
+
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
         model_name, cache_dir=f"{model_dir}/", do_lower_case=False
     )
+
+
+
+
+
     return model, vocab
 
 
@@ -204,14 +221,14 @@ def download_file(url, local_path):
     return None
 
 
-def load_predictor(
-    model_dir, weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt"
-):
+def load_predictor(weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt"):
     model = CNN()
-    checkpoint_p = Path(model_dir) / "cnn_chkpnt" / "model.pt"
-    # if no pre-trained model is available, yet --> download it
-    if not checkpoint_p.exists():
-        download_file(weights_link, checkpoint_p)
+    checkpoint_p = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+
+    # link seems broken
+    # # if no pre-trained model is available, yet --> download it
+    # if not checkpoint_p.exists():
+    #     download_file(weights_link, checkpoint_p)
     
     state = torch.load(checkpoint_p, map_location=device)
 
@@ -234,13 +251,16 @@ def get_embeddings(
     max_batch: int = 100,
     proteins: bool = False,
     cpu: bool = False,
-    output_probs: bool = True
+    output_probs: bool = True, 
+    finetune_flag: bool = True
 ) -> bool:
     predictions = {}
 
     prefix = "<AA2fold>"
 
-    model, vocab = get_T5_model(model_dir, model_name, cpu)
+    finetuned_model_path = Path(MODEL_DB) / 'Phrostt5_finetuned.pth'
+
+    model, vocab = get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag)
     predictor = load_predictor(model_dir)
 
     if half_precision:
