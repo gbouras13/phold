@@ -121,6 +121,7 @@ Options:
 * PHROG_ProstT5_Foldseek_db_updated - 440k non-redundant PHROG proteins
 * ENVHOG_ProstT5_Foldseek_db - 2.2M representative ENVHOG proteins
     * need to make the ENVHOG mapping tsv work
+    * Probably will remove this
 
 
 ## `predict` if you have a CUDA GPU available
@@ -134,7 +135,6 @@ phold comapre --predictions_dir test_output -o output_phold -t 1 -f -d PHROG_Pro
 
 
 
-
 ## TBD
 
 * LoRA on ProstT5.
@@ -142,4 +142,3 @@ phold comapre --predictions_dir test_output -o output_phold -t 1 -f -d PHROG_Pro
 * Better annotate PHROGs.
 * Validate ProstT5 vs colabfold.
 * Add the end glue code (to split out GFFs, GBKs etc).
-* Allow for specifying structures more easily and remove `--unrelaxed`.
