@@ -779,7 +779,7 @@ def proteins(
     cpu,
     omit_probs,
     finetune,
-    finetune_path
+    finetune_path,
     **kwargs,
 ):
     """Runs phold proteins (ProstT5 on a multiFASTA input)"""
