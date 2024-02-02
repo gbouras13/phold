@@ -139,6 +139,11 @@ def predict_options(func):
             is_flag=True,
             help="Finetune",
         ),
+        click.option(
+            "--finetune_path",
+            help="batch size for ProstT5. 1 is usually fastest.",
+            default=None
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -237,6 +242,7 @@ def run(
     cpu,
     omit_probs,
     finetune,
+    finetune_path,
     **kwargs,
 ):
     """Runs phold predict (ProstT5) and comapare (Foldseek)"""
@@ -263,7 +269,8 @@ def run(
         "--mode": mode,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune
+        "--finetune": finetune,
+        "--finetune_path": finetune_path
     }
 
     # initial logging etc
@@ -332,6 +339,7 @@ def run(
         proteins=False,
         cpu=cpu,
         output_probs=output_probs,
+        finetuned_model_path=finetune_path
     )
 
     ############
@@ -435,6 +443,7 @@ def predict(
     cpu,
     omit_probs,
     finetune,
+    finetune_path,
     **kwargs,
 ):
     """Runs phold predict (ProstT5)"""
@@ -455,7 +464,8 @@ def predict(
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune
+        "--finetune": finetune,
+        "--finetune_path": finetune_path
     }
 
     # initial logging etc
@@ -522,7 +532,8 @@ def predict(
         proteins=False,
         cpu=cpu,
         output_probs=output_probs,
-        finetune_flag=finetune
+        finetune_flag=finetune,
+        finetuned_model_path=finetune_path
     )
 
     # end phold
@@ -768,6 +779,7 @@ def proteins(
     cpu,
     omit_probs,
     finetune,
+    finetune_path
     **kwargs,
 ):
     """Runs phold proteins (ProstT5 on a multiFASTA input)"""
@@ -788,7 +800,8 @@ def proteins(
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune
+        "--finetune": finetune,
+        "--finetune_path": finetune_path
     }
 
     # initial logging etc
@@ -857,7 +870,8 @@ def proteins(
         proteins=False,
         cpu=cpu,
         output_probs=output_probs,
-        finetune_flag=finetune
+        finetune_flag=finetune,
+        finetuned_model_path=finetune_path
     )
 
     ## Need this to remove the fake record id 

@@ -252,13 +252,15 @@ def get_embeddings(
     proteins: bool = False,
     cpu: bool = False,
     output_probs: bool = True, 
-    finetune_flag: bool = True
+    finetune_flag: bool = True,
+    finetuned_model_path: str = None
 ) -> bool:
     predictions = {}
 
     prefix = "<AA2fold>"
 
-    finetuned_model_path = Path(MODEL_DB) / 'Phrostt5_finetuned.pth'
+    if finetuned_model_path is None:
+        finetuned_model_path = Path(MODEL_DB) / 'Phrostt5_finetuned.pth'
 
     model, vocab = get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag)
     predictor = load_predictor(model_dir)
