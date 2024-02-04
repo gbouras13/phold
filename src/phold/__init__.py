@@ -686,7 +686,7 @@ def compare(
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    filtered_pdbs_path: Path = Path(output) / "pdbs"
+    filtered_pdbs_path: Path = Path(output) / "filtered_pdbs"
     filtered_pdbs_path.mkdir(parents=True, exist_ok=True)
 
     if pdb is True:
