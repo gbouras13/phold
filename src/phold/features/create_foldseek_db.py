@@ -109,7 +109,7 @@ def foldseek_tsv2db(
 
 
 def generate_foldseek_db_from_pdbs(
-    fasta_aa: Path, foldseek_db_path: Path, pdb_dir: Path, logdir:  Path, prefix: str
+    fasta_aa: Path, foldseek_db_path: Path, pdb_dir: Path, filtered_pdbs_path: Path, logdir:  Path, prefix: str, filter_pdbs: bool
 ) -> None:
     
 
@@ -139,11 +139,25 @@ def generate_foldseek_db_from_pdbs(
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as '{cds_id}.pdb'
         matching_files = [file for file in pdb_files if f'{cds_id}.pdb' == file]
-        num_pdbs += 1
+
+        # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
+        if len(matching_files) == 1:
+
+            if filter_pdbs is True:
+                source_path = Path(pdb_dir) / matching_files[0]
+                destination_path = Path(filtered_pdbs_path) / matching_files[0]
+                shutil.copyfile(source_path, destination_path)
+            num_pdbs += 1
+        # logger.info("Copying PDBs.")
+
         # should neve happen but in case
         if len(matching_files) > 1:
             logger.warning(f"More than 1 pdb found for {cds_id}.")
             logger.warning("Taking the first one")
+            if filter_pdbs is True:
+                source_path = Path(pdb_dir) / matching_files[0]
+                destination_path = Path(filtered_pdbs_path) / matching_files[0]
+                shutil.copyfile(source_path, destination_path)
             num_pdbs += 1
         elif len(matching_files) == 0:
             logger.warning(f"No pdb found for {cds_id}.")
@@ -157,11 +171,27 @@ def generate_foldseek_db_from_pdbs(
     short_db_name = f"{prefix}"
     pdb_db_name: Path = Path(foldseek_db_path) / short_db_name
 
+    # foldseek_createdb_from_pdbs = ExternalTool(
+    #     tool="foldseek",
+    #     input=f"",
+    #     output=f"",
+    #     params=f"createdb {pdb_dir} {pdb_db_name} ",
+    #     logdir=logdir,
+    # )
+
+    query_pdb_dir = pdb_dir
+    # choose the filtered directory
+    if filter_pdbs is True:
+        query_pdb_dir = filtered_pdbs_path
+
+
+
+
     foldseek_createdb_from_pdbs = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"createdb {pdb_dir} {pdb_db_name} ",
+        params=f"createdb {filtered_pdbs_path} {pdb_db_name} ",
         logdir=logdir,
     )
 

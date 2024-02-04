@@ -141,7 +141,7 @@ def predict_options(func):
         ),
         click.option(
             "--finetune_path",
-            help="batch size for ProstT5. 1 is usually fastest.",
+            help="Path to finetuned model weights",
             default=None
         ),
     ]
@@ -570,6 +570,11 @@ compare command
     help="Path to directory with pdbs.",
     type=click.Path(),
 )
+@click.option(
+    "--filter_pdbs",
+    is_flag=True,
+    help="Creates a copy of the PDBs with matching record IDs found in the genbank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+)
 @common_options
 @compare_options
 def compare(
@@ -587,6 +592,7 @@ def compare(
     predictions_dir,
     pdb,
     pdb_dir,
+    filter_pdbs,
     **kwargs,
 ):
     """Runs phold compare (Foldseek)"""
@@ -611,7 +617,8 @@ def compare(
         "--mode": mode,
         "--predictions_dir": predictions_dir,
         "--pdb": pdb,
-        "--pdb_dir": pdb_dir
+        "--pdb_dir": pdb_dir,
+        "--filter_pdbs": filter_pdbs
     }
 
     # initial logging etc
@@ -679,9 +686,14 @@ def compare(
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
+    filtered_pdbs_path: Path = Path(output) / "pdbs"
+    filtered_pdbs_path.mkdir(parents=True, exist_ok=True)
+
     if pdb is True:
         logger.info("Creating a foldseek query db from the pdbs.")
-        generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, logdir, prefix
+        if filter_pdbs is True:
+            logger.info(f"--filter_pdbs is {filter_pdbs}. .pdb file structures with matching CDS ids will be copied and compared.")
+        generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, filtered_pdbs_path, logdir, prefix, filter_pdbs
 )
     else:
         generate_foldseek_db_from_aa_3di(
