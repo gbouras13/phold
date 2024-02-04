@@ -398,8 +398,9 @@ def get_embeddings(
                             len(predictions[record_id][identifier][0])
                         except:
                             logger.warning(f'{identifier} {record_id} has length 0' )
-                            fail_ids.append(id)
+                            fail_ids.append(identifier)
                             continue
+
                         if s_len != len(predictions[record_id][identifier][0]):
                             logger.warning(f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}")
                                 
