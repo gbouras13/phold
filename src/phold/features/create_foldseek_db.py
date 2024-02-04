@@ -124,7 +124,7 @@ def generate_foldseek_db_from_pdbs(
     num_pdbs = len(pdb_files)
 
     if num_pdbs == 0:
-        logger.exit(f"No pdbs found. Check the {pdb_dir}.")
+        logger.error(f"No pdbs found. Check the {pdb_dir}.")
 
     num_pdbs = 0 
     
