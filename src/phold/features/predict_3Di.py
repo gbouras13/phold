@@ -393,9 +393,16 @@ def get_embeddings(
                             predictions[record_id][identifier] = (pred, mean_prob, all_prob)
                         else:
                             predictions[record_id][identifier] = (pred, None, None)
-                        assert s_len == len(predictions[record_id][identifier][0]), print(
-                            f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}"
-                        )
+                        
+                        try:
+                            len(predictions[record_id][identifier][0])
+                        except:
+                            logger.warning(f'{identifier} {record_id} has length 0' )
+                            fail_ids.append(id)
+                            continue
+                        if s_len != len(predictions[record_id][identifier][0]):
+                            logger.warning(f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}")
+                                
                 except IndexError:
                     logger.warning(
                         "Index error during prediction for {} (L={})".format(
