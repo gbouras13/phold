@@ -123,9 +123,6 @@ def generate_foldseek_db_from_pdbs(
     
     num_pdbs = len(pdb_files)
 
-    if num_pdbs == 0:
-        logger.error(f"No pdbs found. Check the {pdb_dir}.")
-
     num_pdbs = 0 
     
     # Checks that ID is in the pdbs
@@ -138,6 +135,7 @@ def generate_foldseek_db_from_pdbs(
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as '{cds_id}.pdb'
+
         matching_files = [file for file in pdb_files if f'{cds_id}.pdb' == file]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
@@ -149,10 +147,9 @@ def generate_foldseek_db_from_pdbs(
                 shutil.copyfile(source_path, destination_path)
             num_pdbs += 1
         # logger.info("Copying PDBs.")
-
         # should neve happen but in case
         if len(matching_files) > 1:
-            logger.warning(f"More than 1 pdb found for {cds_id}.")
+            logger.warning(f"More than 1 pdb found for {cds_id}")
             logger.warning("Taking the first one")
             if filter_pdbs is True:
                 source_path = Path(pdb_dir) / matching_files[0]
@@ -160,7 +157,7 @@ def generate_foldseek_db_from_pdbs(
                 shutil.copyfile(source_path, destination_path)
             num_pdbs += 1
         elif len(matching_files) == 0:
-            logger.warning(f"No pdb found for {cds_id}.")
+            logger.warning(f"No pdb found for {cds_id}")
             logger.warning(f"{cds_id} will be ignored in annotation.")
             no_pdb_cds_ids.append(cds_id)
     

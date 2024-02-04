@@ -692,7 +692,7 @@ def compare(
     if pdb is True:
         logger.info("Creating a foldseek query db from the pdbs.")
         if filter_pdbs is True:
-            logger.info(f"--filter_pdbs is {filter_pdbs}. .pdb file structures with matching CDS ids will be copied and compared.")
+            logger.info(f"--filter_pdbs is {filter_pdbs}. Therefore .pdb file structures with matching CDS ids will be copied and compared.")
         generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, filtered_pdbs_path, logdir, prefix, filter_pdbs
 )
     else:
