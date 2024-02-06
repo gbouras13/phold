@@ -20,7 +20,6 @@ from phold.features.query_remote_3Di import query_remote_3di
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import get_genbank, get_proteins, write_genbank
 from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
-from phold.results.tophit import calculate_tophits_results, get_tophits, parse_tophits
 from phold.utils.util import begin_phold, end_phold, get_version, print_citation
 from phold.utils.validation import instantiate_dirs
 
@@ -180,14 +179,6 @@ def compare_options(func):
             type=float,
             show_default=True,
         ),
-        click.option(
-            "--mode",
-            "mode",
-            help="Mode to parse results.",
-            default="topfunction",
-            show_default=True,
-            type=click.Choice(["tophit", "topfunction"]),
-        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -234,7 +225,6 @@ def run(
     database_name,
     batch_size,
     sensitivity,
-    mode,
     cpu,
     omit_probs,
     finetune,
@@ -262,7 +252,6 @@ def run(
         "--database_name": database_name,
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
-        "--mode": mode,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
@@ -381,28 +370,12 @@ def run(
     # tophits
     # calculate tophits
 
-    if mode == "tophit":
-        top_hits_tsv: Path = Path(output) / "tophits.tsv"
-        filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
 
-        #####
-        # parsing tophits depend on type of db
-        #####
+    filtered_topfunctions_df = get_topfunctions(
+        result_tsv, database, database_name, pdb=False
+    )
 
-        filtered_tophits_df = parse_tophits(
-            filtered_tophits_df, database, database_name, pdb=False
-        )
-
-        # calculate results and saves to tsvs
-
-        calculate_tophits_results(filtered_tophits_df, cds_dict, output)
-
-    elif mode == "topfunction":
-        filtered_topfunctions_df = get_topfunctions(
-            result_tsv, database, database_name, pdb=False
-        )
-
-        calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
+    calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
 
     # end phold
     end_phold(start_time, "run")
@@ -583,7 +556,6 @@ def compare(
     database,
     database_name,
     sensitivity,
-    mode,
     predictions_dir,
     pdb,
     pdb_dir,
@@ -609,7 +581,6 @@ def compare(
         "--database": database,
         "--database_name": database_name,
         "--sensitivity": sensitivity,
-        "--mode": mode,
         "--predictions_dir": predictions_dir,
         "--pdb": pdb,
         "--pdb_dir": pdb_dir,
@@ -770,87 +741,72 @@ def compare(
     result_tsv: Path = Path(output) / "foldseek_results.tsv"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
-    # tophits
-    # calculate tophits
 
-    if mode == "tophit":
-        top_hits_tsv: Path = Path(output) / "tophits.tsv"
-        filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
+    # topfunction
 
-        #####
-        # parsing tophits depend on type of db
-        #####
 
-        filtered_tophits_df = parse_tophits(
-            filtered_tophits_df, database, database_name, pdb
+    filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
+        result_tsv, database, database_name, pdb=pdb
+    )
+
+    updated_cds_dict, filtered_tophits_df = calculate_topfunctions_results(
+        filtered_topfunctions_df, cds_dict, output, pdb=pdb
+    )
+
+    per_cds_df = write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output)
+
+    # weighted_bitscore_df_path: Path = Path(output) / "weighted_bitscore_purity.tsv"
+    # weighted_bitscore_df.to_csv(weighted_bitscore_df_path, index=False, sep = "\t")
+
+    # if prostt5, query will have contig_id too in query
+    if pdb is False:
+        weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
+            "query"
+        ].str.split(":", expand=True, n=1)
+        weighted_bitscore_df = weighted_bitscore_df.drop(
+            columns=["query", "contig_id"]
         )
+    # otherwise query will just be the cds_id so rename
+    else:
+        weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
 
-        # calculate results and saves to tsvs
-        calculate_tophits_results(filtered_tophits_df, cds_dict, output)
+    # drop contig_id phrog product function to avoid double merge
+    filtered_tophits_df = filtered_tophits_df.drop(
+        columns=["contig_id", "phrog", "product", "function"]
+    )
 
-    elif mode == "topfunction":
-        filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
-            result_tsv, database, database_name, pdb=pdb
-        )
+    merged_df = per_cds_df.merge(filtered_tophits_df, on="cds_id", how="left")
+    merged_df = merged_df.merge(weighted_bitscore_df, on="cds_id", how="left")
 
-        updated_cds_dict, filtered_tophits_df = calculate_topfunctions_results(
-            filtered_topfunctions_df, cds_dict, output, pdb=pdb
-        )
-
-        per_cds_df = write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output)
-
-        # weighted_bitscore_df_path: Path = Path(output) / "weighted_bitscore_purity.tsv"
-        # weighted_bitscore_df.to_csv(weighted_bitscore_df_path, index=False, sep = "\t")
-
-        # if prostt5, query will have contig_id too in query
-        if pdb is False:
-            weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
-                "query"
-            ].str.split(":", expand=True, n=1)
-            weighted_bitscore_df = weighted_bitscore_df.drop(
-                columns=["query", "contig_id"]
-            )
-        # otherwise query will just be the cds_id so rename
+    # add annotation source
+    # Define a function to apply to each row to determine the annotation source
+    def determine_annotation_source(row):
+        if row["phrog"] == "No_PHROG":
+            return "none"
+        elif pd.isnull(row["bitscore"]):
+            return "pharokka"
         else:
-            weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
+            return "foldseek"
 
-        # drop contig_id phrog product function to avoid double merge
-        filtered_tophits_df = filtered_tophits_df.drop(
-            columns=["contig_id", "phrog", "product", "function"]
-        )
+    # Apply the function to create the new column 'annotation_source'
+    merged_df["annotation_method"] = merged_df.apply(
+        determine_annotation_source, axis=1
+    )
 
-        merged_df = per_cds_df.merge(filtered_tophits_df, on="cds_id", how="left")
-        merged_df = merged_df.merge(weighted_bitscore_df, on="cds_id", how="left")
+    # to put annotation_source after product
+    product_index = merged_df.columns.get_loc("product")
 
-        # add annotation source
-        # Define a function to apply to each row to determine the annotation source
-        def determine_annotation_source(row):
-            if row["phrog"] == "No_PHROG":
-                return "none"
-            elif pd.isnull(row["bitscore"]):
-                return "pharokka"
-            else:
-                return "foldseek"
+    # Reorder the columns
+    new_column_order = (
+        list(merged_df.columns[: product_index + 1])
+        + ["annotation_method"]
+        + list(merged_df.columns[product_index + 1 : -1])
+    )
+    merged_df = merged_df.reindex(columns=new_column_order)
+    # Create a new column order with 'annotation_method' moved after 'product'
 
-        # Apply the function to create the new column 'annotation_source'
-        merged_df["annotation_method"] = merged_df.apply(
-            determine_annotation_source, axis=1
-        )
-
-        # to put annotation_source after product
-        product_index = merged_df.columns.get_loc("product")
-
-        # Reorder the columns
-        new_column_order = (
-            list(merged_df.columns[: product_index + 1])
-            + ["annotation_method"]
-            + list(merged_df.columns[product_index + 1 : -1])
-        )
-        merged_df = merged_df.reindex(columns=new_column_order)
-        # Create a new column order with 'annotation_method' moved after 'product'
-
-        merged_df_path: Path = Path(output) / "final_cds_predictions.tsv"
-        merged_df.to_csv(merged_df_path, index=False, sep="\t")
+    merged_df_path: Path = Path(output) / "final_cds_predictions.tsv"
+    merged_df.to_csv(merged_df_path, index=False, sep="\t")
 
     # end phold
     end_phold(start_time, "run")
@@ -1154,10 +1110,6 @@ def remote(
     result_tsv: Path = Path(output) / "foldseek_results.tsv"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
-    # calculate tophits
-    top_hits_tsv: Path = Path(output) / "tophits.tsv"
-
-    filtered_tophits_df = get_tophits(result_tsv, top_hits_tsv, evalue)
 
     # end phold
     end_phold(start_time, "remote")

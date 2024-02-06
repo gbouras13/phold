@@ -38,11 +38,13 @@ def get_topfunctions(
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
 
+    # clean up later
     if (
         database_name == "all_phrogs"
         or database_name == "all_envhogs"
         or database_name == "all_phrogs_pdb"
         or database_name == "all_phold_structures"
+        or database_name == "all_phold_prostt5"
     ):
         foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
         # split the target column as this will have phrog:protein
@@ -107,6 +109,7 @@ def get_topfunctions(
     )
 
     def weighted_function(group):
+
         phrog_function_mapping = {
             "unknown function": "unknown function",
             "transcription regulation": "transcription regulation",
@@ -130,22 +133,24 @@ def get_topfunctions(
         # total_bitscore = group['bitscore'].sum()
         bitscore_by_function = group.groupby("function")["bitscore"].sum().to_dict()
 
-        if tophit_function == "unknown function":
+
+        total_functional_bitscore = group[group["function"] != "unknown function"]["bitscore"].sum()
+
+        if total_functional_bitscore == 0:
+        # if tophit_function == "unknown function":
             top_bitscore_function = "unknown function"
             top_bitscore_perc = 0
-
+        
         # everything except unknown function
         # get total bitscore of the hits with function
         else:
-            total_function_bitscore = group[group["function"] != "unknown function"][
-                "bitscore"
-            ].sum()
+            # total_function_bitscore = group[group["function"] != "unknown function"]["bitscore"].sum()
 
             # get the weighted bitscore
             for key, value in bitscore_by_function.items():
                 if key != "unknown function":
                     weighted_counts_normalised[key] = round(
-                        value / total_function_bitscore, 2
+                        value / total_functional_bitscore, 2
                     )
 
             top_bitscore_function = max(
@@ -157,29 +162,30 @@ def get_topfunctions(
             "tophit_function": [tophit_function],
             "function_with_highest_bitscore_percentage": [top_bitscore_function],
             "top_bitscore_percentage_not_unknown": [top_bitscore_perc],
-            "head and packaging bitscore_percentage": [
+            "head_and_packaging_bitscore_percentage": [
                 weighted_counts_normalised.get("head and packaging", 0)
             ],
-            "integration and excision bitscore_percentage": [
+            "integration_and_excision_bitscore_percentage": [
                 weighted_counts_normalised.get("integration and excision", 0)
             ],
             "tail bitscore_percentage": [weighted_counts_normalised.get("tail", 0)],
-            "moron, auxiliary metabolic gene and host takeover bitscore_percentage": [
+            "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_percentage": [
                 weighted_counts_normalised.get(
                     "moron, auxiliary metabolic gene and host takeover", 0
                 )
             ],
-            "DNA, RNA and nucleotide metabolism bitscore_percentage": [
+            "DNA_RNA_and_nucleotide_metabolism bitscore_percentage": [
                 weighted_counts_normalised.get("DNA, RNA and nucleotide metabolism", 0)
             ],
-            "connector bitscore_percentage": [
+            "connector_bitscore_percentage": [
                 weighted_counts_normalised.get("connector", 0)
             ],
-            "transcription regulation bitscore_percentage": [
+            "transcription_regulation_bitscore_percentage": [
                 weighted_counts_normalised.get("transcription regulation", 0)
             ],
-            "lysis bitscore_percentage": [weighted_counts_normalised.get("lysis", 0)],
-            "unknown function bitscore_percentage": [
+            "lysis_bitscore_percentage": [weighted_counts_normalised.get("lysis", 0)],
+            "other_bitscore_percentage": [weighted_counts_normalised.get("other", 0)],
+            "unknown_function_bitscore_percentage": [
                 weighted_counts_normalised.get("unknown function", 0)
             ],
         }
