@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-from pathlib import Path
-import pandas as pd
 import copy
+from pathlib import Path
+
+import pandas as pd
 from loguru import logger
 
 
@@ -62,7 +63,6 @@ def parse_tophits(
             ".pdb", ""
         )
 
-
     # Remove the original 'query' column
     filtered_tophits_df = filtered_tophits_df.drop(columns=["query"])
 
@@ -110,10 +110,7 @@ def calculate_tophits_results(
     print(cds_dict)
 
     # if pdb is true merge cds_dict with the filtered_tophits_df - these won't have record IDs in the labels
-    #if pdb is True:
-
-
-
+    # if pdb is True:
 
     # instantiate the unique contig ids
     unique_contig_ids = filtered_tophits_df["record_id"].unique()
@@ -158,7 +155,9 @@ def calculate_tophits_results(
         new_functions_count_dict[record_id] = {}
         combined_functions_count_dict[record_id] = {}
 
-        original_functions_count_dict[record_id]["cds_count"] = len(updated_cds_dict[record_id])
+        original_functions_count_dict[record_id]["cds_count"] = len(
+            updated_cds_dict[record_id]
+        )
         original_functions_count_dict[record_id]["phrog_count"] = 0
         original_functions_count_dict[record_id]["connector"] = 0
         original_functions_count_dict[record_id][

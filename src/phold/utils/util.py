@@ -3,12 +3,11 @@ You shouldn't need to tweak these much if at all
 """
 
 import os
+import shutil
 import subprocess as sp
 import sys
 import time
-
 from pathlib import Path
-import shutil
 
 import click
 from loguru import logger

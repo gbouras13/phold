@@ -8,13 +8,15 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/generate_foldseek_db.py
 """
 
 
-from Bio import SeqIO
-from pathlib import Path
-from phold.utils.external_tools import ExternalTool
-from phold.utils.util import remove_file
-from loguru import logger
 import os
 import shutil
+from pathlib import Path
+
+from Bio import SeqIO
+from loguru import logger
+
+from phold.utils.external_tools import ExternalTool
+from phold.utils.util import remove_file
 
 
 def generate_foldseek_db_from_aa_3di(
@@ -107,40 +109,42 @@ def foldseek_tsv2db(
     ExternalTool.run_tool(foldseek_tsv2db)
 
 
-
 def generate_foldseek_db_from_pdbs(
-    fasta_aa: Path, foldseek_db_path: Path, pdb_dir: Path, filtered_pdbs_path: Path, logdir:  Path, prefix: str, filter_pdbs: bool
+    fasta_aa: Path,
+    foldseek_db_path: Path,
+    pdb_dir: Path,
+    filtered_pdbs_path: Path,
+    logdir: Path,
+    prefix: str,
+    filter_pdbs: bool,
 ) -> None:
-    
-
     # read in amino-acid sequences
     sequences_aa = {}
     for record in SeqIO.parse(fasta_aa, "fasta"):
         sequences_aa[record.id] = str(record.seq)
 
     # lists all the pdb files
-    pdb_files = [file for file in os.listdir(pdb_dir) if file.endswith('.pdb')]
-    
+    pdb_files = [file for file in os.listdir(pdb_dir) if file.endswith(".pdb")]
+
     num_pdbs = len(pdb_files)
 
-    num_pdbs = 0 
-    
+    num_pdbs = 0
+
     # Checks that ID is in the pdbs
 
     no_pdb_cds_ids = []
 
     for id in sequences_aa.keys():
-        cds_id = id.split(':')[1]
-        record_id = id.split(':')[0]
+        cds_id = id.split(":")[1]
+        record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as '{cds_id}.pdb'
 
-        matching_files = [file for file in pdb_files if f'{cds_id}.pdb' == file]
+        matching_files = [file for file in pdb_files if f"{cds_id}.pdb" == file]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
         if len(matching_files) == 1:
-
             if filter_pdbs is True:
                 source_path = Path(pdb_dir) / matching_files[0]
                 destination_path = Path(filtered_pdbs_path) / matching_files[0]
@@ -160,9 +164,11 @@ def generate_foldseek_db_from_pdbs(
             logger.warning(f"No pdb found for {cds_id}")
             logger.warning(f"{cds_id} will be ignored in annotation.")
             no_pdb_cds_ids.append(cds_id)
-    
+
     if num_pdbs == 0:
-        logger.error(f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir}.")   
+        logger.error(
+            f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir}."
+        )
 
     # generate the db
     short_db_name = f"{prefix}"
@@ -181,17 +187,12 @@ def generate_foldseek_db_from_pdbs(
     if filter_pdbs is True:
         query_pdb_dir = filtered_pdbs_path
 
-
-
-
     foldseek_createdb_from_pdbs = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"createdb {filtered_pdbs_path} {pdb_db_name} ",
+        params=f"createdb {query_pdb_dir} {pdb_db_name} ",
         logdir=logdir,
     )
 
     ExternalTool.run_tool(foldseek_createdb_from_pdbs)
-
-

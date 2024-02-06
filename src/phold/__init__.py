@@ -1,36 +1,28 @@
 #!/usr/bin/env python3
 """phold"""
 
+import shutil
 from pathlib import Path
+
+import click
+import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
-import pandas as pd
-import click
+from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
-import shutil
-from Bio.SeqFeature import SeqFeature, FeatureLocation
 
-from phold.io.handle_genbank import get_genbank, get_proteins, write_genbank
-
-from phold.utils.util import begin_phold, end_phold, get_version, print_citation
-
+from phold.features.create_foldseek_db import (
+    generate_foldseek_db_from_aa_3di,
+    generate_foldseek_db_from_pdbs,
+)
 from phold.features.predict_3Di import get_embeddings
-
-from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs
-
-from phold.results.tophit import get_tophits, parse_tophits, calculate_tophits_results
-
-from phold.results.topfunction import (
-    get_topfunctions,
-    calculate_topfunctions_results,
-)  
-
-
-from phold.utils.validation import instantiate_dirs
-
-from phold.features.run_foldseek import run_foldseek_search, create_result_tsv
-
 from phold.features.query_remote_3Di import query_remote_3di
+from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
+from phold.io.handle_genbank import get_genbank, get_proteins, write_genbank
+from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
+from phold.results.tophit import calculate_tophits_results, get_tophits, parse_tophits
+from phold.utils.util import begin_phold, end_phold, get_version, print_citation
+from phold.utils.validation import instantiate_dirs
 
 # from phold.utils.validation import (
 #     check_evalue,
@@ -53,6 +45,7 @@ log_fmt = (
 """
 common options
 """
+
 
 def common_options(func):
     """Common command line args
@@ -94,9 +87,11 @@ def common_options(func):
         func = option(func)
     return func
 
+
 """
 predict only options
 """
+
 
 def predict_options(func):
     """predict command line args"""
@@ -123,12 +118,12 @@ def predict_options(func):
             help="batch size for ProstT5. 1 is usually fastest.",
             show_default=True,
         ),
-            click.option(
+        click.option(
             "--cpu",
             is_flag=True,
             help="Use cpus only.",
         ),
-            click.option(
+        click.option(
             "--omit_probs",
             is_flag=True,
             help="Do not output 3Di probabilities from ProstT5",
@@ -139,18 +134,18 @@ def predict_options(func):
             help="Finetune",
         ),
         click.option(
-            "--finetune_path",
-            help="Path to finetuned model weights",
-            default=None
+            "--finetune_path", help="Path to finetuned model weights", default=None
         ),
     ]
     for option in reversed(options):
         func = option(func)
     return func
 
+
 """
 compare only options
 """
+
 
 def compare_options(func):
     """compare command line args"""
@@ -205,9 +200,11 @@ def compare_options(func):
 def main_cli():
     1 + 1
 
+
 """
 run command
 """
+
 
 @main_cli.command()
 @click.help_option("--help", "-h")
@@ -269,7 +266,7 @@ def run(
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
-        "--finetune_path": finetune_path
+        "--finetune_path": finetune_path,
     }
 
     # initial logging etc
@@ -338,7 +335,7 @@ def run(
         proteins=False,
         cpu=cpu,
         output_probs=output_probs,
-        finetuned_model_path=finetune_path
+        finetuned_model_path=finetune_path,
     )
 
     ############
@@ -401,7 +398,9 @@ def run(
         calculate_tophits_results(filtered_tophits_df, cds_dict, output)
 
     elif mode == "topfunction":
-        filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name,pdb=False)
+        filtered_topfunctions_df = get_topfunctions(
+            result_tsv, database, database_name, pdb=False
+        )
 
         calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
 
@@ -413,6 +412,7 @@ def run(
 predict command
 Uses ProstT5 to predict 3Di sequences from AA, genbank
 """
+
 
 @main_cli.command()
 @click.help_option("--help", "-h")
@@ -461,7 +461,7 @@ def predict(
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
-        "--finetune_path": finetune_path
+        "--finetune_path": finetune_path,
     }
 
     # initial logging etc
@@ -472,7 +472,6 @@ def predict(
     if not gb_dict:
         logger.warning("Error: no sequences found in genbank file")
         logger.error("No sequences found in genbank file. Nothing to annotate")
-
 
     # Create a nested dictionary to store CDS features by contig ID
     cds_dict = {}
@@ -485,7 +484,6 @@ def predict(
         for cds_feature in record.features:
             if cds_feature.type == "CDS":
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
-                
 
     ## write the CDS to file
 
@@ -529,7 +527,7 @@ def predict(
         cpu=cpu,
         output_probs=output_probs,
         finetune_flag=finetune,
-        finetuned_model_path=finetune_path
+        finetuned_model_path=finetune_path,
     )
 
     # end phold
@@ -539,6 +537,7 @@ def predict(
 """
 compare command
 """
+
 
 @main_cli.command()
 @click.help_option("--help", "-h")
@@ -594,7 +593,7 @@ def compare(
     """Runs phold compare (Foldseek)"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
-    
+
     instantiate_dirs(output, force)
 
     output: Path = Path(output)
@@ -614,7 +613,7 @@ def compare(
         "--predictions_dir": predictions_dir,
         "--pdb": pdb,
         "--pdb_dir": pdb_dir,
-        "--filter_pdbs": filter_pdbs
+        "--filter_pdbs": filter_pdbs,
     }
 
     # initial logging etc
@@ -638,15 +637,22 @@ def compare(
 
         for cds_feature in record.features:
             if cds_feature.type == "CDS":
-                
                 # update DNA, RNA and nucleotide metabolism from pharokka
                 if cds_feature.qualifiers["function"][0] == "DNA":
-                    cds_feature.qualifiers["function"][0] = "DNA, RNA and nucleotide metabolism"
-                    cds_feature.qualifiers["function"] = [cds_feature.qualifiers["function"][0]]  # Keep only the first element
+                    cds_feature.qualifiers["function"][
+                        0
+                    ] = "DNA, RNA and nucleotide metabolism"
+                    cds_feature.qualifiers["function"] = [
+                        cds_feature.qualifiers["function"][0]
+                    ]  # Keep only the first element
                 # moron, auxiliary metabolic gene and host takeover
                 if cds_feature.qualifiers["function"][0] == "moron":
-                    cds_feature.qualifiers["function"][0] = "moron, auxiliary metabolic gene and host takeover"
-                    cds_feature.qualifiers["function"] = [cds_feature.qualifiers["function"][0]]  # Keep only the first element
+                    cds_feature.qualifiers["function"][
+                        0
+                    ] = "moron, auxiliary metabolic gene and host takeover"
+                    cds_feature.qualifiers["function"] = [
+                        cds_feature.qualifiers["function"][0]
+                    ]  # Keep only the first element
 
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
 
@@ -659,8 +665,9 @@ def compare(
 
         for non_cds_feature in record.features:
             if non_cds_feature.type != "CDS":
-                non_cds_dict[record_id][non_cds_feature.qualifiers["ID"][0]] = non_cds_feature
-
+                non_cds_dict[record_id][
+                    non_cds_feature.qualifiers["ID"][0]
+                ] = non_cds_feature
 
     if pdb is False:
         # prostT5
@@ -673,16 +680,24 @@ def compare(
     ## copy the 3Di to file if pdb is false
     if pdb is False:
         if fasta_3di_input.exists():
-            logger.info(f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict.")
+            logger.info(
+                f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict."
+            )
             shutil.copyfile(fasta_3di_input, fasta_3di)
         else:
-            logger.error(f"The 3Di CDS file {fasta_3di} does not exist. Please run phold predict and/or check the prediction directory {output}.")
-        # copy the aa to file 
+            logger.error(
+                f"The 3Di CDS file {fasta_3di} does not exist. Please run phold predict and/or check the prediction directory {output}."
+            )
+        # copy the aa to file
         if fasta_aa_input.exists():
-            logger.info(f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict.")
+            logger.info(
+                f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict."
+            )
             shutil.copyfile(fasta_aa_input, fasta_aa)
         else:
-            logger.error(f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {output}.")
+            logger.error(
+                f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {output}."
+            )
     else:
         ## write the CDS to file
         logger.info(f"Writing the AAs to file {fasta_aa}.")
@@ -694,7 +709,6 @@ def compare(
                 for seq_id, cds_feature in aa_contig_dict.items():
                     out_f.write(f">{record_id}:{seq_id}\n")
                     out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
-
 
     ############
     # create foldseek db
@@ -709,9 +723,18 @@ def compare(
     if pdb is True:
         logger.info("Creating a foldseek query db from the pdbs.")
         if filter_pdbs is True:
-            logger.info(f"--filter_pdbs is {filter_pdbs}. Therefore .pdb file structures with matching CDS ids will be copied and compared.")
-        generate_foldseek_db_from_pdbs(fasta_aa, foldseek_query_db_path, pdb_dir, filtered_pdbs_path, logdir, prefix, filter_pdbs
-)
+            logger.info(
+                f"--filter_pdbs is {filter_pdbs}. Therefore .pdb file structures with matching CDS ids will be copied and compared."
+            )
+        generate_foldseek_db_from_pdbs(
+            fasta_aa,
+            foldseek_query_db_path,
+            pdb_dir,
+            filtered_pdbs_path,
+            logdir,
+            prefix,
+            filter_pdbs,
+        )
     else:
         generate_foldseek_db_from_aa_3di(
             fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
@@ -766,9 +789,13 @@ def compare(
         calculate_tophits_results(filtered_tophits_df, cds_dict, output)
 
     elif mode == "topfunction":
-        filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(result_tsv, database, database_name, pdb=pdb)
+        filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
+            result_tsv, database, database_name, pdb=pdb
+        )
 
-        updated_cds_dict, filtered_tophits_df = calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output, pdb=pdb)
+        updated_cds_dict, filtered_tophits_df = calculate_topfunctions_results(
+            filtered_topfunctions_df, cds_dict, output, pdb=pdb
+        )
 
         per_cds_df = write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output)
 
@@ -776,58 +803,64 @@ def compare(
         # weighted_bitscore_df.to_csv(weighted_bitscore_df_path, index=False, sep = "\t")
 
         # if prostt5, query will have contig_id too in query
-        if pdb is False:            
-            weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df["query"].str.split(":", expand=True, n=1)
-            weighted_bitscore_df = weighted_bitscore_df.drop(columns=["query", "contig_id"])
+        if pdb is False:
+            weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
+                "query"
+            ].str.split(":", expand=True, n=1)
+            weighted_bitscore_df = weighted_bitscore_df.drop(
+                columns=["query", "contig_id"]
+            )
         # otherwise query will just be the cds_id so rename
         else:
-            weighted_bitscore_df.rename(columns={'query': 'cds_id'}, inplace=True)
-
+            weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
 
         # drop contig_id phrog product function to avoid double merge
-        filtered_tophits_df = filtered_tophits_df.drop(columns=[ "contig_id", "phrog", "product", "function"])
+        filtered_tophits_df = filtered_tophits_df.drop(
+            columns=["contig_id", "phrog", "product", "function"]
+        )
 
-        merged_df = per_cds_df.merge(filtered_tophits_df, on='cds_id', how='left')
-        merged_df = merged_df.merge(weighted_bitscore_df, on='cds_id', how='left')
+        merged_df = per_cds_df.merge(filtered_tophits_df, on="cds_id", how="left")
+        merged_df = merged_df.merge(weighted_bitscore_df, on="cds_id", how="left")
 
         # add annotation source
         # Define a function to apply to each row to determine the annotation source
         def determine_annotation_source(row):
-            if row['phrog'] == "No_PHROG":
-                return 'none'
-            elif pd.isnull(row['bitscore']):
-                return 'pharokka'
+            if row["phrog"] == "No_PHROG":
+                return "none"
+            elif pd.isnull(row["bitscore"]):
+                return "pharokka"
             else:
-                return 'foldseek'
+                return "foldseek"
 
         # Apply the function to create the new column 'annotation_source'
-        merged_df['annotation_method'] = merged_df.apply(determine_annotation_source, axis=1)
+        merged_df["annotation_method"] = merged_df.apply(
+            determine_annotation_source, axis=1
+        )
 
         # to put annotation_source after product
-        product_index = merged_df.columns.get_loc('product')
+        product_index = merged_df.columns.get_loc("product")
 
         # Reorder the columns
-        new_column_order = list(merged_df.columns[:product_index + 1]) + ['annotation_method'] + list(merged_df.columns[product_index + 1:-1])
+        new_column_order = (
+            list(merged_df.columns[: product_index + 1])
+            + ["annotation_method"]
+            + list(merged_df.columns[product_index + 1 : -1])
+        )
         merged_df = merged_df.reindex(columns=new_column_order)
         # Create a new column order with 'annotation_method' moved after 'product'
 
         merged_df_path: Path = Path(output) / "final_cds_predictions.tsv"
-        merged_df.to_csv(merged_df_path, index=False, sep = "\t")
-
-
-
-
-
+        merged_df.to_csv(merged_df_path, index=False, sep="\t")
 
     # end phold
     end_phold(start_time, "run")
-
 
 
 """
 proteins command
 Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
 """
+
 
 @main_cli.command()
 @click.help_option("--help", "-h")
@@ -876,7 +909,7 @@ def proteins(
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
-        "--finetune_path": finetune_path
+        "--finetune_path": finetune_path,
     }
 
     # initial logging etc
@@ -884,29 +917,29 @@ def proteins(
 
     # validates fasta
 
-
     # Dictionary to store the records
     cds_dict = {}
     # need a dummmy nested dict
-    cds_dict['proteins'] = {}
-
+    cds_dict["proteins"] = {}
 
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
     for record in SeqIO.parse(input, "fasta"):
-
         prot_id = record.id
         feature_location = FeatureLocation(0, len(record.seq))
         # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-        seq_feature = SeqFeature(feature_location, 
-                                 type="CDS", 
-                                 strand=1,
-                                 qualifiers={"ID": record.id,
-                                             "description": record.description,
-                                             "translation": [str(record.seq)]})
-        
-        
-        cds_dict['proteins'][prot_id] = seq_feature
+        seq_feature = SeqFeature(
+            feature_location,
+            type="CDS",
+            strand=1,
+            qualifiers={
+                "ID": record.id,
+                "description": record.description,
+                "translation": [str(record.seq)],
+            },
+        )
+
+        cds_dict["proteins"][prot_id] = seq_feature
 
     if not cds_dict:
         logger.error(f"Error: no sequences found in {input} file")
@@ -946,22 +979,21 @@ def proteins(
         cpu=cpu,
         output_probs=output_probs,
         finetune_flag=finetune,
-        finetuned_model_path=finetune_path
+        finetuned_model_path=finetune_path,
     )
 
-    ## Need this to remove the fake record id 
+    ## Need this to remove the fake record id
 
     # Read the FASTA file
     records = list(SeqIO.parse(output_3di, "fasta"))
 
     # Process each record splitting the header to get rid of the fake record_id (DNE for this)
     for record in records:
-
-        #header_parts = record.description.split(":")
+        # header_parts = record.description.split(":")
 
         # Keep everything after the 10th character (to strip off proteins: )
         new_header = record.description[9:]
-        #new_header = ":".join(header_parts[1:])
+        # new_header = ":".join(header_parts[1:])
 
         # Update the record header
         record.id = new_header
