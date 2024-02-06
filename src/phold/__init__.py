@@ -159,7 +159,7 @@ def compare_options(func):
         ),
         click.option(
             "--database_name",
-            default="all_phrogs",
+            default="all_phold_structures",
             type=str,
             required=False,
             show_default=True,
@@ -184,7 +184,7 @@ def compare_options(func):
             "--mode",
             "mode",
             help="Mode to parse results.",
-            default="tophit",
+            default="topfunction",
             show_default=True,
             type=click.Choice(["tophit", "topfunction"]),
         ),
