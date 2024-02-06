@@ -265,6 +265,8 @@ def get_embeddings(
     model, vocab = get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag)
     predictor = load_predictor(model_dir)
 
+    logger.info("Beginning ProstT5 predictions.")
+
     if half_precision:
         model = model.half()
         predictor = predictor.half()
@@ -369,7 +371,6 @@ def get_embeddings(
                         probabilities = toCPU(torch.max(
                             F.softmax(prediction, dim=1), dim=1, keepdim=True)[0])
 
-
                     prediction = toCPU(
                         torch.max(prediction, dim=1, keepdim=True)[1]
                     ).astype(np.byte)
@@ -397,7 +398,7 @@ def get_embeddings(
                         try:
                             len(predictions[record_id][identifier][0])
                         except:
-                            logger.warning(f'{identifier} {record_id} has length 0' )
+                            logger.warning(f'{identifier} {record_id} prediction has length 0' )
                             fail_ids.append(identifier)
                             continue
 

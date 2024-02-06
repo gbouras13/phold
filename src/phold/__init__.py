@@ -10,7 +10,7 @@ from loguru import logger
 import shutil
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 
-from phold.io.handle_genbank import get_genbank, get_proteins
+from phold.io.handle_genbank import get_genbank, get_proteins, write_genbank
 
 from phold.utils.util import begin_phold, end_phold, get_version, print_citation
 
@@ -23,9 +23,8 @@ from phold.results.tophit import get_tophits, parse_tophits, calculate_tophits_r
 from phold.results.topfunction import (
     get_topfunctions,
     calculate_topfunctions_results,
-)  # get_tophits, parse_tophits, calculate_tophits_results
+)  
 
-from phold.results.distribution import get_distribution
 
 from phold.utils.validation import instantiate_dirs
 
@@ -192,7 +191,7 @@ def compare_options(func):
             help="Mode to parse results.",
             default="tophit",
             show_default=True,
-            type=click.Choice(["tophit", "topfunction", "distribution"]),
+            type=click.Choice(["tophit", "topfunction"]),
         ),
     ]
     for option in reversed(options):
@@ -402,12 +401,9 @@ def run(
         calculate_tophits_results(filtered_tophits_df, cds_dict, output)
 
     elif mode == "topfunction":
-        filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name)
+        filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name,pdb=False)
 
         calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
-
-    elif mode == "distribution":
-        foldseek_df = get_distribution(result_tsv, database, database_name, output)
 
     # end phold
     end_phold(start_time, "run")
@@ -642,7 +638,28 @@ def compare(
 
         for cds_feature in record.features:
             if cds_feature.type == "CDS":
+                
+                # update DNA, RNA and nucleotide metabolism from pharokka
+                if cds_feature.qualifiers["function"][0] == "DNA":
+                    cds_feature.qualifiers["function"][0] = "DNA, RNA and nucleotide metabolism"
+                    cds_feature.qualifiers["function"] = [cds_feature.qualifiers["function"][0]]  # Keep only the first element
+                # moron, auxiliary metabolic gene and host takeover
+                if cds_feature.qualifiers["function"][0] == "moron":
+                    cds_feature.qualifiers["function"][0] = "moron, auxiliary metabolic gene and host takeover"
+                    cds_feature.qualifiers["function"] = [cds_feature.qualifiers["function"][0]]  # Keep only the first element
+
                 cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
+
+    # non cds dict
+    non_cds_dict = {}
+
+    # makes the nested dictionary {contig_id:{non_cds_id: non_cds_feature}}
+    for record_id, record in gb_dict.items():
+        non_cds_dict[record_id] = {}
+
+        for non_cds_feature in record.features:
+            if non_cds_feature.type != "CDS":
+                non_cds_dict[record_id][non_cds_feature.qualifiers["ID"][0]] = non_cds_feature
 
 
     if pdb is False:
@@ -670,12 +687,12 @@ def compare(
         ## write the CDS to file
         logger.info(f"Writing the AAs to file {fasta_aa}.")
         with open(fasta_aa, "w+") as out_f:
-            for contig_id, rest in cds_dict.items():
-                aa_contig_dict = cds_dict[contig_id]
+            for record_id, rest in cds_dict.items():
+                aa_contig_dict = cds_dict[record_id]
 
                 # writes the CDS to file
                 for seq_id, cds_feature in aa_contig_dict.items():
-                    out_f.write(f">{contig_id}:{seq_id}\n")
+                    out_f.write(f">{record_id}:{seq_id}\n")
                     out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
 
 
@@ -746,15 +763,61 @@ def compare(
         )
 
         # calculate results and saves to tsvs
-        calculate_tophits_results(filtered_tophits_df, cds_dict, output, pdb=False)
+        calculate_tophits_results(filtered_tophits_df, cds_dict, output)
 
     elif mode == "topfunction":
-        filtered_topfunctions_df = get_topfunctions(result_tsv, database, database_name)
+        filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(result_tsv, database, database_name, pdb=pdb)
 
-        calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output)
+        updated_cds_dict, filtered_tophits_df = calculate_topfunctions_results(filtered_topfunctions_df, cds_dict, output, pdb=pdb)
 
-    elif mode == "distribution":
-        foldseek_df = get_distribution(result_tsv, database, database_name, output)
+        per_cds_df = write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output)
+
+        # weighted_bitscore_df_path: Path = Path(output) / "weighted_bitscore_purity.tsv"
+        # weighted_bitscore_df.to_csv(weighted_bitscore_df_path, index=False, sep = "\t")
+
+        # if prostt5, query will have contig_id too in query
+        if pdb is False:            
+            weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df["query"].str.split(":", expand=True, n=1)
+            weighted_bitscore_df = weighted_bitscore_df.drop(columns=["query", "contig_id"])
+        # otherwise query will just be the cds_id so rename
+        else:
+            weighted_bitscore_df.rename(columns={'query': 'cds_id'}, inplace=True)
+
+
+        # drop contig_id phrog product function to avoid double merge
+        filtered_tophits_df = filtered_tophits_df.drop(columns=[ "contig_id", "phrog", "product", "function"])
+
+        merged_df = per_cds_df.merge(filtered_tophits_df, on='cds_id', how='left')
+        merged_df = merged_df.merge(weighted_bitscore_df, on='cds_id', how='left')
+
+        # add annotation source
+        # Define a function to apply to each row to determine the annotation source
+        def determine_annotation_source(row):
+            if row['phrog'] == "No_PHROG":
+                return 'none'
+            elif pd.isnull(row['bitscore']):
+                return 'pharokka'
+            else:
+                return 'foldseek'
+
+        # Apply the function to create the new column 'annotation_source'
+        merged_df['annotation_method'] = merged_df.apply(determine_annotation_source, axis=1)
+
+        # to put annotation_source after product
+        product_index = merged_df.columns.get_loc('product')
+
+        # Reorder the columns
+        new_column_order = list(merged_df.columns[:product_index + 1]) + ['annotation_method'] + list(merged_df.columns[product_index + 1:-1])
+        merged_df = merged_df.reindex(columns=new_column_order)
+        # Create a new column order with 'annotation_method' moved after 'product'
+
+        merged_df_path: Path = Path(output) / "final_cds_predictions.tsv"
+        merged_df.to_csv(merged_df_path, index=False, sep = "\t")
+
+
+
+
+
 
     # end phold
     end_phold(start_time, "run")
