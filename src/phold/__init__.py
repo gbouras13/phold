@@ -941,7 +941,7 @@ def compare(
     # cleanup the temp files
     if keep_tmp_files is False:
         result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
-        result_high_low: Path = Path(output) / "foldseek_results_low.tsv"
+        result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
         remove_directory(result_db_base)
         remove_directory(temp_db)
         remove_file(result_tsv)
