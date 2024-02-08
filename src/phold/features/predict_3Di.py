@@ -156,14 +156,9 @@ def write_probs(predictions, out_path_mean, output_path_all):
         for contig_id, rest in predictions.items():
             prediction_contig_dict = predictions[contig_id]
 
-            out_f.write(
-                "\n".join(
-                    [
-                        "{},{}".format(seq_id, mean_prob)
-                        for seq_id, (N, mean_prob, N) in prediction_contig_dict.items()
-                    ]
-                )
-            )
+            for seq_id, (N, mean_prob, N) in prediction_contig_dict.items():
+                out_f.write("{},{}\n".format(seq_id, mean_prob))
+
 
     with open(output_path_all, "w+") as out_f:
         for contig_id, rest in predictions.items():

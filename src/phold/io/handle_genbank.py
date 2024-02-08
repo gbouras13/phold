@@ -1,6 +1,6 @@
 """
 Module for manipulating genbank files
-taken from phynteny
+some taken from phynteny
 """
 import binascii
 import gzip
