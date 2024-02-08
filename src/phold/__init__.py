@@ -22,6 +22,7 @@ from phold.io.handle_genbank import get_genbank, get_proteins, write_genbank
 from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
 from phold.utils.util import begin_phold, end_phold, get_version, print_citation, remove_directory, remove_file
 from phold.utils.validation import instantiate_dirs
+from phold.features.split_3Di import split_3di_fasta_by_prob
 # from phold.utils.validation import (
 #     check_evalue,
 #     instantiate_dirs,
@@ -182,6 +183,18 @@ def compare_options(func):
             "--keep_tmp_files",
             is_flag=True,
             help="Keep temporary intermediate files, particularly the large foldseek_results.tsv of all Foldseek hits",
+        ),
+        click.option(
+            "--split",
+            is_flag=True,
+            help="Split the Foldseek runs by ProstT5 probability",
+        ),
+        click.option(
+            "--split_threshold",
+            default=60,
+            help="ProstT5 Probability to split by",
+            type=float,
+            show_default=True,
         ),
     ]
     for option in reversed(options):
@@ -565,6 +578,8 @@ def compare(
     pdb_dir,
     filter_pdbs,
     keep_tmp_files,
+    split,
+    split_threshold,
     **kwargs,
 ):
     """Runs phold compare (Foldseek)"""
@@ -590,7 +605,9 @@ def compare(
         "--pdb": pdb,
         "--pdb_dir": pdb_dir,
         "--filter_pdbs": filter_pdbs,
-        "--keep_tmp_files": keep_tmp_files
+        "--keep_tmp_files": keep_tmp_files,
+        "--split": split,
+        "--split_threshold": split_threshold,
     }
 
     # initial logging etc
@@ -690,15 +707,19 @@ def compare(
     ############
     # create foldseek db
     ############
+                    
+
 
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    filtered_pdbs_path: Path = Path(output) / "filtered_pdbs"
-    filtered_pdbs_path.mkdir(parents=True, exist_ok=True)
+
 
     if pdb is True:
         logger.info("Creating a foldseek query db from the pdbs.")
+
+        filtered_pdbs_path: Path = Path(output) / "filtered_pdbs"
+        filtered_pdbs_path.mkdir(parents=True, exist_ok=True)
         if filter_pdbs is True:
             logger.info(
                 f"--filter_pdbs is {filter_pdbs}. Therefore .pdb file structures with matching CDS ids will be copied and compared."
@@ -717,35 +738,144 @@ def compare(
             fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
         )
 
-    ###########
-    # run foldseek search
-    ###########
+    
 
-    short_db_name = prefix
-    if short_db_name == database_name:
-        logger.error(
-            f"Please choose a different {prefix} as this conflicts with the {database_name}"
+    if split is True:
+        probs_3di: Path = Path(predictions_dir) / "output3di_mean_probabilities.csv"
+        split_3di_fasta_by_prob(fasta_aa,fasta_3di,probs_3di,output,split_threshold)
+        logger.info(
+                f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DBs for high and low subsets."
+            )
+        
+        high_prob_fasta_aa_out_path: Path = Path(output) / "high_prob_aa.fasta"
+        low_prob_fasta_aa_out_path: Path = Path(output) / "low_prob_aa.fasta"
+        high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
+        low_prob_fasta_3di_out_path: Path = Path(output) / "low_prob_3di.fasta"
+
+        # high 
+        if "high_prostt5_prob" == prefix:
+            logger.error(
+                f"Please choose a different {prefix}. "
+            )
+
+        generate_foldseek_db_from_aa_3di(
+            high_prob_fasta_aa_out_path, high_prob_fasta_3di_out_path, 
+            foldseek_query_db_path, logdir, "high_prostt5_prob"
         )
 
-    query_db: Path = Path(foldseek_query_db_path) / short_db_name
-    target_db: Path = Path(database) / database_name
+        # low 
+        if "low_prostt5_prob" == prefix:
+            logger.error(
+                f"Please choose a different {prefix}.t "
+            )
+        generate_foldseek_db_from_aa_3di(
+            low_prob_fasta_aa_out_path, low_prob_fasta_3di_out_path, 
+            foldseek_query_db_path, logdir, "low_prostt5_prob"
+        )
 
-    # make result and temp dirs
-    result_db_base: Path = Path(output) / "result_db"
-    result_db_base.mkdir(parents=True, exist_ok=True)
-    result_db: Path = Path(result_db_base) / "result_db"
 
-    temp_db: Path = Path(output) / "temp_db"
-    temp_db.mkdir(parents=True, exist_ok=True)
-
+    ###########
     # run foldseek search
-    run_foldseek_search(
-        query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
-    )
+    ###########
+        
+    if split is True:
 
-    # make result tsv
+        #############
+        # high - vs structures
+        #############
+        query_db: Path = Path(foldseek_query_db_path) / "high_prostt5_prob"
+        #target_db: Path = Path(database) / database_name
+        target_db: Path = Path(database) / "all_phold_structures"
+
+        # make result and temp dirs
+        result_db_base: Path = Path(output) / "result_db"
+        result_db_base.mkdir(parents=True, exist_ok=True)
+        result_db: Path = Path(result_db_base) / "result_db_high"
+
+        temp_db: Path = Path(output) / "temp_db"
+        temp_db.mkdir(parents=True, exist_ok=True)
+
+        # run foldseek search
+        run_foldseek_search(
+            query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
+        )
+
+        # make result tsv
+        result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
+        create_result_tsv(query_db, target_db, result_db, result_high_tsv, logdir)
+
+        #############
+        # low - vs prostt5 db
+        ############
+        query_db: Path = Path(foldseek_query_db_path) / "low_prostt5_prob"
+        #target_db: Path = Path(database) / database_name
+        target_db: Path = Path(database) / "all_phold_prostt5"
+
+        # make result and temp dirs
+        result_db_base: Path = Path(output) / "result_db"
+        result_db_base.mkdir(parents=True, exist_ok=True)
+        result_db: Path = Path(result_db_base) / "result_db_low"
+
+        temp_db: Path = Path(output) / "temp_db"
+        temp_db.mkdir(parents=True, exist_ok=True)
+
+        # run foldseek search
+        run_foldseek_search(
+            query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
+        )
+
+        # make result tsv
+        result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
+        create_result_tsv(query_db, target_db, result_db, result_low_tsv, logdir)
+
+        # create combined tsv
+        high_df = pd.read_csv(result_high_tsv, sep='\t', header=None)
+        low_df = pd.read_csv(result_low_tsv, sep='\t', header=None)
+
+        combined_df = pd.concat([high_df, low_df])
+
+        result_tsv: Path = Path(output) / "foldseek_results.tsv"
+        combined_df.to_csv(result_tsv, sep='\t', header=False, index=False)
+        
+
+
+
+    else:
+
+        short_db_name = prefix
+        if short_db_name == database_name:
+            logger.error(
+                f"Please choose a different {prefix} as this conflicts with the {database_name}"
+            )
+
+        query_db: Path = Path(foldseek_query_db_path) / short_db_name
+        target_db: Path = Path(database) / database_name
+
+        # make result and temp dirs
+        result_db_base: Path = Path(output) / "result_db"
+        result_db_base.mkdir(parents=True, exist_ok=True)
+        result_db: Path = Path(result_db_base) / "result_db"
+
+        temp_db: Path = Path(output) / "temp_db"
+        temp_db.mkdir(parents=True, exist_ok=True)
+
+        # run foldseek search
+        run_foldseek_search(
+            query_db, target_db, result_db, temp_db, threads, logdir, evalue, sensitivity
+        )
+
+        # make result tsv
+        result_tsv: Path = Path(output) / "foldseek_results.tsv"
+        create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
+
+
+
+
+    ####
+    # 
+    ###
+    
     result_tsv: Path = Path(output) / "foldseek_results.tsv"
-    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
 
     # topfunction
@@ -813,13 +943,15 @@ def compare(
         remove_directory(result_db_base)
         remove_directory(temp_db)
         remove_file(result_tsv)
+        remove_file(result_high_tsv)
+        remove_file(result_low_tsv)
 
 
     # end phold
     end_phold(start_time, "run")
 
 
-"""
+""" 
 proteins command
 Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
 """
@@ -956,7 +1088,6 @@ def proteins(
 
         # Keep everything after the 10th character (to strip off proteins: )
         new_header = record.description[9:]
-        # new_header = ":".join(header_parts[1:])
 
         # Update the record header
         record.id = new_header
