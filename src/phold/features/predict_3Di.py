@@ -8,21 +8,22 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 """
 
+import csv
+import json
+import os
+import shutil
 import time
 from pathlib import Path
-from loguru import logger
 from urllib import request
-import shutil
-import csv
-import os
-import json
 
 import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
+from loguru import logger
+from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
+from phold.utils.constants import MODEL_DB
 
 
 # Convolutional neural network (two convolutional layers)
@@ -52,8 +53,7 @@ class CNN(nn.Module):
         return Yhat
 
 
-def get_T5_model(model_dir, model_name, cpu):
-
+def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag):
     # sets the device
 
     # Torch load will map back to device from state, which often is GPU:0.
@@ -71,8 +71,6 @@ def get_T5_model(model_dir, model_name, cpu):
     else:
         device = torch.device("cpu")
         dev_name = "cpu"
-        
-
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))
@@ -87,10 +85,22 @@ def get_T5_model(model_dir, model_name, cpu):
     model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
         device
     )
+
+    # finetuned weights
+    if finetune_flag is True:
+        # Load the non-frozen parameters from the saved file
+        non_frozen_params = torch.load(finetuned_model_path, map_location=device)
+
+        # Assign the non-frozen parameters to the corresponding parameters of the model
+        for param_name, param in model.named_parameters():
+            if param_name in non_frozen_params:
+                param.data = non_frozen_params[param_name].data
+
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
         model_name, cache_dir=f"{model_dir}/", do_lower_case=False
     )
+
     return model, vocab
 
 
@@ -140,48 +150,44 @@ def write_predictions(predictions, out_path):
     logger.info(f"Finished writing results to {out_path}")
     return None
 
-def write_probs(predictions, out_path_mean, output_path_all):
 
-    with open(out_path_mean, 'w+') as out_f:
+def write_probs(predictions, out_path_mean, output_path_all):
+    with open(out_path_mean, "w+") as out_f:
         for contig_id, rest in predictions.items():
-                    
             prediction_contig_dict = predictions[contig_id]
 
-            out_f.write('\n'.join(
-                ["{},{}".format(seq_id, mean_prob)
-                for seq_id, (N, mean_prob, N) in prediction_contig_dict.items()
-                ]
-            ))
+            for seq_id, (N, mean_prob, N) in prediction_contig_dict.items():
+                out_f.write("{},{}\n".format(seq_id, mean_prob))
+
 
     with open(output_path_all, "w+") as out_f:
-
         for contig_id, rest in predictions.items():
             prediction_contig_dict = predictions[contig_id]
 
-
             for seq_id, (N, N, all_probs) in prediction_contig_dict.items():
-                
                 # * 100
                 all_probs = all_probs * 100
                 # Convert NumPy array to list
-                all_probs_list = all_probs.flatten().tolist() if isinstance(all_probs, np.ndarray) else all_probs
+                all_probs_list = (
+                    all_probs.flatten().tolist()
+                    if isinstance(all_probs, np.ndarray)
+                    else all_probs
+                )
 
                 # round to 2 dp
                 rounded_list = [round(num, 2) for num in all_probs_list]
 
                 # Create a dictionary for the specific items
-                specific_data = {
-                    "seq_id": seq_id,
-                    "probability": rounded_list
-                }
+                specific_data = {"seq_id": seq_id, "probability": rounded_list}
 
                 # Convert the dictionary to a JSON string
                 json_data = json.dumps(specific_data)
 
                 # Write the JSON string to the file
-                out_f.write(json_data + '\n')  # Add a newline after each JSON object
+                out_f.write(json_data + "\n")  # Add a newline after each JSON object
 
     return None
+
 
 def toCPU(tensor):
     if len(tensor.shape) > 1:
@@ -205,14 +211,16 @@ def download_file(url, local_path):
 
 
 def load_predictor(
-    model_dir, weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt"
+    weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt",
 ):
     model = CNN()
-    checkpoint_p = Path(model_dir) / "cnn_chkpnt" / "model.pt"
-    # if no pre-trained model is available, yet --> download it
-    if not checkpoint_p.exists():
-        download_file(weights_link, checkpoint_p)
-    
+    checkpoint_p = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+
+    # link seems broken
+    # # if no pre-trained model is available, yet --> download it
+    # if not checkpoint_p.exists():
+    #     download_file(weights_link, checkpoint_p)
+
     state = torch.load(checkpoint_p, map_location=device)
 
     model.load_state_dict(state["state_dict"])
@@ -234,14 +242,23 @@ def get_embeddings(
     max_batch: int = 100,
     proteins: bool = False,
     cpu: bool = False,
-    output_probs: bool = True
+    output_probs: bool = True,
+    finetune_flag: bool = True,
+    finetuned_model_path: str = None,
 ) -> bool:
     predictions = {}
 
     prefix = "<AA2fold>"
 
-    model, vocab = get_T5_model(model_dir, model_name, cpu)
+    if finetuned_model_path is None:
+        finetuned_model_path = Path(MODEL_DB) / "Phrostt5_finetuned.pth"
+
+    model, vocab = get_T5_model(
+        model_dir, model_name, cpu, finetuned_model_path, finetune_flag
+    )
     predictor = load_predictor(model_dir)
+
+    logger.info("Beginning ProstT5 predictions.")
 
     if half_precision:
         model = model.half()
@@ -342,11 +359,13 @@ def get_embeddings(
                     residue_embedding = residue_embedding[:, 1:]
                     prediction = predictor(residue_embedding)
 
-                    if output_probs:  
-                    # compute max probabilities per token/residue if requested
-                        probabilities = toCPU(torch.max(
-                            F.softmax(prediction, dim=1), dim=1, keepdim=True)[0])
-
+                    if output_probs:
+                        # compute max probabilities per token/residue if requested
+                        probabilities = toCPU(
+                            torch.max(
+                                F.softmax(prediction, dim=1), dim=1, keepdim=True
+                            )[0]
+                        )
 
                     prediction = toCPU(
                         torch.max(prediction, dim=1, keepdim=True)[1]
@@ -356,7 +375,7 @@ def get_embeddings(
                     # extra token is added at the end of the seq
                     for batch_idx, identifier in enumerate(pdb_ids):
                         s_len = seq_lens[batch_idx]
-                        
+
                         # # slice off padding and special token appended to the end of the sequence
                         # predictions[record_id][identifier] = prediction[
                         #     batch_idx, :, 0:s_len
@@ -366,14 +385,32 @@ def get_embeddings(
                         pred = prediction[batch_idx, :, 0:s_len].squeeze()
 
                         if output_probs:  # average over per-residue max.-probabilities
-                            mean_prob = round(100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2)
+                            mean_prob = round(
+                                100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2
+                            )
                             all_prob = probabilities[batch_idx, :, 0:s_len]
-                            predictions[record_id][identifier] = (pred, mean_prob, all_prob)
+                            predictions[record_id][identifier] = (
+                                pred,
+                                mean_prob,
+                                all_prob,
+                            )
                         else:
                             predictions[record_id][identifier] = (pred, None, None)
-                        assert s_len == len(predictions[record_id][identifier][0]), print(
-                            f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}"
-                        )
+
+                        try:
+                            len(predictions[record_id][identifier][0])
+                        except:
+                            logger.warning(
+                                f"{identifier} {record_id} prediction has length 0"
+                            )
+                            fail_ids.append(identifier)
+                            continue
+
+                        if s_len != len(predictions[record_id][identifier][0]):
+                            logger.warning(
+                                f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}"
+                            )
+
                 except IndexError:
                     logger.warning(
                         "Index error during prediction for {} (L={})".format(
@@ -407,4 +444,3 @@ def get_embeddings(
         write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
     return True
-

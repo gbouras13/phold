@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-from pathlib import Path
-import pandas as pd
 import copy
+from pathlib import Path
+
+import pandas as pd
 from loguru import logger
 
 
@@ -48,12 +49,19 @@ def get_tophits(result_tsv: Path, top_hits_tsv: Path, evalue: float) -> pd.DataF
 
 
 def parse_tophits(
-    filtered_tophits_df: pd.DataFrame, database: Path, database_name: str
+    filtered_tophits_df: pd.DataFrame, database: Path, database_name: str, pdb: bool
 ) -> pd.DataFrame:
     logger.info("Processing tophits.")
-    filtered_tophits_df[["record_id", "cds_id"]] = filtered_tophits_df[
-        "query"
-    ].str.split(":", expand=True, n=1)
+
+    if pdb is False:
+        # prostt5
+        filtered_tophits_df[["record_id", "cds_id"]] = filtered_tophits_df[
+            "query"
+        ].str.split(":", expand=True, n=1)
+    else:
+        filtered_tophits_df["cds_id"] = filtered_tophits_df["query"].str.replace(
+            ".pdb", ""
+        )
 
     # Remove the original 'query' column
     filtered_tophits_df = filtered_tophits_df.drop(columns=["query"])
@@ -82,7 +90,6 @@ def parse_tophits(
     phrog_mapping_df["phrog"] = phrog_mapping_df["phrog"].astype("str")
 
     # join the dfs
-
     filtered_tophits_df = filtered_tophits_df.merge(
         phrog_mapping_df, on="phrog", how="left"
     )
@@ -95,10 +102,15 @@ def parse_tophits(
 
 
 def calculate_tophits_results(
-    filtered_tophits_df: pd.DataFrame, cds_dict: dict, output: Path
+    filtered_tophits_df: pd.DataFrame, cds_dict: dict, output: Path, pdb: bool
 ) -> None:
     # Convert the DataFrame to a nested dictionary
     result_dict = {}
+
+    print(cds_dict)
+
+    # if pdb is true merge cds_dict with the filtered_tophits_df - these won't have record IDs in the labels
+    # if pdb is True:
 
     # instantiate the unique contig ids
     unique_contig_ids = filtered_tophits_df["record_id"].unique()
@@ -143,7 +155,9 @@ def calculate_tophits_results(
         new_functions_count_dict[record_id] = {}
         combined_functions_count_dict[record_id] = {}
 
-        original_functions_count_dict[record_id]["cds_count"] = len(updated_cds_dict[record_id])
+        original_functions_count_dict[record_id]["cds_count"] = len(
+            updated_cds_dict[record_id]
+        )
         original_functions_count_dict[record_id]["phrog_count"] = 0
         original_functions_count_dict[record_id]["connector"] = 0
         original_functions_count_dict[record_id][

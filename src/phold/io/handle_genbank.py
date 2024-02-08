@@ -1,18 +1,19 @@
 """
 Module for manipulating genbank files
-taken from phynteny
+some taken from phynteny
 """
 import binascii
 import gzip
 import random
 import re
+from datetime import datetime
+from pathlib import Path
 
 # imports
 import pandas as pd
 from Bio import SeqIO
 from loguru import logger
 from pandas.errors import EmptyDataError
-from pathlib import Path
 
 
 def is_gzip_file(f: Path) -> bool:
@@ -69,6 +70,86 @@ def get_genbank(genbank: Path) -> dict:
             raise
 
     return gb_dict
+
+
+def write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output):
+    """
+    add typing please
+    """
+
+    seq_records = []
+    per_cds_list = []
+
+    for record_id, record in gb_dict.items():
+        # Merge updated_cds_dict and non_cds_dict
+        merged_dict = {
+            record_id: {
+                **updated_cds_dict.get(record_id, {}),
+                **non_cds_dict.get(record_id, {}),
+            }
+        }
+
+        # Extract features into a list
+        all_features = [
+            feature
+            for features in merged_dict.values()
+            for feature in features.values()
+        ]
+
+        # Sort features based on the beginning position
+        sorted_features = sorted(all_features, key=lambda x: x.location.start)
+
+        # clean cds_feature and append for dataframe
+        for cds_feature in sorted_features:
+            if cds_feature.type == "CDS":
+                cds_info = {
+                    "contig_id": record_id,
+                    "cds_id": cds_feature.qualifiers["ID"][0],
+                    "start": cds_feature.location.start,
+                    "end": cds_feature.location.end,
+                    "strand": cds_feature.location.strand,
+                    "phrog": cds_feature.qualifiers["phrog"][0],
+                    "function": cds_feature.qualifiers["function"][0],
+                    "product": cds_feature.qualifiers["product"][0],
+                }
+
+                # Remove unwanted gbk attributes if they exist
+                keys_to_remove = ["top_hit", "score", "phase"]
+                for key in keys_to_remove:
+                    # will remove the keys
+                    deleted_value = cds_feature.qualifiers.pop(key, None)
+                # get dataframe
+                per_cds_list.append(cds_info)
+
+        # write out the record to GBK file
+        sequence = record.seq
+        seq_record = SeqIO.SeqRecord(
+            seq=sequence, id=record_id, description="", features=sorted_features
+        )
+        seq_records.append(seq_record)
+
+        # update the molecule type, data file division and date
+        seq_record.annotations["molecule_type"] = "DNA"
+        seq_record.annotations["data_file_division"] = "PHG"
+        seq_record.annotations["date"] = str(
+            datetime.now().strftime("%d-%b-%Y").upper()
+        )
+
+    per_cds_df = pd.DataFrame(per_cds_list)
+
+    # convert strand
+    per_cds_df["strand"] = per_cds_df["strand"].apply(
+        lambda x: "-" if x == -1 else ("+" if x == 1 else x)
+    )
+
+    output_gbk_path: Path = Path(output) / "phold.gbk"
+    with open(output_gbk_path, "w") as output_file:
+        SeqIO.write(seq_records, output_file, "genbank")
+
+    # output_df_path: Path = Path(output) / "per_cds_predictions.tsv"
+    # per_cds_df.to_csv(output_df_path, index=False, sep = "\t")
+
+    return per_cds_df
 
 
 def get_proteins(fasta: Path) -> dict:
@@ -231,22 +312,22 @@ def add_predictions(gb_dict, predictions):
     return gb_dict
 
 
-def write_genbank(gb_dict, filename):
-    """
-    write genbank dictionary to a file
-    """
+# def write_genbank(gb_dict, filename):
+#     """
+#     write genbank dictionary to a file
+#     """
 
-    keys = list(gb_dict.keys())
+#     keys = list(gb_dict.keys())
 
-    # check for gzip
-    if filename.strip()[-3:] == ".gz":
-        with gzip.open(filename, "wt") as handle:
-            for key in keys:
-                SeqIO.write(gb_dict.get(key), handle, "genbank")
-        handle.close()
+#     # check for gzip
+#     if filename.strip()[-3:] == ".gz":
+#         with gzip.open(filename, "wt") as handle:
+#             for key in keys:
+#                 SeqIO.write(gb_dict.get(key), handle, "genbank")
+#         handle.close()
 
-    else:
-        with open(filename, "wt") as handle:
-            for key in keys:
-                SeqIO.write(gb_dict.get(key), handle, "genbank")
-        handle.close()
+#     else:
+#         with open(filename, "wt") as handle:
+#             for key in keys:
+#                 SeqIO.write(gb_dict.get(key), handle, "genbank")
+#         handle.close()

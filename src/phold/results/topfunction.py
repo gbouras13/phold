@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-from pathlib import Path
-import pandas as pd
 import copy
+from pathlib import Path
+
+import pandas as pd
+from Bio import SeqIO
 from loguru import logger
 
 
 def get_topfunctions(
-    result_tsv: Path, database: Path, database_name: str
+    result_tsv: Path, database: Path, database_name: str, pdb: bool
 ) -> pd.DataFrame:
     logger.info("Processing Foldseek output.")
     col_list = [
         "query",
         "target",
-        "foldseek_alnScore",
-        "foldseek_seqIdentity",
-        "foldseek_eVal",
+        "bitscore",
+        "fident",
+        "evalue",
         "qStart",
         "qEnd",
         "qLen",
@@ -27,25 +29,46 @@ def get_topfunctions(
         result_tsv, delimiter="\t", index_col=False, names=col_list
     )
 
-    foldseek_df[["record_id", "cds_id"]] = foldseek_df["query"].str.split(
-        ":", expand=True, n=1
-    )
+    # gets the cds
+    if pdb is False:
+        # prostt5
+        foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
+            ":", expand=True, n=1
+        )
+    else:
+        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
 
-    if database_name == "all_phrogs" or database_name == "all_envhogs":
-        # split the first column
+    # clean up later
+    if (
+        database_name == "all_phrogs"
+        or database_name == "all_envhogs"
+        or database_name == "all_phrogs_pdb"
+        or database_name == "all_phold_structures"
+        or database_name == "all_phold_prostt5"
+    ):
+        foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
+        # split the target column as this will have phrog:protein
         foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
             ":", expand=True, n=1
         )
-    elif database_name == "all_phrogs_pdb" or database_name == "all_phrogs_reps":
-        foldseek_df["phrog"] = foldseek_df["target"].str.replace(".pdb", "")
-        foldseek_df["tophit_protein"] = None
 
     foldseek_df = foldseek_df.drop(columns=["target"])
     foldseek_df["phrog"] = foldseek_df["phrog"].str.replace("phrog_", "")
+
+    mask = foldseek_df["phrog"].str.startswith("envhog_")
+    # strip off envhog
+    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
+        "envhog_", ""
+    )
+    # add envhog to protein
+    foldseek_df.loc[mask, "tophit_protein"] = (
+        "envhog_" + foldseek_df.loc[mask, "tophit_protein"]
+    )
+
     foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
 
     # read in the mapping tsv
-    phrog_annot_mapping_tsv: Path = Path(database) / "phrog_annot_v4.tsv"
+    phrog_annot_mapping_tsv: Path = Path(database) / "phold_annots.tsv"
     phrog_mapping_df = pd.read_csv(phrog_annot_mapping_tsv, sep="\t")
     phrog_mapping_df["phrog"] = phrog_mapping_df["phrog"].astype("str")
 
@@ -53,20 +76,19 @@ def get_topfunctions(
     foldseek_df = foldseek_df.merge(phrog_mapping_df, on="phrog", how="left")
     # Replace NaN values in the 'product' column with 'hypothetical protein'
     foldseek_df["product"] = foldseek_df["product"].fillna("hypothetical protein")
-    foldseek_df["foldseek_eVal"] = foldseek_df["foldseek_eVal"].apply(
+    foldseek_df["evalue"] = foldseek_df["evalue"].apply(
         lambda x: "{:.3e}".format(float(x))
     )
 
-    # maybe dont need a sort
     def custom_nsmallest(group):
         # where all the
         if all(group["product"] == "hypothetical protein"):
-            min_row_index = group["foldseek_eVal"].idxmin()
+            min_row_index = group["evalue"].idxmin()
             # Get the entire row
             return group.loc[min_row_index]
         else:
             group = group[group["product"] != "hypothetical protein"]
-            min_row_index = group["foldseek_eVal"].idxmin()
+            min_row_index = group["evalue"].idxmin()
             # Get the entire row
             return group.loc[min_row_index]
 
@@ -76,42 +98,162 @@ def get_topfunctions(
         .reset_index(drop=True)
     )
 
+    topfunction_dict = dict(zip(topfunction_df["query"], topfunction_df["function"]))
+
     # Remove the original 'query' column
     topfunction_df = topfunction_df.drop(columns=["query"])
 
     # scientific notation to 3dp
-    topfunction_df["foldseek_eVal"] = topfunction_df["foldseek_eVal"].apply(
+    topfunction_df["evalue"] = topfunction_df["evalue"].apply(
         lambda x: "{:.3e}".format(float(x))
     )
 
-    return topfunction_df
+    def weighted_function(group):
+
+        phrog_function_mapping = {
+            "unknown function": "unknown function",
+            "transcription regulation": "transcription regulation",
+            "tail": "tail",
+            "other": "other",
+            "moron, auxiliary metabolic gene and host takeover": "moron, auxiliary metabolic gene and host takeover",
+            "lysis": "lysis",
+            "integration and excision": "integration and excision",
+            "head and packaging": "head and packaging",
+            "DNA, RNA and nucleotide metabolism": "DNA, RNA and nucleotide metabolism",
+            "connector": "connector",
+        }
+
+        query = group["query"].iloc[0]
+        tophit_function = topfunction_dict[query]
+
+        # function_counts = group['function'].value_counts().to_dict()
+
+        # normalise counts by total bitscore
+        weighted_counts_normalised = {}
+        # total_bitscore = group['bitscore'].sum()
+        bitscore_by_function = group.groupby("function")["bitscore"].sum().to_dict()
+
+
+        total_functional_bitscore = group[group["function"] != "unknown function"]["bitscore"].sum()
+
+        if total_functional_bitscore == 0:
+        # if tophit_function == "unknown function":
+            top_bitscore_function = "unknown function"
+            top_bitscore_perc = 0
+        
+        # everything except unknown function
+        # get total bitscore of the hits with function
+        else:
+            # total_function_bitscore = group[group["function"] != "unknown function"]["bitscore"].sum()
+
+            # get the weighted bitscore
+            for key, value in bitscore_by_function.items():
+                if key != "unknown function":
+                    weighted_counts_normalised[key] = round(
+                        value / total_functional_bitscore, 2
+                    )
+
+            top_bitscore_function = max(
+                weighted_counts_normalised, key=weighted_counts_normalised.get
+            )
+            top_bitscore_perc = max(weighted_counts_normalised.values())
+
+        d = {
+            "tophit_function": [tophit_function],
+            "function_with_highest_bitscore_percentage": [top_bitscore_function],
+            "top_bitscore_percentage_not_unknown": [top_bitscore_perc],
+            "head_and_packaging_bitscore_percentage": [
+                weighted_counts_normalised.get("head and packaging", 0)
+            ],
+            "integration_and_excision_bitscore_percentage": [
+                weighted_counts_normalised.get("integration and excision", 0)
+            ],
+            "tail bitscore_percentage": [weighted_counts_normalised.get("tail", 0)],
+            "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_percentage": [
+                weighted_counts_normalised.get(
+                    "moron, auxiliary metabolic gene and host takeover", 0
+                )
+            ],
+            "DNA_RNA_and_nucleotide_metabolism bitscore_percentage": [
+                weighted_counts_normalised.get("DNA, RNA and nucleotide metabolism", 0)
+            ],
+            "connector_bitscore_percentage": [
+                weighted_counts_normalised.get("connector", 0)
+            ],
+            "transcription_regulation_bitscore_percentage": [
+                weighted_counts_normalised.get("transcription regulation", 0)
+            ],
+            "lysis_bitscore_percentage": [weighted_counts_normalised.get("lysis", 0)],
+            "other_bitscore_percentage": [weighted_counts_normalised.get("other", 0)],
+            "unknown_function_bitscore_percentage": [
+                weighted_counts_normalised.get("unknown function", 0)
+            ],
+        }
+
+        weighted_bitscore_df = pd.DataFrame(data=d)
+
+        return weighted_bitscore_df
+
+    weighted_bitscore_df = foldseek_df.groupby("query", group_keys=True).apply(
+        weighted_function
+    )
+
+    weighted_bitscore_df.reset_index(inplace=True)
+    weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
+        ".pdb", ""
+    )
+    weighted_bitscore_df = weighted_bitscore_df.drop(columns=["level_1"])
+
+    return topfunction_df, weighted_bitscore_df
 
 
 def calculate_topfunctions_results(
-    filtered_tophits_df: pd.DataFrame, cds_dict: dict, output: Path
+    filtered_tophits_df: pd.DataFrame, cds_dict: dict, output: Path, pdb: bool
 ) -> None:
     # Convert the DataFrame to a nested dictionary
     result_dict = {}
 
-    # instantiate the unique contig ids
-    unique_contig_ids = filtered_tophits_df["record_id"].unique()
+    # so I can match with the df row below
+    cds_record_dict = {}
 
-    # loop over the contigs
-    for record_id in unique_contig_ids:
+    for record_id, cds_entries in cds_dict.items():
         result_dict[record_id] = {}
+        for cds_id, cds_info in cds_entries.items():
+            result_dict[record_id][cds_id] = {}
+            cds_record_dict[cds_id] = record_id
+
+    # Get record_id for every cds_id and merge
+    if pdb is True:
+        cds_record_df = pd.DataFrame(
+            list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
+        )
+        filtered_tophits_df = pd.merge(
+            filtered_tophits_df, cds_record_df, on="cds_id", how="left"
+        )
+
+    # Move "contig_id" and 'cds_id' to the front
+    column_order = ["contig_id", "cds_id"] + [
+        col
+        for col in filtered_tophits_df.columns
+        if col != "contig_id" and col != "cds_id"
+    ]
+    filtered_tophits_df = filtered_tophits_df[column_order]
+
+    # combined_tsv_path: Path = Path(output) / "topfunctions.tsv"
+    # filtered_tophits_df.to_csv(combined_tsv_path, sep="\t", index=False)
 
     # loop over all the foldseek tophits
     for _, row in filtered_tophits_df.iterrows():
-        record_id = row["record_id"]
+        record_id = row["contig_id"]
         cds_id = row["cds_id"]
         values_dict = {
             "phrog": row["phrog"],
             "product": row["product"],
             "function": row["function"],
             "tophit_protein": row["tophit_protein"],
-            "foldseek_alnScore": row["foldseek_alnScore"],
-            "foldseek_seqIdentity": row["foldseek_seqIdentity"],
-            "foldseek_eVal": row["foldseek_eVal"],
+            "bitscore": row["bitscore"],
+            "fident": row["fident"],
+            "evalue": row["evalue"],
             "qStart": row["qStart"],
             "qEnd": row["qEnd"],
             "qLen": row["qLen"],
@@ -128,190 +270,116 @@ def calculate_topfunctions_results(
     original_functions_count_dict = {}
     new_functions_count_dict = {}
     combined_functions_count_dict = {}
+    comparison_count_dict = {}
+
+    phrog_function_mapping = {
+        "unknown function": "unknown function",
+        "transcription regulation": "transcription regulation",
+        "tail": "tail",
+        "other": "other",
+        "moron, auxiliary metabolic gene and host takeover": "moron, auxiliary metabolic gene and host takeover",
+        "lysis": "lysis",
+        "integration and excision": "integration and excision",
+        "head and packaging": "head and packaging",
+        "DNA, RNA and nucleotide metabolism": "DNA, RNA and nucleotide metabolism",
+        "connector": "connector",
+    }
 
     # iterates over the records
     for record_id, record in updated_cds_dict.items():
+        cds_count = len(updated_cds_dict[record_id])
+
         # instantiate the functions dicts
         original_functions_count_dict[record_id] = {}
         new_functions_count_dict[record_id] = {}
         combined_functions_count_dict[record_id] = {}
 
-        original_functions_count_dict[record_id]["cds_count"] = len(
-            updated_cds_dict[record_id]
-        )
-        original_functions_count_dict[record_id]["phrog_count"] = 0
-        original_functions_count_dict[record_id]["connector"] = 0
-        original_functions_count_dict[record_id][
-            "DNA, RNA and nucleotide metabolism"
-        ] = 0
-        original_functions_count_dict[record_id]["head and packaging"] = 0
-        original_functions_count_dict[record_id]["integration and excision"] = 0
-        original_functions_count_dict[record_id]["lysis"] = 0
-        original_functions_count_dict[record_id][
-            "moron, auxiliary metabolic gene and host takeover"
-        ] = 0
-        original_functions_count_dict[record_id]["other"] = 0
-        original_functions_count_dict[record_id]["tail"] = 0
-        original_functions_count_dict[record_id]["transcription regulation"] = 0
-        original_functions_count_dict[record_id]["unknown function"] = 0
+        # this one holds same_phrogs, changed_phrogs, different_phrogs,  foldseek_only_phrogs, pharokka_only_phrogs
+        comparison_count_dict[record_id] = {}
+        comparison_count_dict[record_id]["cds_count"] = cds_count
 
-        new_functions_count_dict[record_id]["cds_count"] = len(
-            updated_cds_dict[record_id]
-        )
-        new_functions_count_dict[record_id]["phrog_count"] = 0
-        new_functions_count_dict[record_id]["connector"] = 0
-        new_functions_count_dict[record_id]["DNA, RNA and nucleotide metabolism"] = 0
-        new_functions_count_dict[record_id]["head and packaging"] = 0
-        new_functions_count_dict[record_id]["integration and excision"] = 0
-        new_functions_count_dict[record_id]["lysis"] = 0
-        new_functions_count_dict[record_id][
-            "moron, auxiliary metabolic gene and host takeover"
-        ] = 0
-        new_functions_count_dict[record_id]["other"] = 0
-        new_functions_count_dict[record_id]["tail"] = 0
-        new_functions_count_dict[record_id]["transcription regulation"] = 0
-        new_functions_count_dict[record_id]["unknown function"] = 0
-        new_functions_count_dict[record_id]["changed_phrogs"] = 0
-        new_functions_count_dict[record_id]["same_phrogs"] = 0
-        new_functions_count_dict[record_id]["different_phrogs"] = 0
-        new_functions_count_dict[record_id]["foldseek_only_phrogs"] = 0
-        new_functions_count_dict[record_id]["pharokka_only_phrogs"] = 0
+        # instantiate every CDS dictionary
 
-        combined_functions_count_dict[record_id]["cds_count"] = len(
-            updated_cds_dict[record_id]
+        original_functions_count_dict = initialize_function_counts_dict(
+            record_id, original_functions_count_dict, cds_count
         )
-        combined_functions_count_dict[record_id]["phrog_count"] = 0
-        combined_functions_count_dict[record_id]["connector"] = 0
-        combined_functions_count_dict[record_id][
-            "DNA, RNA and nucleotide metabolism"
-        ] = 0
-        combined_functions_count_dict[record_id]["head and packaging"] = 0
-        combined_functions_count_dict[record_id]["integration and excision"] = 0
-        combined_functions_count_dict[record_id]["lysis"] = 0
-        combined_functions_count_dict[record_id][
-            "moron, auxiliary metabolic gene and host takeover"
-        ] = 0
-        combined_functions_count_dict[record_id]["other"] = 0
-        combined_functions_count_dict[record_id]["tail"] = 0
-        combined_functions_count_dict[record_id]["transcription regulation"] = 0
-        combined_functions_count_dict[record_id]["unknown function"] = 0
+        new_functions_count_dict = initialize_function_counts_dict(
+            record_id, new_functions_count_dict, cds_count
+        )
+        combined_functions_count_dict = initialize_function_counts_dict(
+            record_id, combined_functions_count_dict, cds_count
+        )
+
+        # the extra ones instnatiate manually
+        comparison_count_dict[record_id]["phrog_count"] = 0
+        comparison_count_dict[record_id]["same_phrogs"] = 0
+        comparison_count_dict[record_id]["changed_phrogs"] = 0
+        comparison_count_dict[record_id]["kept_phrogs"] = 0
+        comparison_count_dict[record_id]["foldseek_only_phrogs"] = 0
+        comparison_count_dict[record_id]["different_phrogs"] = 0
+        comparison_count_dict[record_id]["pharokka_only_phrogs"] = 0
+        comparison_count_dict[record_id]["neither_phrogs"] = 0
+        # function
+        comparison_count_dict[record_id]["same_function"] = 0
+        comparison_count_dict[record_id]["changed_function"] = 0
+        comparison_count_dict[record_id]["foldseek_only_non_hyp_function"] = 0
+        comparison_count_dict[record_id]["pharokka_only_non_hyp_function"] = 0
 
         # iterates over the features
-        # maybe can add 3DI as a genbank feature eventually?
         for cds_id, cds_feature in updated_cds_dict[record_id].items():
-            # if pharokka got a phrog
+            # if pharokka has a phrog
             if cds_feature.qualifiers["phrog"][0] != "No_PHROG":
                 original_functions_count_dict[record_id]["phrog_count"] += 1
-            # get original function counts
-            if cds_feature.qualifiers["function"][0] == "unknown function":
-                original_functions_count_dict[record_id]["unknown function"] += 1
-            elif cds_feature.qualifiers["function"][0] == "transcription regulation":
-                original_functions_count_dict[record_id][
-                    "transcription regulation"
-                ] += 1
-            elif cds_feature.qualifiers["function"][0] == "tail":
-                original_functions_count_dict[record_id]["tail"] += 1
-            elif cds_feature.qualifiers["function"][0] == "other":
-                original_functions_count_dict[record_id]["other"] += 1
-            elif cds_feature.qualifiers["function"][0] == "moron":
-                original_functions_count_dict[record_id][
-                    "moron, auxiliary metabolic gene and host takeover"
-                ] += 1
-            elif cds_feature.qualifiers["function"][0] == "lysis":
-                original_functions_count_dict[record_id]["lysis"] += 1
-            elif cds_feature.qualifiers["function"][0] == "integration and excision":
-                original_functions_count_dict[record_id][
-                    "integration and excision"
-                ] += 1
-            elif cds_feature.qualifiers["function"][0] == "head and packaging":
-                original_functions_count_dict[record_id]["head and packaging"] += 1
-            elif cds_feature.qualifiers["function"][0] == "DNA":
-                original_functions_count_dict[record_id][
-                    "DNA, RNA and nucleotide metabolism"
-                ] += 1
-            elif cds_feature.qualifiers["function"][0] == "connector":
-                original_functions_count_dict[record_id]["connector"] += 1
 
-            # now the updated dictionary
-            # If record_id does not exist in result_dict, an empty dictionary {} is returned as the default value.
-            # prevents KeyError
-            if cds_id in result_dict.get(record_id, {}):
-                # if cds_id in result_dict[record_id].keys():
-                # increase the phrog count
+            # original pharokka phrog categories
+            pharokka_phrog_function_category = phrog_function_mapping.get(
+                cds_feature.qualifiers["function"][0], None
+            )
+
+            if pharokka_phrog_function_category:
+                original_functions_count_dict[record_id][
+                    pharokka_phrog_function_category
+                ] += 1
+
+            # if the result_dict is not empty
+            if result_dict[record_id][cds_id] != {}:
+                # update the combined and foldseek functions counts
                 new_functions_count_dict[record_id]["phrog_count"] += 1
                 combined_functions_count_dict[record_id]["phrog_count"] += 1
-                # update the counts
-                if result_dict[record_id][cds_id]["function"] == "unknown function":
-                    new_functions_count_dict[record_id]["unknown function"] += 1
-                    combined_functions_count_dict[record_id]["unknown function"] += 1
-                elif (
-                    result_dict[record_id][cds_id]["function"]
-                    == "transcription regulation"
-                ):
-                    new_functions_count_dict[record_id]["transcription regulation"] += 1
-                    combined_functions_count_dict[record_id][
-                        "transcription regulation"
-                    ] += 1
-                elif result_dict[record_id][cds_id]["function"] == "tail":
-                    new_functions_count_dict[record_id]["tail"] += 1
-                    combined_functions_count_dict[record_id]["tail"] += 1
-                elif result_dict[record_id][cds_id]["function"] == "other":
-                    new_functions_count_dict[record_id]["other"] += 1
-                    combined_functions_count_dict[record_id]["other"] += 1
-                elif (
-                    result_dict[record_id][cds_id]["function"]
-                    == "moron, auxiliary metabolic gene and host takeover"
-                ):
-                    new_functions_count_dict[record_id][
-                        "moron, auxiliary metabolic gene and host takeover"
-                    ] += 1
-                    combined_functions_count_dict[record_id][
-                        "moron, auxiliary metabolic gene and host takeover"
-                    ] += 1
-                elif result_dict[record_id][cds_id]["function"] == "lysis":
-                    new_functions_count_dict[record_id]["lysis"] += 1
-                    combined_functions_count_dict[record_id]["lysis"] += 1
-                elif (
-                    result_dict[record_id][cds_id]["function"]
-                    == "integration and excision"
-                ):
-                    new_functions_count_dict[record_id]["integration and excision"] += 1
-                    combined_functions_count_dict[record_id][
-                        "integration and excision"
-                    ] += 1
-                elif result_dict[record_id][cds_id]["function"] == "head and packaging":
-                    new_functions_count_dict[record_id]["head and packaging"] += 1
-                    combined_functions_count_dict[record_id]["head and packaging"] += 1
-                elif (
-                    result_dict[record_id][cds_id]["function"]
-                    == "DNA, RNA and nucleotide metabolism"
-                ):
-                    new_functions_count_dict[record_id][
-                        "DNA, RNA and nucleotide metabolism"
-                    ] += 1
-                    combined_functions_count_dict[record_id][
-                        "DNA, RNA and nucleotide metabolism"
-                    ] += 1
-                elif result_dict[record_id][cds_id]["function"] == "connector":
-                    new_functions_count_dict[record_id]["connector"] += 1
-                    combined_functions_count_dict[record_id]["connector"] += 1
+                comparison_count_dict[record_id]["phrog_count"] += 1
+
+                # get the foldseek function
+                for function_key in phrog_function_mapping.values():
+                    new_functions_count_dict[record_id].setdefault(function_key, 0)
+                    combined_functions_count_dict[record_id].setdefault(function_key, 0)
+
+                # function will be None if there is no foldseek hit
+                function = result_dict[record_id][cds_id].get("function", None)
+                if function is not None:
+                    function_key = phrog_function_mapping.get(
+                        function, "unknown function"
+                    )
+                else:
+                    function_key = "unknown function"
+
+                # update with new function
+                new_functions_count_dict[record_id][function_key] += 1
+                combined_functions_count_dict[record_id][function_key] += 1
 
                 # update the phrog if different
-                # same phrog
-                if (
-                    result_dict[record_id][cds_id]["phrog"]
-                    == cds_feature.qualifiers["phrog"][0]
-                ):
-                    new_functions_count_dict[record_id]["same_phrogs"] += 1
-                # different phrog
-                if (
-                    result_dict[record_id][cds_id]["phrog"]
-                    != cds_feature.qualifiers["phrog"][0]
-                ):
+
+                foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
+
+                # same phrog as pharokka
+                if foldseek_phrog == cds_feature.qualifiers["phrog"][0]:
+                    comparison_count_dict[record_id]["same_phrogs"] += 1
+                    comparison_count_dict[record_id]["same_function"] += 1
+                # different phrog as pharokka
+                else:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        new_functions_count_dict[record_id]["changed_phrogs"] += 1
-                        new_functions_count_dict[record_id]["foldseek_only_phrogs"] += 1
+                        comparison_count_dict[record_id]["changed_phrogs"] += 1
+                        comparison_count_dict[record_id]["foldseek_only_phrogs"] += 1
                         updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
                             0
                         ] = result_dict[record_id][cds_id]["phrog"]
@@ -321,15 +389,51 @@ def calculate_topfunctions_results(
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
-                    # different phrog to pharokka
-                    else:
-                        # if the foldseek result isn't have unknown function then update
+
+                        # whether function changed
                         if (
                             result_dict[record_id][cds_id]["function"]
                             != "unknown function"
                         ):
-                            new_functions_count_dict[record_id]["changed_phrogs"] += 1
-                            new_functions_count_dict[record_id]["different_phrogs"] += 1
+                            comparison_count_dict[record_id][
+                                "foldseek_only_non_hyp_function"
+                            ] += 1
+                            comparison_count_dict[record_id]["changed_function"] += 1
+                        # otherwise same function
+                        else:
+                            comparison_count_dict[record_id]["same_function"] += 1
+
+                    # different phrog to pharokka
+                    # maybe look at this differently?
+                    else:
+                        # if the foldseek result doesn't have unknown function then update
+                        if (
+                            result_dict[record_id][cds_id]["function"]
+                            != "unknown function"
+                        ):
+                            # pharokka hyp, foldseek not
+                            if (
+                                cds_feature.qualifiers["function"][0]
+                                == "unknown function"
+                                and result_dict[record_id][cds_id]["function"]
+                                != "unknown function"
+                            ):
+                                comparison_count_dict[record_id][
+                                    "foldseek_only_non_hyp_function"
+                                ] += 1
+
+                            if (
+                                cds_feature.qualifiers["function"][0]
+                                != result_dict[record_id][cds_id]["function"]
+                            ):
+                                comparison_count_dict[record_id][
+                                    "changed_function"
+                                ] += 1
+                            else:
+                                comparison_count_dict[record_id]["same_function"] += 1
+
+                            comparison_count_dict[record_id]["changed_phrogs"] += 1
+                            comparison_count_dict[record_id]["different_phrogs"] += 1
                             # update
                             updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
                                 0
@@ -340,53 +444,69 @@ def calculate_topfunctions_results(
                             updated_cds_dict[record_id][cds_id].qualifiers["function"][
                                 0
                             ] = result_dict[record_id][cds_id]["function"]
+                        # foldseek result has unknown function
+                        else:
+                            # foldseek result is unknown function and pharokka has known function
+                            # keep the pharokka phrogs
+                            if (
+                                cds_feature.qualifiers["function"][0]
+                                != "unknown function"
+                            ):
+                                comparison_count_dict[record_id]["kept_phrogs"] += 1
+                                comparison_count_dict[record_id][
+                                    "pharokka_only_non_hyp_function"
+                                ] += 1
+                            # foldseek result is unknown function and pharokka unknown function
+                            # update to foldseek
+                            # arguably can change this - will need  comparison_count_dict[record_id]["kept_phrogs"] += 1 if so
+                            else:
+                                comparison_count_dict[record_id]["changed_phrogs"] += 1
+                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["phrog"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "product"
+                                ][0] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "function"
+                                ][0] = result_dict[record_id][cds_id]["function"]
+
+                                comparison_count_dict[record_id]["same_function"] += 1
+
+            # no foldseek hits - empty dict
+            # will not be in results dict - therefore in foldseek dict will be function function
             else:
-                # will not be in results dict - therefore in foldseek dict will be unknown function function
                 new_functions_count_dict[record_id]["unknown function"] += 1
+                # if has a pharokka hit
                 if cds_feature.qualifiers["phrog"][0] != "No_PHROG":
-                    new_functions_count_dict[record_id]["pharokka_only_phrogs"] += 1
                     combined_functions_count_dict[record_id]["phrog_count"] += 1
-                    if cds_feature.qualifiers["function"][0] == "unknown function":
-                        combined_functions_count_dict[record_id][
-                            "unknown function"
-                        ] += 1
-                    elif (
-                        cds_feature.qualifiers["function"][0]
-                        == "transcription regulation"
+                    comparison_count_dict[record_id]["phrog_count"] += 1
+                    comparison_count_dict[record_id]["pharokka_only_phrogs"] += 1
+                    # comparison_count_dict[record_id]["changed_phrogs"] += 1
+
+                    function_value = cds_feature.qualifiers["function"][0]
+                    function_key = phrog_function_mapping.get(
+                        function_value, "unknown function"
+                    )
+
+                    combined_functions_count_dict[record_id].setdefault(function_key, 0)
+                    combined_functions_count_dict[record_id][function_key] += 1
+
+                    if (
+                        updated_cds_dict[record_id][cds_id].qualifiers["function"][0]
+                        != "unknown function"
                     ):
-                        combined_functions_count_dict[record_id][
-                            "transcription regulation"
+                        comparison_count_dict[record_id][
+                            "pharokka_only_non_hyp_function"
                         ] += 1
-                    elif cds_feature.qualifiers["function"][0] == "tail":
-                        combined_functions_count_dict[record_id]["tail"] += 1
-                    elif cds_feature.qualifiers["function"][0] == "other":
-                        combined_functions_count_dict[record_id]["other"] += 1
-                    elif cds_feature.qualifiers["function"][0] == "moron":
-                        combined_functions_count_dict[record_id][
-                            "moron, auxiliary metabolic gene and host takeover"
-                        ] += 1
-                    elif cds_feature.qualifiers["function"][0] == "lysis":
-                        combined_functions_count_dict[record_id]["lysis"] += 1
-                    elif (
-                        cds_feature.qualifiers["function"][0]
-                        == "integration and excision"
-                    ):
-                        combined_functions_count_dict[record_id][
-                            "integration and excision"
-                        ] += 1
-                    elif cds_feature.qualifiers["function"][0] == "head and packaging":
-                        combined_functions_count_dict[record_id][
-                            "head and packaging"
-                        ] += 1
-                    elif cds_feature.qualifiers["function"][0] == "DNA":
-                        combined_functions_count_dict[record_id][
-                            "DNA, RNA and nucleotide metabolism"
-                        ] += 1
-                    elif cds_feature.qualifiers["function"][0] == "connector":
-                        combined_functions_count_dict[record_id]["connector"] += 1
+                    else:
+                        comparison_count_dict[record_id]["same_function"] += 1
+
+                # no hits in either
                 else:
-                    # no hits in either
                     combined_functions_count_dict[record_id]["unknown function"] += 1
+                    comparison_count_dict[record_id]["neither_phrogs"] += 1
+                    comparison_count_dict[record_id]["same_function"] += 1
 
     # Convert the nested dictionary to a Pandas DataFrame
     pharokka_df = pd.DataFrame.from_dict(original_functions_count_dict, orient="index")
@@ -412,3 +532,34 @@ def calculate_topfunctions_results(
     ]
     combined_tsv: Path = Path(output) / "combined_functions_output.tsv"
     combined_df.to_csv(combined_tsv, sep="\t", index=False)
+
+    comparison_df = pd.DataFrame.from_dict(comparison_count_dict, orient="index")
+    comparison_df["contig_id"] = comparison_df.index
+    comparison_df = comparison_df[
+        ["contig_id"] + [col for col in comparison_df.columns if col != "contig_id"]
+    ]
+    comparison_tsv: Path = Path(output) / "comparison_output.tsv"
+    comparison_df.to_csv(comparison_tsv, sep="\t", index=False)
+
+    return updated_cds_dict, filtered_tophits_df
+
+
+def initialize_function_counts_dict(record_id, count_dict, cds_count):
+    count_dict[record_id]["cds_count"] = cds_count
+    count_dict[record_id].update(
+        {
+            "phrog_count": 0,
+            "connector": 0,
+            "DNA, RNA and nucleotide metabolism": 0,
+            "head and packaging": 0,
+            "integration and excision": 0,
+            "lysis": 0,
+            "moron, auxiliary metabolic gene and host takeover": 0,
+            "other": 0,
+            "tail": 0,
+            "transcription regulation": 0,
+            "unknown function": 0,
+        }
+    )
+
+    return count_dict

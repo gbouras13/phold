@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
-from loguru import logger
-import requests
-import time
 import re
+import time
+from pathlib import Path
+
+import requests
+from loguru import logger
 
 
 def query_remote_3di(cds_dict: dict, out_path: Path):
