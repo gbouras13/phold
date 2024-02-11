@@ -1,35 +1,41 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import pandas as pd
 
-from phold.utils.external_tools import ExternalTool
+import pandas as pd
 from Bio import SeqIO
+
 
 def split_3di_fasta_by_prob(
     fasta_aa: Path,
     fasta_3di: Path,
     probs_3di: Path,
     output: Path,
-    split_threshold: float
+    split_threshold: float,
 ):
-    
-    probs_3di_df = pd.read_csv(probs_3di, header=None, names=['cds_id', 'prostt5_prob'], sep = ",")
+
+    probs_3di_df = pd.read_csv(
+        probs_3di, header=None, names=["cds_id", "prostt5_prob"], sep=","
+    )
 
     # Create two sets based on the split_threshold
-    high_prob_set = set(probs_3di_df[probs_3di_df['prostt5_prob'] >= split_threshold]['cds_id'])
-    low_prob_set = set(probs_3di_df[probs_3di_df['prostt5_prob'] < split_threshold]['cds_id'])
+    high_prob_set = set(
+        probs_3di_df[probs_3di_df["prostt5_prob"] >= split_threshold]["cds_id"]
+    )
+    low_prob_set = set(
+        probs_3di_df[probs_3di_df["prostt5_prob"] < split_threshold]["cds_id"]
+    )
 
-    # write the 3dis out 
+    # write the 3dis out
 
     high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
     low_prob_fasta_3di_out_path: Path = Path(output) / "low_prob_3di.fasta"
-    
-        # Open output files for writing
-    high_prob_3di_out_file = open(high_prob_fasta_3di_out_path, 'w')
-    low_prob_3di_out_file = open(low_prob_fasta_3di_out_path, 'w')
+
+    # Open output files for writing
+    high_prob_3di_out_file = open(high_prob_fasta_3di_out_path, "w")
+    low_prob_3di_out_file = open(low_prob_fasta_3di_out_path, "w")
 
     # Open and read the FASTA file
-    with open(fasta_3di, 'r') as fasta_file:
+    with open(fasta_3di, "r") as fasta_file:
         for record in SeqIO.parse(fasta_file, "fasta"):
             # Extract cds_id from the header
             cds_id = record.id.split(":")[1]
@@ -44,17 +50,17 @@ def split_3di_fasta_by_prob(
     high_prob_3di_out_file.close()
     low_prob_3di_out_file.close()
 
-    # write the aas out 
+    # write the aas out
 
     high_prob_fasta_aa_out_path: Path = Path(output) / "high_prob_aa.fasta"
     low_prob_fasta_aa_out_path: Path = Path(output) / "low_prob_aa.fasta"
-    
-        # Open output files for writing
-    high_prob_aa_out_file = open(high_prob_fasta_aa_out_path, 'w')
-    low_prob_aa_out_file = open(low_prob_fasta_aa_out_path, 'w')
+
+    # Open output files for writing
+    high_prob_aa_out_file = open(high_prob_fasta_aa_out_path, "w")
+    low_prob_aa_out_file = open(low_prob_fasta_aa_out_path, "w")
 
     # Open and read the FASTA file
-    with open(fasta_aa, 'r') as fasta_file:
+    with open(fasta_aa, "r") as fasta_file:
         for record in SeqIO.parse(fasta_file, "fasta"):
             # Extract cds_id from the header
             cds_id = record.id.split(":")[1]
@@ -68,5 +74,3 @@ def split_3di_fasta_by_prob(
     # Close the output files
     high_prob_aa_out_file.close()
     low_prob_aa_out_file.close()
-
-

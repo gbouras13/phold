@@ -1,7 +1,3 @@
-"""MISC FUNCTIONS
-You shouldn't need to tweak these much if at all
-"""
-
 import os
 import shutil
 import subprocess as sp
@@ -68,14 +64,14 @@ def begin_phold(params, subcommand: str):
     logger.add(lambda _: sys.exit(1), level="ERROR")
 
     print_splash()
-    logger.info("phold: annotating phage genomes with protein structures.")
+    logger.info("phold: annotating phage genomes with protein structures")
 
     logger.info(f"You are using phold version {get_version()}")
     logger.info("Repository homepage is https://github.com/gbouras13/phold")
-    logger.info(f"You are running phold {subcommand}.")
-    logger.info(f"Listing parameters.")
+    logger.info(f"You are running phold {subcommand}")
+    logger.info(f"Listing parameters")
     for key, value in params.items():
-        logger.info(f"Parameter: {key} {value}.")
+        logger.info(f"Parameter: {key} {value}")
 
     return start_time
 
@@ -119,3 +115,21 @@ def remove_file(file_path: Path) -> None:
 def remove_directory(dir_path: Path) -> None:
     if dir_path.exists():
         shutil.rmtree(dir_path)
+
+
+def touch_file(path: Path) -> None:
+    with open(path, "a"):
+        os.utime(path, None)
+
+
+def clean_up_temporary_files(output: Path):
+    result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
+    result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
+    result_db_base: Path = Path(output) / "result_db"
+    temp_db: Path = Path(output) / "temp_db"
+    remove_directory(result_db_base)
+    remove_directory(temp_db)
+    remove_file(result_tsv)
+    remove_file(result_high_tsv)
+    remove_file(result_low_tsv)

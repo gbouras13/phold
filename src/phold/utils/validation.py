@@ -1,11 +1,8 @@
 import re
 import shutil
-import subprocess as sp
 import sys
 from pathlib import Path
 
-import click
-from Bio import SeqIO
 from loguru import logger
 
 

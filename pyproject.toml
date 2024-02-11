@@ -23,7 +23,11 @@ pyyaml = ">=6.0"
 pandas = ">=1.4.2"
 biopython = ">=1.76"
 requests = ">=2.15"
-
+sentencepiece = ">=0.1.99"
+transformers = ">=4.34"
+torch = ">=2.1.2"
+pyrodigal-gv = ">=0.3.1"
+pyarrow = "14.0.0"
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3.0"
@@ -31,6 +35,8 @@ isort = ">=5.10.1"
 pytest = ">=6.2.5"
 pytest-cov = ">=3.0.0"
 flake8 = ">=3.0.1"
+
+
 
 [[tool.poetry.source]]
 name = "pypi-test"

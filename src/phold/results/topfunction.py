@@ -3,14 +3,20 @@ import copy
 from pathlib import Path
 
 import pandas as pd
-from Bio import SeqIO
 from loguru import logger
 
 
 def get_topfunctions(
-    result_tsv: Path, database: Path, database_name: str, pdb: bool
+    result_tsv: Path,
+    database: Path,
+    database_name: str,
+    pdb: bool,
+    card_vfdb_evalue: float,
+    proteins_flag: bool,
 ) -> pd.DataFrame:
-    logger.info("Processing Foldseek output.")
+
+    logger.info("Processing Foldseek output")
+
     col_list = [
         "query",
         "target",
@@ -30,22 +36,17 @@ def get_topfunctions(
     )
 
     # gets the cds
-    if pdb is False:
+    if pdb is False and proteins_flag is False:
         # prostt5
         foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
             ":", expand=True, n=1
         )
+    # pdb or proteins_flag or both
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
 
     # clean up later
-    if (
-        database_name == "all_phrogs"
-        or database_name == "all_envhogs"
-        or database_name == "all_phrogs_pdb"
-        or database_name == "all_phold_structures"
-        or database_name == "all_phold_prostt5"
-    ):
+    if database_name == "all_phold_structures" or database_name == "all_phold_prostt5":
         foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
         # split the target column as this will have phrog:protein
         foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
@@ -74,11 +75,18 @@ def get_topfunctions(
 
     # join the dfs
     foldseek_df = foldseek_df.merge(phrog_mapping_df, on="phrog", how="left")
+
     # Replace NaN values in the 'product' column with 'hypothetical protein'
     foldseek_df["product"] = foldseek_df["product"].fillna("hypothetical protein")
-    foldseek_df["evalue"] = foldseek_df["evalue"].apply(
-        lambda x: "{:.3e}".format(float(x))
-    )
+
+    # filter out rows of foldseek_df where vfdb or card - stricter threshold due to Enault et al
+    # https://www.nature.com/articles/ismej201690
+    # defaults to 1e-10
+    foldseek_df = foldseek_df[
+        ((foldseek_df["phrog"] == "vfdb") | (foldseek_df["phrog"] == "card"))
+        & (foldseek_df["evalue"].astype(float) < float(card_vfdb_evalue))
+        | ((foldseek_df["phrog"] != "vfdb") & (foldseek_df["phrog"] != "card"))
+    ]
 
     def custom_nsmallest(group):
         # where all the
@@ -110,42 +118,22 @@ def get_topfunctions(
 
     def weighted_function(group):
 
-        phrog_function_mapping = {
-            "unknown function": "unknown function",
-            "transcription regulation": "transcription regulation",
-            "tail": "tail",
-            "other": "other",
-            "moron, auxiliary metabolic gene and host takeover": "moron, auxiliary metabolic gene and host takeover",
-            "lysis": "lysis",
-            "integration and excision": "integration and excision",
-            "head and packaging": "head and packaging",
-            "DNA, RNA and nucleotide metabolism": "DNA, RNA and nucleotide metabolism",
-            "connector": "connector",
-        }
-
-        query = group["query"].iloc[0]
-        tophit_function = topfunction_dict[query]
-
-        # function_counts = group['function'].value_counts().to_dict()
-
         # normalise counts by total bitscore
         weighted_counts_normalised = {}
         # total_bitscore = group['bitscore'].sum()
         bitscore_by_function = group.groupby("function")["bitscore"].sum().to_dict()
 
-
-        total_functional_bitscore = group[group["function"] != "unknown function"]["bitscore"].sum()
+        total_functional_bitscore = group[group["function"] != "unknown function"][
+            "bitscore"
+        ].sum()
 
         if total_functional_bitscore == 0:
-        # if tophit_function == "unknown function":
             top_bitscore_function = "unknown function"
             top_bitscore_perc = 0
-        
+
         # everything except unknown function
         # get total bitscore of the hits with function
         else:
-            # total_function_bitscore = group[group["function"] != "unknown function"]["bitscore"].sum()
-
             # get the weighted bitscore
             for key, value in bitscore_by_function.items():
                 if key != "unknown function":
@@ -159,7 +147,6 @@ def get_topfunctions(
             top_bitscore_perc = max(weighted_counts_normalised.values())
 
         d = {
-            "tophit_function": [tophit_function],
             "function_with_highest_bitscore_percentage": [top_bitscore_function],
             "top_bitscore_percentage_not_unknown": [top_bitscore_perc],
             "head_and_packaging_bitscore_percentage": [
@@ -168,13 +155,13 @@ def get_topfunctions(
             "integration_and_excision_bitscore_percentage": [
                 weighted_counts_normalised.get("integration and excision", 0)
             ],
-            "tail bitscore_percentage": [weighted_counts_normalised.get("tail", 0)],
+            "tail_bitscore_percentage": [weighted_counts_normalised.get("tail", 0)],
             "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_percentage": [
                 weighted_counts_normalised.get(
                     "moron, auxiliary metabolic gene and host takeover", 0
                 )
             ],
-            "DNA_RNA_and_nucleotide_metabolism bitscore_percentage": [
+            "DNA_RNA_and_nucleotide_metabolism_bitscore_percentage": [
                 weighted_counts_normalised.get("DNA, RNA and nucleotide metabolism", 0)
             ],
             "connector_bitscore_percentage": [
@@ -208,9 +195,15 @@ def get_topfunctions(
 
 
 def calculate_topfunctions_results(
-    filtered_tophits_df: pd.DataFrame, cds_dict: dict, output: Path, pdb: bool
+    filtered_tophits_df: pd.DataFrame,
+    cds_dict: dict,
+    output: Path,
+    pdb: bool,
+    proteins_flag: bool,
+    fasta_flag: bool,
 ) -> None:
-    # Convert the DataFrame to a nested dictionary
+
+    # dictionary to hold the results
     result_dict = {}
 
     # so I can match with the df row below
@@ -222,7 +215,7 @@ def calculate_topfunctions_results(
             result_dict[record_id][cds_id] = {}
             cds_record_dict[cds_id] = record_id
 
-    # Get record_id for every cds_id and merge
+    # Get record_id for every cds_id and merge into the df
     if pdb is True:
         cds_record_df = pd.DataFrame(
             list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
@@ -231,20 +224,28 @@ def calculate_topfunctions_results(
             filtered_tophits_df, cds_record_df, on="cds_id", how="left"
         )
 
-    # Move "contig_id" and 'cds_id' to the front
-    column_order = ["contig_id", "cds_id"] + [
-        col
-        for col in filtered_tophits_df.columns
-        if col != "contig_id" and col != "cds_id"
-    ]
-    filtered_tophits_df = filtered_tophits_df[column_order]
+    if proteins_flag is True:
+        column_order = ["cds_id"] + [
+            col for col in filtered_tophits_df.columns if col != "cds_id"
+        ]
 
-    # combined_tsv_path: Path = Path(output) / "topfunctions.tsv"
-    # filtered_tophits_df.to_csv(combined_tsv_path, sep="\t", index=False)
+    else:
+        # Move "contig_id" and 'cds_id' to the front of the df
+        column_order = ["contig_id", "cds_id"] + [
+            col
+            for col in filtered_tophits_df.columns
+            if col != "contig_id" and col != "cds_id"
+        ]
+        filtered_tophits_df = filtered_tophits_df[column_order]
 
-    # loop over all the foldseek tophits
+    # loop over all the foldseek tophits and add to the dict
     for _, row in filtered_tophits_df.iterrows():
-        record_id = row["contig_id"]
+
+        if proteins_flag is False:
+            record_id = row["contig_id"]
+        else:
+            record_id = "proteins"
+
         cds_id = row["cds_id"]
         values_dict = {
             "phrog": row["phrog"],
@@ -263,14 +264,8 @@ def calculate_topfunctions_results(
         }
         result_dict[record_id][cds_id] = values_dict
 
-    # get counds
     # copy initial cds_dict
     updated_cds_dict = copy.deepcopy(cds_dict)
-
-    original_functions_count_dict = {}
-    new_functions_count_dict = {}
-    combined_functions_count_dict = {}
-    comparison_count_dict = {}
 
     phrog_function_mapping = {
         "unknown function": "unknown function",
@@ -287,153 +282,52 @@ def calculate_topfunctions_results(
 
     # iterates over the records
     for record_id, record in updated_cds_dict.items():
-        cds_count = len(updated_cds_dict[record_id])
-
-        # instantiate the functions dicts
-        original_functions_count_dict[record_id] = {}
-        new_functions_count_dict[record_id] = {}
-        combined_functions_count_dict[record_id] = {}
-
-        # this one holds same_phrogs, changed_phrogs, different_phrogs,  foldseek_only_phrogs, pharokka_only_phrogs
-        comparison_count_dict[record_id] = {}
-        comparison_count_dict[record_id]["cds_count"] = cds_count
-
-        # instantiate every CDS dictionary
-
-        original_functions_count_dict = initialize_function_counts_dict(
-            record_id, original_functions_count_dict, cds_count
-        )
-        new_functions_count_dict = initialize_function_counts_dict(
-            record_id, new_functions_count_dict, cds_count
-        )
-        combined_functions_count_dict = initialize_function_counts_dict(
-            record_id, combined_functions_count_dict, cds_count
-        )
-
-        # the extra ones instnatiate manually
-        comparison_count_dict[record_id]["phrog_count"] = 0
-        comparison_count_dict[record_id]["same_phrogs"] = 0
-        comparison_count_dict[record_id]["changed_phrogs"] = 0
-        comparison_count_dict[record_id]["kept_phrogs"] = 0
-        comparison_count_dict[record_id]["foldseek_only_phrogs"] = 0
-        comparison_count_dict[record_id]["different_phrogs"] = 0
-        comparison_count_dict[record_id]["pharokka_only_phrogs"] = 0
-        comparison_count_dict[record_id]["neither_phrogs"] = 0
-        # function
-        comparison_count_dict[record_id]["same_function"] = 0
-        comparison_count_dict[record_id]["changed_function"] = 0
-        comparison_count_dict[record_id]["foldseek_only_non_hyp_function"] = 0
-        comparison_count_dict[record_id]["pharokka_only_non_hyp_function"] = 0
 
         # iterates over the features
         for cds_id, cds_feature in updated_cds_dict[record_id].items():
-            # if pharokka has a phrog
-            if cds_feature.qualifiers["phrog"][0] != "No_PHROG":
-                original_functions_count_dict[record_id]["phrog_count"] += 1
+
+            # proteins/FASTA input -> no pharokka input -> fake input to make the updating work
+            if proteins_flag is True or fasta_flag is True:
+                cds_feature.qualifiers["function"] = ["unknown function"]
+                cds_feature.qualifiers["phrog"] = ["No_PHROG"]
+                cds_feature.qualifiers["product"] = ["hypothetical protein"]
 
             # original pharokka phrog categories
             pharokka_phrog_function_category = phrog_function_mapping.get(
                 cds_feature.qualifiers["function"][0], None
             )
 
-            if pharokka_phrog_function_category:
-                original_functions_count_dict[record_id][
-                    pharokka_phrog_function_category
-                ] += 1
-
             # if the result_dict is not empty
+            # this is a foldseek hit
             if result_dict[record_id][cds_id] != {}:
-                # update the combined and foldseek functions counts
-                new_functions_count_dict[record_id]["phrog_count"] += 1
-                combined_functions_count_dict[record_id]["phrog_count"] += 1
-                comparison_count_dict[record_id]["phrog_count"] += 1
 
                 # get the foldseek function
-                for function_key in phrog_function_mapping.values():
-                    new_functions_count_dict[record_id].setdefault(function_key, 0)
-                    combined_functions_count_dict[record_id].setdefault(function_key, 0)
-
-                # function will be None if there is no foldseek hit
-                function = result_dict[record_id][cds_id].get("function", None)
-                if function is not None:
-                    function_key = phrog_function_mapping.get(
-                        function, "unknown function"
-                    )
-                else:
-                    function_key = "unknown function"
-
-                # update with new function
-                new_functions_count_dict[record_id][function_key] += 1
-                combined_functions_count_dict[record_id][function_key] += 1
-
-                # update the phrog if different
-
+                # function will be None if there is no foldseek hit - shouldn't happen here but error handling
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
 
-                # same phrog as pharokka
-                if foldseek_phrog == cds_feature.qualifiers["phrog"][0]:
-                    comparison_count_dict[record_id]["same_phrogs"] += 1
-                    comparison_count_dict[record_id]["same_function"] += 1
+                # same phrog as pharokka do nothing
                 # different phrog as pharokka
-                else:
+                if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
+
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        comparison_count_dict[record_id]["changed_phrogs"] += 1
-                        comparison_count_dict[record_id]["foldseek_only_phrogs"] += 1
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                            0
-                        ] = result_dict[record_id][cds_id]["phrog"]
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                            0
-                        ] = result_dict[record_id][cds_id]["product"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
+                            result_dict[record_id][cds_id]["phrog"]
+                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                            result_dict[record_id][cds_id]["product"]
+                        )
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
 
-                        # whether function changed
-                        if (
-                            result_dict[record_id][cds_id]["function"]
-                            != "unknown function"
-                        ):
-                            comparison_count_dict[record_id][
-                                "foldseek_only_non_hyp_function"
-                            ] += 1
-                            comparison_count_dict[record_id]["changed_function"] += 1
-                        # otherwise same function
-                        else:
-                            comparison_count_dict[record_id]["same_function"] += 1
-
-                    # different phrog to pharokka
-                    # maybe look at this differently?
+                    # pharokka has a phrog
                     else:
-                        # if the foldseek result doesn't have unknown function then update
+                        # if the foldseek result is not unknown function then update
                         if (
                             result_dict[record_id][cds_id]["function"]
                             != "unknown function"
                         ):
-                            # pharokka hyp, foldseek not
-                            if (
-                                cds_feature.qualifiers["function"][0]
-                                == "unknown function"
-                                and result_dict[record_id][cds_id]["function"]
-                                != "unknown function"
-                            ):
-                                comparison_count_dict[record_id][
-                                    "foldseek_only_non_hyp_function"
-                                ] += 1
-
-                            if (
-                                cds_feature.qualifiers["function"][0]
-                                != result_dict[record_id][cds_id]["function"]
-                            ):
-                                comparison_count_dict[record_id][
-                                    "changed_function"
-                                ] += 1
-                            else:
-                                comparison_count_dict[record_id]["same_function"] += 1
-
-                            comparison_count_dict[record_id]["changed_phrogs"] += 1
-                            comparison_count_dict[record_id]["different_phrogs"] += 1
                             # update
                             updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
                                 0
@@ -444,23 +338,16 @@ def calculate_topfunctions_results(
                             updated_cds_dict[record_id][cds_id].qualifiers["function"][
                                 0
                             ] = result_dict[record_id][cds_id]["function"]
-                        # foldseek result has unknown function
+                        # if foldseek result has unknown function
                         else:
-                            # foldseek result is unknown function and pharokka has known function
-                            # keep the pharokka phrogs
+                            # if pharokka has known function
+                            # keep the pharokka phrogs - aka do nothing
+                            #
+                            # if the pharokka has unknown function, update with foldseek hit
                             if (
                                 cds_feature.qualifiers["function"][0]
-                                != "unknown function"
+                                == "unknown function"
                             ):
-                                comparison_count_dict[record_id]["kept_phrogs"] += 1
-                                comparison_count_dict[record_id][
-                                    "pharokka_only_non_hyp_function"
-                                ] += 1
-                            # foldseek result is unknown function and pharokka unknown function
-                            # update to foldseek
-                            # arguably can change this - will need  comparison_count_dict[record_id]["kept_phrogs"] += 1 if so
-                            else:
-                                comparison_count_dict[record_id]["changed_phrogs"] += 1
                                 updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
                                     0
                                 ] = result_dict[record_id][cds_id]["phrog"]
@@ -471,75 +358,9 @@ def calculate_topfunctions_results(
                                     "function"
                                 ][0] = result_dict[record_id][cds_id]["function"]
 
-                                comparison_count_dict[record_id]["same_function"] += 1
-
             # no foldseek hits - empty dict
-            # will not be in results dict - therefore in foldseek dict will be function function
-            else:
-                new_functions_count_dict[record_id]["unknown function"] += 1
-                # if has a pharokka hit
-                if cds_feature.qualifiers["phrog"][0] != "No_PHROG":
-                    combined_functions_count_dict[record_id]["phrog_count"] += 1
-                    comparison_count_dict[record_id]["phrog_count"] += 1
-                    comparison_count_dict[record_id]["pharokka_only_phrogs"] += 1
-                    # comparison_count_dict[record_id]["changed_phrogs"] += 1
-
-                    function_value = cds_feature.qualifiers["function"][0]
-                    function_key = phrog_function_mapping.get(
-                        function_value, "unknown function"
-                    )
-
-                    combined_functions_count_dict[record_id].setdefault(function_key, 0)
-                    combined_functions_count_dict[record_id][function_key] += 1
-
-                    if (
-                        updated_cds_dict[record_id][cds_id].qualifiers["function"][0]
-                        != "unknown function"
-                    ):
-                        comparison_count_dict[record_id][
-                            "pharokka_only_non_hyp_function"
-                        ] += 1
-                    else:
-                        comparison_count_dict[record_id]["same_function"] += 1
-
-                # no hits in either
-                else:
-                    combined_functions_count_dict[record_id]["unknown function"] += 1
-                    comparison_count_dict[record_id]["neither_phrogs"] += 1
-                    comparison_count_dict[record_id]["same_function"] += 1
-
-    # Convert the nested dictionary to a Pandas DataFrame
-    pharokka_df = pd.DataFrame.from_dict(original_functions_count_dict, orient="index")
-    pharokka_df["contig_id"] = pharokka_df.index
-    pharokka_df = pharokka_df[
-        ["contig_id"] + [col for col in pharokka_df.columns if col != "contig_id"]
-    ]
-    pharokka_tsv: Path = Path(output) / "pharokka_functions_output.tsv"
-    pharokka_df.to_csv(pharokka_tsv, sep="\t", index=False)
-
-    foldseek_df = pd.DataFrame.from_dict(new_functions_count_dict, orient="index")
-    foldseek_df["contig_id"] = foldseek_df.index
-    foldseek_df = foldseek_df[
-        ["contig_id"] + [col for col in foldseek_df.columns if col != "contig_id"]
-    ]
-    foldseek_tsv: Path = Path(output) / "foldseek_functions_output.tsv"
-    foldseek_df.to_csv(foldseek_tsv, sep="\t", index=False)
-
-    combined_df = pd.DataFrame.from_dict(combined_functions_count_dict, orient="index")
-    combined_df["contig_id"] = combined_df.index
-    combined_df = combined_df[
-        ["contig_id"] + [col for col in combined_df.columns if col != "contig_id"]
-    ]
-    combined_tsv: Path = Path(output) / "combined_functions_output.tsv"
-    combined_df.to_csv(combined_tsv, sep="\t", index=False)
-
-    comparison_df = pd.DataFrame.from_dict(comparison_count_dict, orient="index")
-    comparison_df["contig_id"] = comparison_df.index
-    comparison_df = comparison_df[
-        ["contig_id"] + [col for col in comparison_df.columns if col != "contig_id"]
-    ]
-    comparison_tsv: Path = Path(output) / "comparison_output.tsv"
-    comparison_df.to_csv(comparison_tsv, sep="\t", index=False)
+            # will be empty in results dict
+            # therefore just leave whatever pharokka has
 
     return updated_cds_dict, filtered_tophits_df
 
