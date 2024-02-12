@@ -12,7 +12,6 @@ from loguru import logger
 
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.query_remote_3Di import query_remote_3di
-from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
 from phold.io.validate_input import validate_input
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
@@ -133,6 +132,9 @@ def predict_options(func):
         ),
         click.option(
             "--finetune_path", help="Path to finetuned model weights", default=None
+        ),
+        click.option(
+            "--checkpoint_path", help="Path to CNN model weights", default=None
         ),
     ]
     for option in reversed(options):
@@ -279,6 +281,7 @@ def run(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--checkpoint_path": checkpoint_path,
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
@@ -304,6 +307,7 @@ def run(
         finetune,
         finetune_path,
         proteins_flag=False,
+        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -411,6 +415,7 @@ def predict(
         finetune,
         finetune_path,
         proteins_flag=False,
+        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -642,6 +647,7 @@ def proteins_predict(
         finetune,
         finetune_path,
         proteins_flag=True,
+        checkpoint_path=checkpoint_path,
         fasta_flag=False,
     )
 
