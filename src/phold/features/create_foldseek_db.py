@@ -141,9 +141,6 @@ def generate_foldseek_db_from_pdbs(
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as '{cds_id}.pdb'
 
-        print(f"{cds_id}.pdb")
-        print(pdb_files)
-
         matching_files = [file for file in pdb_files if f"{cds_id}.pdb" == file]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
