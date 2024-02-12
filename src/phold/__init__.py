@@ -254,6 +254,7 @@ def run(
     card_vfdb_evalue,
     split,
     split_threshold,
+    checkpoint_path,
     separate,
     **kwargs,
 ):
@@ -371,6 +372,7 @@ def predict(
     omit_probs,
     finetune,
     finetune_path,
+    checkpoint_path,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -394,6 +396,7 @@ def predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--checkpoint_path": checkpoint_path
     }
 
     # initial logging etc
@@ -579,6 +582,7 @@ def proteins_predict(
     omit_probs,
     finetune,
     finetune_path,
+    checkpoint_path,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -602,6 +606,7 @@ def proteins_predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--checkpoint_path": checkpoint_path
     }
 
     # initial logging etc
