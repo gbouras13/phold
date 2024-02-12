@@ -779,6 +779,7 @@ def proteins_compare(
         split_threshold=split_threshold,
         remote_flag=False,
         proteins_flag=True,
+        fasta_flag=False,
         separate=False,
     )
 

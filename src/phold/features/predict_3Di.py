@@ -298,13 +298,9 @@ def get_embeddings(
         # gets the seq_dict with key for id and the translation
         for key, seq_feature in seq_record_dict.items():
             # get the protein seq for normal
-            # if proteins_flag is False:
             seq_dict[key] = seq_feature.qualifiers["translation"]
-            # else:  # proteins mode - it will be already in a dictionary
-            #     seq_dict = seq_record_dict
 
         # sort sequences by length to trigger OOM at the beginning
-
         seq_dict = dict(
             sorted(seq_dict.items(), key=lambda kv: len(kv[1][0]), reverse=True)
         )
