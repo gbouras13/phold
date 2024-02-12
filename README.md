@@ -25,7 +25,7 @@ Pypi and conda installations will be available soon.
 The only required non-Python dependency is `foldseek`. To install `phold` in a conda environment using mamba:
 
 ```
-mamba create -n pholdENV pip foldseek 
+mamba create -n pholdENV pip foldseek python=3.11
 conda activate pholdENV
 git clone https://github.com/gbouras13/phold.git
 cd phold 

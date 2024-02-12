@@ -621,7 +621,7 @@ def proteins_predict(
             qualifiers={
                 "ID": record.id,
                 "description": record.description,
-                "translation": [str(record.seq)],
+                "translation": str(record.seq),
             },
         )
 
