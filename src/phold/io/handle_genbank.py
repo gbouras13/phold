@@ -2,18 +2,21 @@
 Module for manipulating genbank files
 some taken from phynteny
 """
+
 import binascii
 import gzip
-import random
-import re
+import multiprocessing.pool
 from datetime import datetime
 from pathlib import Path
 
 # imports
 import pandas as pd
+import pyrodigal
+import pyrodigal_gv
 from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
-from pandas.errors import EmptyDataError
 
 
 def is_gzip_file(f: Path) -> bool:
@@ -49,7 +52,7 @@ def get_genbank(genbank: Path) -> dict:
         ValueError: If the provided file is not a GenBank file.
     """
 
-    logger.info(f"Parsing input genbank {genbank}")
+    logger.info(f"Checking if input {genbank} is a Genbank file")
 
     if is_gzip_file(genbank.strip()):
         try:
@@ -57,7 +60,7 @@ def get_genbank(genbank: Path) -> dict:
                 gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
             handle.close()
         except ValueError:
-            logger.error(f"{genbank.strip()} is not a genbank file!")
+            logger.warning(f"{genbank.strip()} is not a genbank file")
             raise
 
     else:
@@ -66,16 +69,117 @@ def get_genbank(genbank: Path) -> dict:
                 gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
             handle.close()
         except ValueError:
-            logger.error(f"{genbank.strip()} is not a genbank file!")
+            logger.warning(f"{genbank} is not a genbank file")
             raise
 
     return gb_dict
 
 
-def write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output):
+def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
+    """
+
+    Check if a file is in the nucleotide FASTA format. If so, run pyrodigal-gv and convert the CDS to a dictionary.
+
+    Args:
+        input (Path): Path to the FASTA file.
+
+    Returns:
+        dict: A dictionary representation of the CDS in the FASTA file.
+
+    Raises:
+        ValueError: If the provided file is not a FASTA file.
+    """
+
+    if is_gzip_file(input.strip()):
+        try:
+            with gzip.open(input.strip(), "rt") as handle:
+                # gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
+                fasta_dict = SeqIO.to_dict(SeqIO.parse(handle, "fasta"))
+        except ValueError:
+            logger.warning(f"{input} is not a FASTA file")
+            logger.error(
+                f"Your input {input} is neither Genbank nor FASTA format. Please check your input"
+            )
+            raise
+    else:
+        try:
+            with open(input.strip(), "rt") as handle:
+                fasta_dict = SeqIO.to_dict(SeqIO.parse(handle, "fasta"))
+        except ValueError:
+            logger.warning(f"{input} is not a FASTA file")
+            logger.error(
+                f"Your input {input} is neither Genbank nor FASTA format. Please check your input"
+            )
+            raise
+
+    # then run pyrodigal
+
+    gb_dict = {}
+
+    orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
+
+    def _find_genes(record):
+        genes = orf_finder.find_genes(str(record.seq))
+        return (record.id, record.seq, genes)
+
+    def run_pool(pool, records):
+        for record_id, record_seq, genes in pool.imap(_find_genes, records):
+            i = 0
+            all_features = []
+            for gene in genes:
+                i += 1
+                location = FeatureLocation(
+                    start=gene.begin, end=gene.end, strand=gene.strand
+                )
+                feature = SeqFeature(location, type="CDS")
+                counter = "{:04d}".format(i)
+                cds_id = f"{record_id}_CDS_" + counter
+                feature.qualifiers["ID"] = cds_id
+                feature.qualifiers["function"] = "unknown function"
+                feature.qualifiers["product"] = "hypothetical protein"
+                feature.qualifiers["phrog"] = "No_PHROG"
+                feature.qualifiers["source"] = (
+                    f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
+                )
+                feature.qualifiers["transl_table"] = gene.translation_table
+                # from the API
+                # translation_table (int, optional) – An alternative translation table to use to translate the gene.
+                # Use None (the default) to translate using the translation table this gene was found with.
+                feature.qualifiers["translation"] = gene.translate(
+                    include_stop=False
+                ).upper()
+                all_features.append(feature)
+
+            seq_record = SeqIO.SeqRecord(
+                seq=Seq(record_seq), id=record_id, description="", features=all_features
+            )
+            gb_dict[record_id] = seq_record
+
+        return gb_dict
+
+    with multiprocessing.pool.ThreadPool(threads) as pool:
+        if is_gzip_file(input.strip()):
+            with gzip.open(input.strip(), "rt") as handle:
+                records = SeqIO.parse(handle, "fasta")
+                gb_dict = run_pool(pool, records)
+        else:
+            with open(input.strip(), "rt") as handle:
+                records = SeqIO.parse(handle, "fasta")
+                gb_dict = run_pool(pool, records)
+
+    return gb_dict
+
+
+def write_genbank(
+    updated_cds_dict, non_cds_dict, prefix, gb_dict, output, proteins_flag, separate
+):
     """
     add typing please
     """
+
+    if separate is True:
+        separate_output = Path(output) / "separate_gbks"
+        separate_output.mkdir(parents=True, exist_ok=True)
 
     seq_records = []
     per_cds_list = []
@@ -102,27 +206,51 @@ def write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output):
         # clean cds_feature and append for dataframe
         for cds_feature in sorted_features:
             if cds_feature.type == "CDS":
-                cds_info = {
-                    "contig_id": record_id,
-                    "cds_id": cds_feature.qualifiers["ID"][0],
-                    "start": cds_feature.location.start,
-                    "end": cds_feature.location.end,
-                    "strand": cds_feature.location.strand,
-                    "phrog": cds_feature.qualifiers["phrog"][0],
-                    "function": cds_feature.qualifiers["function"][0],
-                    "product": cds_feature.qualifiers["product"][0],
-                }
 
-                # Remove unwanted gbk attributes if they exist
-                keys_to_remove = ["top_hit", "score", "phase"]
-                for key in keys_to_remove:
-                    # will remove the keys
-                    deleted_value = cds_feature.qualifiers.pop(key, None)
-                # get dataframe
+                if proteins_flag is True:
+                    cds_info = {
+                        "cds_id": cds_feature.qualifiers["ID"],
+                        "phrog": cds_feature.qualifiers["phrog"][0],
+                        "function": cds_feature.qualifiers["function"][0],
+                        "product": cds_feature.qualifiers["product"][0],
+                    }
+                else:
+                    cds_info = {
+                        "contig_id": record_id,
+                        "cds_id": cds_feature.qualifiers["ID"][0],
+                        "start": cds_feature.location.start,
+                        "end": cds_feature.location.end,
+                        "strand": cds_feature.location.strand,
+                        "phrog": cds_feature.qualifiers["phrog"][0],
+                        "function": cds_feature.qualifiers["function"][0],
+                        "product": cds_feature.qualifiers["product"][0],
+                        "transl_table": cds_feature.qualifiers["transl_table"],
+                    }
+
+                    # Remove unwanted gbk attributes if they exist
+                    keys_to_remove = [
+                        "top_hit",
+                        "score",
+                        "phase",
+                        "CARD_short_name",
+                        "AMR_Gene_Family",
+                        "CARD_species",
+                        "vfdb_short_name",
+                        "vfdb_description",
+                        "vfdb_species",
+                    ]
+                    for key in keys_to_remove:
+                        # will remove the keys
+                        deleted_value = cds_feature.qualifiers.pop(key, None)
+                    # get dataframe
                 per_cds_list.append(cds_info)
 
         # write out the record to GBK file
-        sequence = record.seq
+        if proteins_flag is False:
+            sequence = record.seq
+        # if proteins dummy seq
+        else:
+            sequence = Seq("")
         seq_record = SeqIO.SeqRecord(
             seq=sequence, id=record_id, description="", features=sorted_features
         )
@@ -134,20 +262,24 @@ def write_genbank(updated_cds_dict, non_cds_dict, gb_dict, output):
         seq_record.annotations["date"] = str(
             datetime.now().strftime("%d-%b-%Y").upper()
         )
+        if separate is True:
+            if proteins_flag is False:
+                output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
+                with open(output_gbk_path, "w") as output_file:
+                    SeqIO.write(seq_record, output_file, "genbank")
 
     per_cds_df = pd.DataFrame(per_cds_list)
 
-    # convert strand
-    per_cds_df["strand"] = per_cds_df["strand"].apply(
-        lambda x: "-" if x == -1 else ("+" if x == 1 else x)
-    )
+    if proteins_flag is False:
+        # convert strand
+        per_cds_df["strand"] = per_cds_df["strand"].apply(
+            lambda x: "-" if x == -1 else ("+" if x == 1 else x)
+        )
 
-    output_gbk_path: Path = Path(output) / "phold.gbk"
-    with open(output_gbk_path, "w") as output_file:
-        SeqIO.write(seq_records, output_file, "genbank")
-
-    # output_df_path: Path = Path(output) / "per_cds_predictions.tsv"
-    # per_cds_df.to_csv(output_df_path, index=False, sep = "\t")
+        # only write the gbk if proteins_flag is False
+        output_gbk_path: Path = Path(output) / f"{prefix}.gbk"
+        with open(output_gbk_path, "w") as output_file:
+            SeqIO.write(seq_records, output_file, "genbank")
 
     return per_cds_df
 
@@ -213,121 +345,3 @@ def get_proteins(fasta: Path) -> dict:
             raise
 
     return fasta_dict
-
-
-def extract_features(this_phage):
-    """
-    Extract the required features and format as a dictionary
-
-    param this_phage: phage genome extracted from genbank file
-    return: dictionary with the features for this specific phage
-    """
-
-    phage_length = len(this_phage.seq)
-    this_CDS = [i for i in this_phage.features if i.type == "CDS"]  # coding sequences
-
-    position = [
-        (int(this_CDS[i].location.start), int(this_CDS[i].location.end))
-        for i in range(len(this_CDS))
-    ]
-    sense = [
-        re.split("]", str(this_CDS[i].location))[1][1] for i in range(len(this_CDS))
-    ]
-    protein_id = [
-        this_CDS[i].qualifiers.get("protein_id") for i in range(len(this_CDS))
-    ]
-    protein_id = [p[0] if p is not None else None for p in protein_id]
-    phrogs = [this_CDS[i].qualifiers.get("phrog") for i in range(len(this_CDS))]
-    phrogs = ["No_PHROG" if i is None else i[0] for i in phrogs]
-
-    return {
-        "length": phage_length,
-        "phrogs": phrogs,
-        "protein_id": protein_id,
-        "sense": sense,
-        "position": position,
-    }
-
-
-def filter_mmseqs(phrog_output, Eval=1e-5):
-    """
-    Function to filter the phogs mmseqs output
-    If there are two equally good annotations, the annotation with the greatest coverage is taken, then e
-
-    param phrog_output: dataframe of phrog annotations
-    param Eval: evalue to filter annotations default (1e-5)
-    return: dictionary of the phrog annotations
-    """
-
-    # rename the headers
-    phrog_output.columns = [
-        "phrog",
-        "seq",
-        "alnScore",
-        "seqIdentity",
-        "eVal",
-        "qStart",
-        "qEnd",
-        "qLen",
-        "tStart",
-        "tEnd",
-        "tLen",
-    ]
-    phrog_output["coverage"] = phrog_output["tEnd"] - phrog_output["tStart"] + 1
-    phrog_output["phrog"] = [
-        re.split("_", p)[1] for p in phrog_output["phrog"]
-    ]  # convert phrog to a number
-    phrog_output["phrog"] = [re.split("#", p)[0][:-1] for p in phrog_output["phrog"]]
-
-    # filter to have an e-value lower than e-5 - can change this not to be hardcoded
-    phrog_output = phrog_output[phrog_output["eVal"] < Eval]
-
-    # filter annotations with multiple hits
-    phrog_output = (
-        phrog_output.groupby("seq", as_index=False).coverage.max().merge(phrog_output)
-    )  # hit with greatest coverage
-    phrog_output = (
-        phrog_output.groupby("seq", as_index=False).eVal.min().merge(phrog_output)
-    )  # hit with the best evalue
-    phrog_output = (
-        phrog_output.groupby("seq", as_index=False).qLen.min().merge(phrog_output)
-    )  # hit with the shortest query length
-
-    return dict(zip(phrog_output["seq"].values, phrog_output["phrog"].values))
-
-
-def add_predictions(gb_dict, predictions):
-    """
-    Add predictions to the genbank dictionary
-
-    param gb_dict: genbank file as a dictionary
-    param predictions: predictions to add to the genbank file
-    return updated dictionary with features
-    """
-
-    keys = list(gb_dict.keys())
-
-    for i in range(len(predictions)):
-        gb_dict[keys[i]]["phynteny"] = predictions[i]
-    return gb_dict
-
-
-# def write_genbank(gb_dict, filename):
-#     """
-#     write genbank dictionary to a file
-#     """
-
-#     keys = list(gb_dict.keys())
-
-#     # check for gzip
-#     if filename.strip()[-3:] == ".gz":
-#         with gzip.open(filename, "wt") as handle:
-#             for key in keys:
-#                 SeqIO.write(gb_dict.get(key), handle, "genbank")
-#         handle.close()
-
-#     else:
-#         with open(filename, "wt") as handle:
-#             for key in keys:
-#                 SeqIO.write(gb_dict.get(key), handle, "genbank")
-#         handle.close()

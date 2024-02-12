@@ -8,8 +8,14 @@ import requests
 from loguru import logger
 
 
-def query_remote_3di(cds_dict: dict, out_path: Path):
+def query_remote_3di(cds_dict: dict, fasta_3di: Path):
     predictions = {}
+
+    logger.info("Querying the Foldseek ProstT5 server")
+    logger.info(
+        "Each CDS will be queried with a 1 second delay, so as not to overwhelm the server"
+    )
+    logger.info("Please be patient")
 
     url_base = "https://3di.foldseek.com/predict/"
 
@@ -22,14 +28,12 @@ def query_remote_3di(cds_dict: dict, out_path: Path):
 
         # gets the seq_dict with key for id and the translation
         for cds_id, seq_feature in seq_record_dict.items():
+            logger.info(f"Querying {cds_id}")
             # get the amino acid seq
             aa_seq = seq_feature.qualifiers["translation"][0]
             seq_len = len(aa_seq)
-            print(aa_seq)
-            print(cds_id)
 
             url = f"{url_base}{aa_seq}"
-            print(url)
 
             # Send a GET request to the URL
             response = requests.get(url)
@@ -41,23 +45,20 @@ def query_remote_3di(cds_dict: dict, out_path: Path):
                 # it will remove any characters other than a to z, A to Z
                 seq_3Di = re.sub("[^a-z]+", "", seq_3Di, flags=re.IGNORECASE)
                 # Removing quotation marks
-                print(seq_3Di)
 
             else:
                 logger.warning(
                     f"Request for {cds_id} L={seq_len} failed with status code {response.status_code}"
                 )
 
-            # Add a small delay between requests
-            time.sleep(0.25)
+            # Add 1s delay between requests so don't destroy the server
+            time.sleep(1)
 
             # add the prediction to the seq
             predictions[record_id][cds_id] = seq_3Di
 
     # save to file
-    output_3di: Path = Path(out_path) / "output3di.fasta"
-
-    with open(output_3di, "w+") as out_f:
+    with open(fasta_3di, "w+") as out_f:
         for contig_id, rest in predictions.items():
             contig_predictions_dict = predictions[contig_id]
 
@@ -66,19 +67,4 @@ def query_remote_3di(cds_dict: dict, out_path: Path):
                 out_f.write(f">{contig_id}:{seq_id}\n")
                 out_f.write(f"{seq_3di}\n")
 
-    logger.info(f"Finished writing results to {out_path}")
-
-
-# # Send a GET request to the URL
-# response = requests.get(url)
-
-# # Check the response status code to ensure the request was successful
-# if response.status_code == 200:
-#     # Parse the response content as text (JSON, HTML, etc.)
-#     data = response.text
-#     print(data)
-# else:
-#     print(f"Request failed with status code {response.status_code}")
-
-
-#     output_3di: Path = Path(out_path) / "output3di.fasta"
+    logger.info(f"Finished writing results to {fasta_3di}")

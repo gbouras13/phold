@@ -104,7 +104,7 @@ def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag
     return model, vocab
 
 
-def write_predictions(predictions, out_path):
+def write_predictions(predictions, out_path, proteins_flag):
     ss_mapping = {
         0: "A",
         1: "C",
@@ -132,20 +132,37 @@ def write_predictions(predictions, out_path):
         for contig_id, rest in predictions.items():
             prediction_contig_dict = predictions[contig_id]
 
-            # writes each CDS to a 3di FASTA with header contig_id:CDS_id
-            out_f.write(
-                "".join(
-                    [
-                        ">{}\n{}\n".format(
-                            f"{contig_id}:{seq_id}",
-                            "".join(
-                                list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
-                            ),
-                        )
-                        for seq_id, (yhats, _, _) in prediction_contig_dict.items()
-                    ]
+            if proteins_flag is True:
+                # no contig_id
+                out_f.write(
+                    "".join(
+                        [
+                            ">{}\n{}\n".format(
+                                f"{seq_id}",
+                                "".join(
+                                    list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
+                                ),
+                            )
+                            for seq_id, (yhats, _, _) in prediction_contig_dict.items()
+                        ]
+                    )
                 )
-            )
+
+            else:
+                # writes each CDS to a 3di FASTA with header contig_id:CDS_id
+                out_f.write(
+                    "".join(
+                        [
+                            ">{}\n{}\n".format(
+                                f"{contig_id}:{seq_id}",
+                                "".join(
+                                    list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
+                                ),
+                            )
+                            for seq_id, (yhats, _, _) in prediction_contig_dict.items()
+                        ]
+                    )
+                )
 
     logger.info(f"Finished writing results to {out_path}")
     return None
@@ -158,7 +175,6 @@ def write_probs(predictions, out_path_mean, output_path_all):
 
             for seq_id, (N, mean_prob, N) in prediction_contig_dict.items():
                 out_f.write("{},{}\n".format(seq_id, mean_prob))
-
 
     with open(output_path_all, "w+") as out_f:
         for contig_id, rest in predictions.items():
@@ -233,22 +249,25 @@ def load_predictor(
 
 def get_embeddings(
     cds_dict: dict,
-    out_path,
+    out_path: Path,
+    prefix: str,
     model_dir: Path,
     model_name: str,
+    output_3di: Path,
     half_precision: bool,
     max_residues: int = 3000,
     max_seq_len: int = 1000,
     max_batch: int = 100,
-    proteins: bool = False,
     cpu: bool = False,
     output_probs: bool = True,
-    finetune_flag: bool = True,
+    finetune_flag: bool = False,
     finetuned_model_path: str = None,
+    proteins_flag: bool = False,
 ) -> bool:
+
     predictions = {}
 
-    prefix = "<AA2fold>"
+    prostt5_prefix = "<AA2fold>"
 
     if finetuned_model_path is None:
         finetuned_model_path = Path(MODEL_DB) / "Phrostt5_finetuned.pth"
@@ -258,14 +277,14 @@ def get_embeddings(
     )
     predictor = load_predictor(model_dir)
 
-    logger.info("Beginning ProstT5 predictions.")
+    logger.info("Beginning ProstT5 predictions")
 
     if half_precision:
         model = model.half()
         predictor = predictor.half()
-        logger.info("Using models in half-precision.")
+        logger.info("Using models in half-precision")
     else:
-        logger.info("Using models in full-precision.")
+        logger.info("Using models in full-precision")
 
     # loop over each record in the cds dict
     fail_ids = []
@@ -279,8 +298,8 @@ def get_embeddings(
         # gets the seq_dict with key for id and the translation
         for key, seq_feature in seq_record_dict.items():
             # get the protein seq for normal
-            if proteins is False:
-                seq_dict[key] = seq_feature.qualifiers["translation"][0]
+            if proteins_flag is False:
+                seq_dict[key] = seq_feature.qualifiers["translation"]
             else:  # proteins mode - it will be already in a dictionary
                 seq_dict = seq_record_dict
 
@@ -290,19 +309,13 @@ def get_embeddings(
             sorted(seq_dict.items(), key=lambda kv: len(kv[1][0]), reverse=True)
         )
 
-        # print("Average sequence length: {}".format(avg_length))
-        # print("Number of sequences >{}: {}".format(max_seq_len, n_long))
-
-        start = time.time()
         batch = list()
         for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
-            # print(pdb_id)
-            # print(seq)
 
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)
-            seq = prefix + " " + " ".join(list(seq))
+            seq = prostt5_prefix + " " + " ".join(list(seq))
             batch.append((pdb_id, seq, seq_len))
 
             # count residues in current batch and add the last sequence length to
@@ -343,7 +356,7 @@ def get_embeddings(
                     continue
 
                 # ProtT5 appends a special tokens at the end of each sequence
-                # Mask this also out during inference while taking into account the prefix
+                # Mask this also out during inference while taking into account the prostt5 prefix
                 try:
                     for idx, s_len in enumerate(seq_lens):
                         token_encoding.attention_mask[idx, s_len + 1] = 0
@@ -421,8 +434,6 @@ def get_embeddings(
                         fail_ids.append(id)
                     continue
 
-    output_3di: Path = Path(out_path) / "output3di.fasta"
-
     # write list of fails if length > 0
     if len(fail_ids) > 0:
         fail_tsv: Path = Path(out_path) / "fails.tsv"
@@ -435,10 +446,14 @@ def get_embeddings(
             tsv_writer = csv.writer(file, delimiter="\t")
             tsv_writer.writerows(data_as_list_of_lists)
 
-    write_predictions(predictions, output_3di)
+    write_predictions(predictions, output_3di, proteins_flag)
 
-    mean_probs_out_path: Path = Path(out_path) / "output3di_mean_probabilities.csv"
-    all_probs_out_path: Path = Path(out_path) / "output3di_all_probabilities.json"
+    mean_probs_out_path: Path = (
+        Path(out_path) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+    )
+    all_probs_out_path: Path = (
+        Path(out_path) / f"{prefix}_prostT5_3di_all_probabilities.json"
+    )
 
     if output_probs:
         write_probs(predictions, mean_probs_out_path, all_probs_out_path)
