@@ -141,6 +141,9 @@ def generate_foldseek_db_from_pdbs(
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as '{cds_id}.pdb'
 
+        print(f"{cds_id}.pdb")
+        print(pdb_files)
+
         matching_files = [file for file in pdb_files if f"{cds_id}.pdb" == file]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
@@ -162,12 +165,12 @@ def generate_foldseek_db_from_pdbs(
             num_pdbs += 1
         elif len(matching_files) == 0:
             logger.warning(f"No pdb found for {cds_id}")
-            logger.warning(f"{cds_id} will be ignored in annotation.")
+            logger.warning(f"{cds_id} will be ignored in annotation")
             no_pdb_cds_ids.append(cds_id)
 
     if num_pdbs == 0:
         logger.error(
-            f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir}."
+            f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir}"
         )
 
     # generate the db
