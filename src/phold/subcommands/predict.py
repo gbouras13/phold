@@ -117,7 +117,7 @@ def subcommand_predict(
         output_probs=output_probs,
         finetune_flag=finetune,
         finetuned_model_path=finetune_path,
-        checkpoint_p=checkpoint_p,
+        checkpoint_path=checkpoint_path,
         proteins_flag=proteins_flag,
     )
 
