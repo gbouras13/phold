@@ -19,8 +19,8 @@ def subcommand_predict(
     finetune: bool,
     finetune_path: Path,
     proteins_flag: bool,
+    checkpoint_path: Path,
     fasta_flag: bool,
-    checkpoint_p: Path
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5.
