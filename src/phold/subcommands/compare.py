@@ -400,10 +400,201 @@ def subcommand_compare(
     )
     merged_df = merged_df.reindex(columns=new_column_order)
 
-    merged_df_path: Path = Path(output) / "final_cds_predictions.tsv"
+    merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
 
     # save vfdb card acr defensefinder hits with more metadata
     sub_dbs_created = create_sub_db_outputs(merged_df, database, output)
+
+    # save the function counts is not proteins
+
+    if proteins_flag is False:
+
+        contig_ids = merged_df["contig_id"].unique()
+
+        for contig in contig_ids:
+
+            contig_df =  merged_df[
+                    merged_df["contig_id"] == contig
+                ]
+
+            cds_count = len(contig_df)
+            # get counts of functions and cds
+            # all 10 PHROGs categories
+            connector_count = len(
+                contig_df[
+                    contig_df["function"] == "connector"
+                ]
+            )
+            metabolism_count = len(
+                        contig_df[
+                            contig_df["function"]
+                            == "DNA, RNA and nucleotide metabolism"
+                        ]
+                    )
+            head_count = len(
+                        contig_df[
+                            contig_df["function"] == "head and packaging"
+                        ]
+                    )
+            integration_count = len(
+                        contig_df[
+                            contig_df["function"]
+                            == "integration and excision"
+                        ]
+                    )
+            lysis_count = len(
+                        contig_df[
+                            contig_df["function"] == "lysis"
+                        ]
+                    )
+            moron_count = len(
+                        contig_df[
+                            contig_df["function"]
+                            == "moron, auxiliary metabolic gene and host takeover"
+                        ]
+                    )
+            other_count = len(
+                        contig_df[
+                            contig_df["function"] == "other"
+                        ]
+                    )
+            tail_count = len(
+                        contig_df[
+                            contig_df["function"] == "tail"
+                        ]
+                    )
+            transcription_count = len(
+                        contig_df[
+                            contig_df["function"]
+                            == "transcription regulation"
+                        ]
+                    )
+            unknown_count = len(
+                        contig_df[
+                            contig_df["function"] == "unknown function"
+                        ]
+                    )
+            
+            acr_count = len(
+                        contig_df[
+                            contig_df["phrog"] == "acr"
+                        ]
+                    )
+
+            vfdb_count = len(
+                        contig_df[
+                            contig_df["phrog"] == "vfdb"
+                        ]
+                    )
+            
+            card_count = len(
+                        contig_df[
+                            contig_df["phrog"] == "card"
+                        ]
+                    )
+            
+            defensefinder_count = len(
+                        contig_df[
+                            contig_df["phrog"] == "defensefinder"
+                        ]
+                    )
+
+                    # create count list  for the dataframe
+            count_list = [
+                        cds_count,
+                        connector_count,
+                        metabolism_count,
+                        head_count,
+                        integration_count,
+                        lysis_count,
+                        moron_count,
+                        other_count,
+                        tail_count,
+                        transcription_count,
+                        unknown_count,
+                    ]
+
+            description_list = [
+                "CDS",
+                "connector",
+                "DNA, RNA and nucleotide metabolism",
+                "head and packaging",
+                "integration and excision",
+                "lysis",
+                "moron, auxiliary metabolic gene and host takeover",
+                "other",
+                "tail",
+                "transcription regulation",
+                "unknown function",
+            ]
+            contig_list = [
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+                contig,
+            ]
+            # cds df
+            cds_df = pd.DataFrame(
+                {
+                    "Description": description_list,
+                    "Count": count_list,
+                    "Contig": contig_list,
+                }
+            )
+
+
+            vfdb_row = pd.DataFrame(
+                {
+                    "Description": ["VFDB_Virulence_Factors"],
+                    "Count": [vfdb_count],
+                    "contig": [contig],
+                }
+            )
+            card_row = pd.DataFrame(
+                {
+                    "Description": ["CARD_AMR"],
+                    "Count": [card_count],
+                    "contig": [contig],
+                }
+            )
+
+            acr_row = pd.DataFrame(
+                {
+                    "Description": ["ACR_anti_crispr"],
+                    "Count": [acr_count],
+                    "contig": [contig],
+                }
+            )
+
+            defensefinder_row = pd.DataFrame(
+                {
+                    "Description": ["Defensefinder"],
+                    "Count": [defensefinder_count],
+                    "contig": [contig],
+                }
+            )
+
+            combo_list = []
+
+            # eappend it all to combo_list
+            combo_list.append(cds_df)
+            combo_list.append(vfdb_row)
+            combo_list.append(card_row)
+            combo_list.append(acr_row)
+            combo_list.append(defensefinder_row)
+
+        # combine all contigs into one final df
+        description_total_df = pd.concat(combo_list)
+        
+        descriptions_total_path: Path = Path(output) / f"{prefix}_all_cds_functions.tsv"
+        description_total_df.to_csv(descriptions_total_path, index=False, sep="\t")
 
     return sub_dbs_created

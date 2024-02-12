@@ -361,6 +361,7 @@ def calculate_topfunctions_results(
             # no foldseek hits - empty dict
             # will be empty in results dict
             # therefore just leave whatever pharokka has
+                                
 
     return updated_cds_dict, filtered_tophits_df
 

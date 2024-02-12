@@ -1,3 +1,4 @@
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -9,6 +10,9 @@ __pycache__/
 # test data
 tests/test_data/database/*
 tests/test_data/logs/*
+tests/test_data/model/*
+tests/test_data/database/*
+tests/test_data/combined_truncated_phold_predict_gbk/*
 
 # Distribution / packaging
 .Python

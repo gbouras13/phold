@@ -225,7 +225,7 @@ run command
 @click.option(
     "-i",
     "--input",
-    help="Path to input file in Genbank format",
+    help="Path to input file in Genbank format or nucleotide FASTA format",
     type=click.Path(),
     required=True,
 )
@@ -347,7 +347,7 @@ Uses ProstT5 to predict 3Di sequences from AA, genbank
 @click.option(
     "-i",
     "--input",
-    help="Path to input file in Genbank format",
+    help="Path to input file in Genbank format or nucleotide FASTA format",
     type=click.Path(),
     required=True,
 )
@@ -430,7 +430,7 @@ compare command
 @click.option(
     "-i",
     "--input",
-    help="Path to input file in Genbank format",
+    help="Path to input file in Genbank format or nucleotide FASTA format",
     type=click.Path(),
     required=True,
 )
@@ -802,7 +802,7 @@ remote command
 @click.option(
     "-i",
     "--input",
-    help="Path to input file in Genbank format",
+    help="Path to input file in Genbank format or nucleotide FASTA format",
     type=click.Path(),
     required=True,
 )
