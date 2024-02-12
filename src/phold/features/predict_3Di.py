@@ -228,13 +228,13 @@ def download_file(url, local_path):
 
 #     weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt"
 
-def load_predictor(checkpoint_p):
+def load_predictor(checkpoint_path):
     
     model = CNN()
-    
+
     # checkpoint_p = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
 
-    state = torch.load(checkpoint_p, map_location=device)
+    state = torch.load(checkpoint_path, map_location=device)
 
     model.load_state_dict(state["state_dict"])
 
@@ -259,7 +259,7 @@ def get_embeddings(
     output_probs: bool = True,
     finetune_flag: bool = False,
     finetuned_model_path: str = None,
-    checkpoint_p: str = None,
+    checkpoint_path: str = None,
     proteins_flag: bool = False,
 ) -> bool:
 
@@ -269,13 +269,13 @@ def get_embeddings(
 
     if finetuned_model_path is None:
         finetuned_model_path = Path(MODEL_DB) / "Phrostt5_finetuned.pth"
-    if checkpoint_p is None:
-        checkpoint_p = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+    if checkpoint_path is None:
+        checkpoint_path = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
 
     model, vocab = get_T5_model(
         model_dir, model_name, cpu, finetuned_model_path, finetune_flag
     )
-    predictor = load_predictor(checkpoint_p)
+    predictor = load_predictor(checkpoint_path)
 
     logger.info("Beginning ProstT5 predictions")
 
