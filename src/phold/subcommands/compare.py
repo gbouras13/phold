@@ -2,8 +2,11 @@
 
 import shutil
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
+from Bio.SeqFeature import SeqFeature
+from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
@@ -18,7 +21,7 @@ from phold.results.topfunction import calculate_topfunctions_results, get_topfun
 
 
 def subcommand_compare(
-    gb_dict: dict,
+    gb_dict: Dict[str, Dict[str, Union[SeqRecord, SeqFeature]]],
     output: Path,
     threads: int,
     evalue: float,
@@ -26,9 +29,9 @@ def subcommand_compare(
     sensitivity: float,
     database: Path,
     prefix: str,
-    predictions_dir: Path,
+    predictions_dir: Optional[Path],
     pdb: bool,
-    pdb_dir: Path,
+    pdb_dir: Optional[Path],
     logdir: Path,
     filter_pdbs: bool,
     split: bool,
@@ -38,7 +41,33 @@ def subcommand_compare(
     fasta_flag: bool,
     separate: bool,
 ) -> bool:
-    """ """
+    """
+    Compare 3Di or PDB structures to the Phold DB
+
+    Parameters:
+        gb_dict (Dict[str, Dict[str, Union[SeqRecord, SeqFeature]]]): Nested dictionary containing genomic data.
+        output (Path): Path to the output directory.
+        threads (int): Number of threads to use.
+        evalue (float): E-value threshold.
+        card_vfdb_evalue (float): E-value threshold for CARD and VFDB databases.
+        sensitivity (float): Sensitivity threshold.
+        database (Path): Path to the reference database.
+        prefix (str): Prefix for output files.
+        predictions_dir (Optional[Path]): Path to the directory containing predictions.
+        pdb (bool): Flag indicating whether PDB files are used.
+        pdb_dir (Optional[Path]): Path to the directory containing PDB files.
+        logdir (Path): Path to the directory for log files.
+        filter_pdbs (bool): Flag indicating whether to filter PDB files.
+        split (bool): Flag indicating whether to split the DBs and run foldseek twice.
+        split_threshold (float): Threshold for splitting the DBs  and run foldseek twice.
+        remote_flag (bool): Flag indicating whether the analysis is remote.
+        proteins_flag (bool): Flag indicating whether proteins are used.
+        fasta_flag (bool): Flag indicating whether FASTA files are used.
+        separate (bool): Flag indicating whether to separate the analysis.
+
+    Returns:
+        bool: True if sub-databases are created successfully, False otherwise.
+    """
 
     if predictions_dir is None and pdb is False:
         logger.error(f"You did not specify --predictions_dir or --pdb. Please check ")
@@ -414,106 +443,55 @@ def subcommand_compare(
 
         for contig in contig_ids:
 
-            contig_df =  merged_df[
-                    merged_df["contig_id"] == contig
-                ]
+            contig_df = merged_df[merged_df["contig_id"] == contig]
 
             cds_count = len(contig_df)
             # get counts of functions and cds
             # all 10 PHROGs categories
-            connector_count = len(
+            connector_count = len(contig_df[contig_df["function"] == "connector"])
+            metabolism_count = len(
+                contig_df[contig_df["function"] == "DNA, RNA and nucleotide metabolism"]
+            )
+            head_count = len(contig_df[contig_df["function"] == "head and packaging"])
+            integration_count = len(
+                contig_df[contig_df["function"] == "integration and excision"]
+            )
+            lysis_count = len(contig_df[contig_df["function"] == "lysis"])
+            moron_count = len(
                 contig_df[
-                    contig_df["function"] == "connector"
+                    contig_df["function"]
+                    == "moron, auxiliary metabolic gene and host takeover"
                 ]
             )
-            metabolism_count = len(
-                        contig_df[
-                            contig_df["function"]
-                            == "DNA, RNA and nucleotide metabolism"
-                        ]
-                    )
-            head_count = len(
-                        contig_df[
-                            contig_df["function"] == "head and packaging"
-                        ]
-                    )
-            integration_count = len(
-                        contig_df[
-                            contig_df["function"]
-                            == "integration and excision"
-                        ]
-                    )
-            lysis_count = len(
-                        contig_df[
-                            contig_df["function"] == "lysis"
-                        ]
-                    )
-            moron_count = len(
-                        contig_df[
-                            contig_df["function"]
-                            == "moron, auxiliary metabolic gene and host takeover"
-                        ]
-                    )
-            other_count = len(
-                        contig_df[
-                            contig_df["function"] == "other"
-                        ]
-                    )
-            tail_count = len(
-                        contig_df[
-                            contig_df["function"] == "tail"
-                        ]
-                    )
+            other_count = len(contig_df[contig_df["function"] == "other"])
+            tail_count = len(contig_df[contig_df["function"] == "tail"])
             transcription_count = len(
-                        contig_df[
-                            contig_df["function"]
-                            == "transcription regulation"
-                        ]
-                    )
-            unknown_count = len(
-                        contig_df[
-                            contig_df["function"] == "unknown function"
-                        ]
-                    )
-            
-            acr_count = len(
-                        contig_df[
-                            contig_df["phrog"] == "acr"
-                        ]
-                    )
+                contig_df[contig_df["function"] == "transcription regulation"]
+            )
+            unknown_count = len(contig_df[contig_df["function"] == "unknown function"])
 
-            vfdb_count = len(
-                        contig_df[
-                            contig_df["phrog"] == "vfdb"
-                        ]
-                    )
-            
-            card_count = len(
-                        contig_df[
-                            contig_df["phrog"] == "card"
-                        ]
-                    )
-            
-            defensefinder_count = len(
-                        contig_df[
-                            contig_df["phrog"] == "defensefinder"
-                        ]
-                    )
+            acr_count = len(contig_df[contig_df["phrog"] == "acr"])
 
-                    # create count list  for the dataframe
+            vfdb_count = len(contig_df[contig_df["phrog"] == "vfdb"])
+
+            card_count = len(contig_df[contig_df["phrog"] == "card"])
+
+            defensefinder_count = len(contig_df[contig_df["phrog"] == "defensefinder"])
+
+            # create count list  for the dataframe
             count_list = [
-                        cds_count,
-                        connector_count,
-                        metabolism_count,
-                        head_count,
-                        integration_count,
-                        lysis_count,
-                        moron_count,
-                        other_count,
-                        tail_count,
-                        transcription_count,
-                        unknown_count,
-                    ]
+                cds_count,
+                connector_count,
+                metabolism_count,
+                head_count,
+                integration_count,
+                lysis_count,
+                moron_count,
+                other_count,
+                tail_count,
+                transcription_count,
+                unknown_count,
+            ]
 
             description_list = [
                 "CDS",
@@ -549,7 +527,6 @@ def subcommand_compare(
                     "Contig": contig_list,
                 }
             )
-
 
             vfdb_row = pd.DataFrame(
                 {
@@ -593,7 +570,7 @@ def subcommand_compare(
 
         # combine all contigs into one final df
         description_total_df = pd.concat(combo_list)
-        
+
         descriptions_total_path: Path = Path(output) / f"{prefix}_all_cds_functions.tsv"
         description_total_df.to_csv(descriptions_total_path, index=False, sep="\t")
 

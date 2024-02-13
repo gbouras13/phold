@@ -1,6 +1,6 @@
 """
 Module for manipulating genbank files
-some taken from phynteny
+some taken from phynteny https://github.com/susiegriggo/Phynteny
 """
 
 import binascii
@@ -8,15 +8,17 @@ import gzip
 import multiprocessing.pool
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
-# imports
 import pandas as pd
-import pyrodigal
 import pyrodigal_gv
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
+from Bio.SeqRecord import SeqRecord
 from loguru import logger
+
+# imports
 
 
 def is_gzip_file(f: Path) -> bool:
@@ -171,12 +173,31 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
 
 
 def write_genbank(
-    updated_cds_dict, non_cds_dict, prefix, gb_dict, output, proteins_flag, separate
-):
+    updated_cds_dict: Dict[str, Dict[str, SeqFeature]],
+    non_cds_dict: Dict[str, Dict[str, SeqFeature]],
+    prefix: str,
+    gb_dict: Dict[str, SeqRecord],
+    output: Path,
+    proteins_flag: bool,
+    separate: bool,
+) -> pd.DataFrame:
     """
-    add typing please
+    Write sequences to GenBank files.
+
+    Args:
+        updated_cds_dict (Dict[str, Dict[str, SeqFeature]]): Dictionary containing updated CDS features.
+        non_cds_dict (Dict[str, Dict[str, SeqFeature]]): Dictionary containing non-CDS features.
+        prefix (str): Prefix for the output GenBank file.
+        gb_dict (Dict[str, SeqRecord]): Dictionary containing SeqRecords.
+        output (Union[str, Path]): Path to the output directory.
+        proteins_flag (bool): Flag indicating whether proteins are present.
+        separate (bool): Flag indicating whether to write separate GenBank files.
+
+    Returns:
+        pd.DataFrame: DataFrame containing information about each CDS.
     """
 
+    # separate gbks per contig
     if separate is True:
         separate_output = Path(output) / "separate_gbks"
         separate_output.mkdir(parents=True, exist_ok=True)

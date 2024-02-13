@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import copy
 from pathlib import Path
+from typing import Dict, Tuple, Union
 
 import pandas as pd
 from loguru import logger
@@ -13,7 +14,23 @@ def get_topfunctions(
     pdb: bool,
     card_vfdb_evalue: float,
     proteins_flag: bool,
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Process Foldseek output to extract top functions and weighted bitscores.
+
+    Args:
+        result_tsv (Path): Path to the Foldseek result TSV file.
+        database (Path): Path to the database directory.
+        database_name (str): Name of the database.
+        pdb (bool): Flag indicating whether the PDB format structures have been added.
+        card_vfdb_evalue (float): E-value threshold for card and vfdb hits.
+        proteins_flag (bool): Flag indicating whether proteins are used.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames:
+            1. DataFrame containing the top functions extracted from the Foldseek output.
+            2. DataFrame containing weighted bitscores for different functions.
+    """
 
     logger.info("Processing Foldseek output")
 
@@ -116,7 +133,16 @@ def get_topfunctions(
         lambda x: "{:.3e}".format(float(x))
     )
 
-    def weighted_function(group):
+    def weighted_function(group: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculate weighted function percentages based on bitscores.
+
+        Args:
+            group (pd.DataFrame): DataFrame containing foldseek search results for a group.
+
+        Returns:
+            pd.DataFrame: DataFrame containing weighted function percentages.
+        """
 
         # normalise counts by total bitscore
         weighted_counts_normalised = {}
@@ -196,12 +222,26 @@ def get_topfunctions(
 
 def calculate_topfunctions_results(
     filtered_tophits_df: pd.DataFrame,
-    cds_dict: dict,
+    cds_dict: Dict[str, Dict[str, dict]],
     output: Path,
     pdb: bool,
     proteins_flag: bool,
     fasta_flag: bool,
-) -> None:
+) -> Union[Dict[str, Dict[str, dict]], pd.DataFrame]:
+    """
+    Calculate top function results based on filtered top hits DataFrame and update CDS dictionary accordingly.
+
+    Args:
+        filtered_tophits_df (pd.DataFrame): DataFrame containing filtered top hits.
+        cds_dict (Dict[str, Dict[str, dict]]): Dictionary containing CDS information.
+        output (Path): Output path.
+        pdb (bool): Indicates whether the input is in PDB format.
+        proteins_flag (bool): Indicates whether the input is proteins.
+        fasta_flag (bool): Indicates whether the input is in FASTA format.
+
+    Returns:
+        Union[Dict[str, Dict[str, dict]], pd.DataFrame]: Updated CDS dictionary and/or filtered top hits DataFrame.
+    """
 
     # dictionary to hold the results
     result_dict = {}
@@ -361,12 +401,24 @@ def calculate_topfunctions_results(
             # no foldseek hits - empty dict
             # will be empty in results dict
             # therefore just leave whatever pharokka has
-                                
 
     return updated_cds_dict, filtered_tophits_df
 
 
-def initialize_function_counts_dict(record_id, count_dict, cds_count):
+def initialize_function_counts_dict(
+    record_id: str, count_dict: Dict[str, int], cds_count: int
+) -> Dict[str, int]:
+    """
+    Initialize function counts dictionary for a given record ID.
+
+    Args:
+        record_id (str): ID of the record.
+        count_dict (Dict[str, int]): Dictionary containing function counts.
+        cds_count (int): Count of CDS.
+
+    Returns:
+        Dict[str, int]: Updated function counts dictionary.
+    """
     count_dict[record_id]["cds_count"] = cds_count
     count_dict[record_id].update(
         {

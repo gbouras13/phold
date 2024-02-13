@@ -23,7 +23,7 @@ def subcommand_predict(
     fasta_flag: bool,
 ) -> bool:
     """
-    Wrapper command for phold predict. Predicts embeddings using ProstT5.
+    Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
 
     Args:
         gb_dict (Dict[str, any]): Dictionary containing GenBank records.

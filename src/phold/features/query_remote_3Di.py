@@ -3,12 +3,25 @@
 import re
 import time
 from pathlib import Path
+from typing import Dict
 
 import requests
 from loguru import logger
 
 
-def query_remote_3di(cds_dict: dict, fasta_3di: Path):
+def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
+    """
+
+    Query remote Foldseek ProstT5 server for 3Di predictions of amino acid sequences and write to file.
+
+    Args:
+        cds_dict (Dict[str, dict]): Dictionary containing CDS sequences.
+        fasta_3di (Path): Path to save the generated 3Di FASTA file.
+
+    Returns:
+        None
+    """
+
     predictions = {}
 
     logger.info("Querying the Foldseek ProstT5 server")

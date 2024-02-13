@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-
-from datetime import datetime
 from pathlib import Path
 
 import click
@@ -12,7 +10,6 @@ from loguru import logger
 
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.query_remote_3Di import query_remote_3di
-from phold.io.validate_input import validate_input
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.util import (
@@ -22,17 +19,7 @@ from phold.utils.util import (
     get_version,
     print_citation,
 )
-from phold.utils.validation import instantiate_dirs
-
-# from phold.utils.validation import (
-#     check_evalue,
-#     instantiate_dirs,
-#     validate_fasta,
-#     validate_fasta_all,
-#     validate_fasta_bulk,
-#     validate_ignore_file,
-# )
-
+from phold.utils.validation import instantiate_dirs, validate_input
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -396,7 +383,7 @@ def predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path
+        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
@@ -606,7 +593,7 @@ def proteins_predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path
+        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc

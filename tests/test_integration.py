@@ -91,18 +91,19 @@ def test_predict_genbank(tmp_dir):
     cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads} -m {model_dir} --cpu -f"
     exec_command(cmd)
 
+
 def test_compare_genbank(tmp_dir):
     """test phold predict with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
+
 def test_predict_pdb(tmp_dir):
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
-
 
 
 # class testFails(unittest.TestCase):

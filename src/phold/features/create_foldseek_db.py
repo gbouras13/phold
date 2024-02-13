@@ -22,6 +22,19 @@ from phold.utils.util import remove_file
 def generate_foldseek_db_from_aa_3di(
     fasta_aa: Path, fasta_3di: Path, foldseek_db_path: Path, logdir: Path, prefix: str
 ) -> None:
+    """
+    Generate Foldseek database from amino-acid and 3Di sequences.
+
+    Args:
+        fasta_aa (Path): Path to the amino-acid FASTA file.
+        fasta_3di (Path): Path to the 3Di FASTA file.
+        foldseek_db_path (Path): Path to the directory where Foldseek database will be stored.
+        logdir (Path): Path to the directory where logs will be stored.
+        prefix (str): Prefix for the Foldseek database.
+
+    Returns:
+        None
+    """
     # read in amino-acid sequences
     sequences_aa = {}
     for record in SeqIO.parse(fasta_aa, "fasta"):
@@ -98,6 +111,18 @@ def generate_foldseek_db_from_aa_3di(
 def foldseek_tsv2db(
     in_tsv: Path, out_db_name: Path, db_type: int, logdir: Path
 ) -> None:
+    """
+    Convert a Foldseek TSV file to a Foldseek database.
+
+    Args:
+        in_tsv (Path): Path to the input TSV file.
+        out_db_name (Path): Path for the output Foldseek database.
+        db_type (int): Type of the output database.
+        logdir (Path): Path to the directory where logs will be stored.
+
+    Returns:
+        None
+    """
     foldseek_tsv2db = ExternalTool(
         tool="foldseek",
         input=f"",
@@ -118,6 +143,22 @@ def generate_foldseek_db_from_pdbs(
     prefix: str,
     filter_pdbs: bool,
 ) -> None:
+    """
+    Generate Foldseek database from PDB files.
+
+    Args:
+        fasta_aa (Path): Path to the amino-acid FASTA file.
+        foldseek_db_path (Path): Path to the directory where Foldseek database will be stored.
+        pdb_dir (Path): Path to the directory containing PDB files.
+        filtered_pdbs_path (Path): Path to the directory where filtered PDB files will be stored.
+        logdir (Path): Path to the directory where logs will be stored.
+        prefix (str): Prefix for the Foldseek database.
+        filter_pdbs (bool): Flag indicating whether to filter PDB files or not.
+
+    Returns:
+        None
+    """
+
     # read in amino-acid sequences
     sequences_aa = {}
     for record in SeqIO.parse(fasta_aa, "fasta"):
@@ -136,7 +177,8 @@ def generate_foldseek_db_from_pdbs(
 
     for id in sequences_aa.keys():
         cds_id = id.split(":")[1]
-        record_id = id.split(":")[0]
+        # record_id = id.split(":")[0]
+
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as '{cds_id}.pdb'
@@ -144,13 +186,14 @@ def generate_foldseek_db_from_pdbs(
         matching_files = [file for file in pdb_files if f"{cds_id}.pdb" == file]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
+        # with filter_pdbs
         if len(matching_files) == 1:
             if filter_pdbs is True:
                 source_path = Path(pdb_dir) / matching_files[0]
                 destination_path = Path(filtered_pdbs_path) / matching_files[0]
                 shutil.copyfile(source_path, destination_path)
             num_pdbs += 1
-        # logger.info("Copying PDBs.")
+
         # should neve happen but in case
         if len(matching_files) > 1:
             logger.warning(f"More than 1 pdb found for {cds_id}")
@@ -174,16 +217,9 @@ def generate_foldseek_db_from_pdbs(
     short_db_name = f"{prefix}"
     pdb_db_name: Path = Path(foldseek_db_path) / short_db_name
 
-    # foldseek_createdb_from_pdbs = ExternalTool(
-    #     tool="foldseek",
-    #     input=f"",
-    #     output=f"",
-    #     params=f"createdb {pdb_dir} {pdb_db_name} ",
-    #     logdir=logdir,
-    # )
-
     query_pdb_dir = pdb_dir
-    # choose the filtered directory
+
+    # choose the filtered directory if true
     if filter_pdbs is True:
         query_pdb_dir = filtered_pdbs_path
 

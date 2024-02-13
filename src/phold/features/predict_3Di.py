@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Adapted from @mheinzinger 
+Code adapted from @mheinzinger 
 
 https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly.py
 
@@ -10,10 +10,10 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 import csv
 import json
-import os
 import shutil
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib import request
 
 import numpy as np
@@ -29,6 +29,9 @@ from phold.utils.constants import MODEL_DB
 # Convolutional neural network (two convolutional layers)
 class CNN(nn.Module):
     def __init__(self):
+        """
+        Initialize the Convolutional Neural Network (CNN) model.
+        """
         super(CNN, self).__init__()
 
         self.classifier = nn.Sequential(
@@ -38,22 +41,61 @@ class CNN(nn.Module):
             nn.Conv2d(32, 20, kernel_size=(7, 1), padding=(3, 0)),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
+        Perform forward pass through the CNN.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, sequence_length, embedding_size).
+
+        Returns:
+            torch.Tensor: Output tensor of shape (batch_size, sequence_length, num_classes).
+
         L = protein length
         B = batch-size
         F = number of features (1024 for embeddings)
         N = number of classes (20 for 3Di)
         """
+
+        # Permute input tensor to match expected shape
+        # Input shape: (batch_size, sequence_length, embedding_size)
+        # Output shape: (batch_size, embedding_size, sequence_length, 1)
+
         x = x.permute(0, 2, 1).unsqueeze(
             dim=-1
         )  # IN: X = (B x L x F); OUT: (B x F x L, 1)
+
+        # Pass the input through the classifier
+        # Output shape: (batch_size, num_classes, sequence_length, 1)
         Yhat = self.classifier(x)  # OUT: Yhat_consurf = (B x N x L x 1)
+
+        # Remove the singleton dimension from the output tensor
+        # Output shape: (batch_size, num_classes, sequence_length)
         Yhat = Yhat.squeeze(dim=-1)  # IN: (B x N x L x 1); OUT: ( B x L x N )
         return Yhat
 
 
-def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag):
+def get_T5_model(
+    model_dir: Path,
+    model_name: str,
+    cpu: bool,
+    finetuned_model_path: Path,
+    finetune_flag: bool,
+) -> (T5EncoderModel, T5Tokenizer):
+    """
+    Loads a T5 model and tokenizer.
+
+    Args:
+        model_dir (Path): Directory where the model and tokenizer is be stored.
+        model_name (str): Name of the pre-trained T5 model.
+        cpu (bool): Whether to use CPU only.
+        finetuned_model_path (Path): Path to the finetuned model weights.
+        finetune_flag (bool): Flag indicating whether finetuning is enabled.
+
+    Returns:
+        Tuple[T5EncoderModel, T5Tokenizer]: Tuple containing the loaded T5 model and tokenizer.
+    """
+
     # sets the device
 
     # Torch load will map back to device from state, which often is GPU:0.
@@ -75,10 +117,9 @@ def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))
 
-    # make dir
+    # make dir if doesnt exist
     Path(model_dir).mkdir(parents=True, exist_ok=True)
-    # set as cache dir
-    # os.environ['TRANSFORMERS_CACHE'] = f"{model_dir}/"
+
     # load
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
     logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded.")
@@ -86,7 +127,7 @@ def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag
         device
     )
 
-    # finetuned weights
+    # finetuned LoRA weights
     if finetune_flag is True:
         # Load the non-frozen parameters from the saved file
         non_frozen_params = torch.load(finetuned_model_path, map_location=device)
@@ -104,7 +145,22 @@ def get_T5_model(model_dir, model_name, cpu, finetuned_model_path, finetune_flag
     return model, vocab
 
 
-def write_predictions(predictions, out_path, proteins_flag):
+def write_predictions(
+    predictions: Dict[str, Dict[str, Tuple[List[str], Any, Any]]],
+    out_path: Path,
+    proteins_flag: bool,
+) -> None:
+    """
+    Write predictions to an output file.
+
+    Args:
+        predictions (Dict[str, Dict[str, Tuple[List[str], Any, Any]]]): Predictions dictionary containing contig IDs, sequence IDs, predictions, and additional information.
+        out_path (Path): Path to the output file.
+        proteins_flag (bool): Flag indicating whether the predictions are in proteins mode or not.
+
+    Returns:
+        None
+    """
     ss_mapping = {
         0: "A",
         1: "C",
@@ -168,8 +224,24 @@ def write_predictions(predictions, out_path, proteins_flag):
     return None
 
 
-def write_probs(predictions, out_path_mean, output_path_all):
-    with open(out_path_mean, "w+") as out_f:
+def write_probs(
+    predictions: Dict[str, Dict[str, Tuple[int, float, Union[int, np.ndarray]]]],
+    output_path_mean: Path,
+    output_path_all: Path,
+) -> None:
+    """
+    Write all ProstT5 encoder + CNN probabilities and mean probabilities to output files.
+
+    Args:
+        predictions (Dict[str, Dict[str, Tuple[int, float, Union[int, np.ndarray]]]]):
+            Predictions dictionary containing contig IDs, sequence IDs, probabilities, and additional information.
+        output_path_mean (str): Path to the output file for mean probabilities.
+        output_path_all (str): Path to the output file for all probabilities.
+
+    Returns:
+        None
+    """
+    with open(output_path_mean, "w+") as out_f:
         for contig_id, rest in predictions.items():
             prediction_contig_dict = predictions[contig_id]
 
@@ -193,11 +265,11 @@ def write_probs(predictions, out_path_mean, output_path_all):
                 # round to 2 dp
                 rounded_list = [round(num, 2) for num in all_probs_list]
 
-                # Create a dictionary for the specific items
-                specific_data = {"seq_id": seq_id, "probability": rounded_list}
+                # Create a dictionary for the specific per residue probability
+                per_residue_probs = {"seq_id": seq_id, "probability": rounded_list}
 
                 # Convert the dictionary to a JSON string
-                json_data = json.dumps(specific_data)
+                json_data = json.dumps(per_residue_probs)
 
                 # Write the JSON string to the file
                 out_f.write(json_data + "\n")  # Add a newline after each JSON object
@@ -205,34 +277,37 @@ def write_probs(predictions, out_path_mean, output_path_all):
     return None
 
 
-def toCPU(tensor):
+def toCPU(tensor: torch.Tensor) -> np.ndarray:
+    """
+    Move a tensor to CPU and convert it to a NumPy array.
+
+    Args:
+        tensor (torch.Tensor): Input tensor.
+
+    Returns:
+        np.ndarray: NumPy array.
+    """
     if len(tensor.shape) > 1:
         return tensor.detach().cpu().squeeze(dim=-1).numpy()
     else:
         return tensor.detach().cpu().numpy()
 
 
-def download_file(url, local_path):
-    if not local_path.parent.is_dir():
-        local_path.parent.mkdir()
+def load_predictor(checkpoint_path: Union[str, Path]) -> CNN:
+    """
+    Load a pre-trained CNN ProstT5 prediction head weights from a checkpoint file.
 
-    print("Downloading: {}".format(url))
-    req = request.Request(
-        url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"}
-    )
+    Args:
+        checkpoint_path (Union[str, Path]): Path to the checkpoint file.
 
-    with request.urlopen(req) as response, open(local_path, "wb") as outfile:
-        shutil.copyfileobj(response, outfile)
-    return None
+    Returns:
+        CNN: Loaded CNN model.
+    """
 
-
-#     weights_link="https://rostlab.org/~deepppi/prostt5/cnn_chkpnt/model.pt"
-
-def load_predictor(checkpoint_path):
-    
     model = CNN()
 
-    # checkpoint_p = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+    # default path no finetuning lives here
+    # checkpoint_path = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
 
     state = torch.load(checkpoint_path, map_location=device)
 
@@ -245,7 +320,7 @@ def load_predictor(checkpoint_path):
 
 
 def get_embeddings(
-    cds_dict: dict,
+    cds_dict: Dict[str, Dict[str, Tuple[str, ...]]],
     out_path: Path,
     prefix: str,
     model_dir: Path,
@@ -258,10 +333,34 @@ def get_embeddings(
     cpu: bool = False,
     output_probs: bool = True,
     finetune_flag: bool = False,
-    finetuned_model_path: str = None,
-    checkpoint_path: str = None,
+    finetuned_model_path: Optional[str] = None,
+    checkpoint_path: Optional[str] = None,
     proteins_flag: bool = False,
 ) -> bool:
+    """
+    Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
+
+    Args:
+        cds_dict (Dict[str, Dict[str, Tuple[str, ...]]]): nested dictionary containing contig IDs, CDS IDs and corresponding protein sequences.
+        out_path (Path): Path to the output directory.
+        prefix (str): Prefix for the output files.
+        model_dir (Path): Directory containing the pre-trained model.
+        model_name (str): Name of the pre-trained model.
+        output_3di (Path): Path to the output 3Di file.
+        half_precision (bool): Whether to use half precision for the models.
+        max_residues (int, optional): Maximum number of residues allowed in a batch. Defaults to 3000.
+        max_seq_len (int, optional): Maximum sequence length allowed. Defaults to 1000.
+        max_batch (int, optional): Maximum batch size. Defaults to 100.
+        cpu (bool, optional): Whether to use CPU for processing. Defaults to False.
+        output_probs (bool, optional): Whether to output probabilities. Defaults to True.
+        finetune_flag (bool, optional): Whether finetuned model is enabled. Defaults to False.
+        finetuned_model_path (Optional[str], optional): Path to the finetuned model weights. Defaults to None.
+        checkpoint_path (Optional[str], optional): Path to the checkpoint for the CNN model. Defaults to None.
+        proteins_flag (bool, optional): Whether the sequences are proteins. Defaults to False.
+
+    Returns:
+        bool: True if embeddings and predictions are generated successfully.
+    """
 
     predictions = {}
 
