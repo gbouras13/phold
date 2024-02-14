@@ -16,7 +16,7 @@ include = [
 phold = 'phold:main'
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.8,<3.12"
 click = ">=8.0.0"
 loguru = ">=0.5.3"
 pyyaml = ">=6.0"
@@ -27,7 +27,7 @@ sentencepiece = ">=0.1.99"
 transformers = ">=4.34"
 torch = ">=2.1.2"
 pyrodigal-gv = ">=0.3.1"
-pyarrow = "14.0.0"
+pyarrow = ">=14.0.0"
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3.0"

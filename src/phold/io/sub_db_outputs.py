@@ -14,6 +14,17 @@ from phold.utils.util import touch_file
 def create_sub_db_outputs(
     merged_df: pd.DataFrame, database: Path, output: Path
 ) -> bool:
+    """
+    Create sub-database (ACR, VFDB, CARD, Defensefinder) outputs based on merged data.
+
+    Args:
+        merged_df (pd.DataFrame): Merged DataFrame containing predictions.
+        database (Path): Path to the database directory.
+        output (Path): Path to the output directory.
+
+    Returns:
+        bool: True if the operation is successful.
+    """
 
     sub_db_tophits_dir = Path(output) / "sub_db_tophits"
     sub_db_tophits_dir.mkdir(parents=True, exist_ok=True)

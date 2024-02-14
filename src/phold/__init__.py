@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-
-from datetime import datetime
 from pathlib import Path
 
 import click
@@ -12,8 +10,6 @@ from loguru import logger
 
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.query_remote_3Di import query_remote_3di
-from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
-from phold.io.validate_input import validate_input
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.util import (
@@ -23,17 +19,7 @@ from phold.utils.util import (
     get_version,
     print_citation,
 )
-from phold.utils.validation import instantiate_dirs
-
-# from phold.utils.validation import (
-#     check_evalue,
-#     instantiate_dirs,
-#     validate_fasta,
-#     validate_fasta_all,
-#     validate_fasta_bulk,
-#     validate_ignore_file,
-# )
-
+from phold.utils.validation import instantiate_dirs, validate_input
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -133,6 +119,9 @@ def predict_options(func):
         ),
         click.option(
             "--finetune_path", help="Path to finetuned model weights", default=None
+        ),
+        click.option(
+            "--checkpoint_path", help="Path to CNN model weights", default=None
         ),
     ]
     for option in reversed(options):
@@ -252,6 +241,7 @@ def run(
     card_vfdb_evalue,
     split,
     split_threshold,
+    checkpoint_path,
     separate,
     **kwargs,
 ):
@@ -279,6 +269,7 @@ def run(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--checkpoint_path": checkpoint_path,
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
@@ -304,6 +295,7 @@ def run(
         finetune,
         finetune_path,
         proteins_flag=False,
+        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -367,6 +359,7 @@ def predict(
     omit_probs,
     finetune,
     finetune_path,
+    checkpoint_path,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -390,6 +383,7 @@ def predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
@@ -411,6 +405,7 @@ def predict(
         finetune,
         finetune_path,
         proteins_flag=False,
+        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -574,6 +569,7 @@ def proteins_predict(
     omit_probs,
     finetune,
     finetune_path,
+    checkpoint_path,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -597,6 +593,7 @@ def proteins_predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
@@ -621,7 +618,7 @@ def proteins_predict(
             qualifiers={
                 "ID": record.id,
                 "description": record.description,
-                "translation": [str(record.seq)],
+                "translation": str(record.seq),
             },
         )
 
@@ -642,6 +639,7 @@ def proteins_predict(
         finetune,
         finetune_path,
         proteins_flag=True,
+        checkpoint_path=checkpoint_path,
         fasta_flag=False,
     )
 
@@ -779,6 +777,7 @@ def proteins_compare(
         split_threshold=split_threshold,
         remote_flag=False,
         proteins_flag=True,
+        fasta_flag=False,
         separate=False,
     )
 

@@ -1,9 +1,9 @@
 import os
 import shutil
-import subprocess as sp
 import sys
 import time
 from pathlib import Path
+from typing import Any, Dict
 
 import click
 from loguru import logger
@@ -49,11 +49,16 @@ begin and end functions
 """
 
 
-def begin_phold(params, subcommand: str):
+def begin_phold(params: Dict[str, Any], subcommand: str) -> int:
     """
-    begins phold
-    params: dict params a dictionary of params for hazed
-    returns: int start time
+    Begin Phold process.
+
+    Parameters:
+        params (Dict[str, Any]): A dictionary of parameters for Phold.
+        subcommand (str): Subcommand indicating the Phold operation.
+
+    Returns:
+        int: Start time of the Phold process.
     """
     # get start time
     start_time = time.time()
@@ -76,9 +81,16 @@ def begin_phold(params, subcommand: str):
     return start_time
 
 
-def end_phold(start_time, subcommand: str):
+def end_phold(start_time: float, subcommand: str) -> None:
     """
-    finishes phold
+    Finish Phold process and log elapsed time.
+
+    Parameters:
+        start_time (float): Start time of the process.
+        subcommand (str): Subcommand name indicating the Phold operation.
+
+    Returns:
+        None
     """
 
     # Determine elapsed time
@@ -108,21 +120,57 @@ def print_splash():
 
 
 def remove_file(file_path: Path) -> None:
+    """
+    Remove a file if it exists.
+
+    Parameters:
+        file_path (Path): Path to the file to remove.
+
+    Returns:
+        None
+    """
     if file_path.exists():
         file_path.unlink()  # Use unlink to remove the file
 
 
 def remove_directory(dir_path: Path) -> None:
+    """
+    Remove a directory and all its contents if it exists.
+
+    Parameters:
+        dir_path (Path): Path to the directory to remove.
+
+    Returns:
+        None
+    """
     if dir_path.exists():
         shutil.rmtree(dir_path)
 
 
 def touch_file(path: Path) -> None:
+    """
+    Update the access and modification times of a file to the current time, creating the file if it does not exist.
+
+    Parameters:
+        path (Path): Path to the file.
+
+    Returns:
+        None
+    """
     with open(path, "a"):
         os.utime(path, None)
 
 
-def clean_up_temporary_files(output: Path):
+def clean_up_temporary_files(output: Path) -> None:
+    """
+    Clean up temporary files generated during the Phold process.
+
+    Parameters:
+        output (Path): Path to the output directory.
+
+    Returns:
+        None
+    """
     result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
     result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
     result_tsv: Path = Path(output) / "foldseek_results.tsv"

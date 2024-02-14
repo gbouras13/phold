@@ -11,7 +11,20 @@ def split_3di_fasta_by_prob(
     probs_3di: Path,
     output: Path,
     split_threshold: float,
-):
+) -> None:
+    """
+    Split sequences in 3Di FASTA files based on probability thresholds.
+
+    Args:
+        fasta_aa (Path): Path to the amino acid FASTA file.
+        fasta_3di (Path): Path to the 3DI FASTA file.
+        probs_3di (Path): Path to the CSV file containing probabilities associated with 3DI sequences.
+        output (Path): Path to the directory where output files will be saved.
+        split_threshold (float): Probability threshold for splitting sequences.
+
+    Returns:
+        None
+    """
 
     probs_3di_df = pd.read_csv(
         probs_3di, header=None, names=["cds_id", "prostt5_prob"], sep=","

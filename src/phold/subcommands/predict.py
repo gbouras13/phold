@@ -19,10 +19,11 @@ def subcommand_predict(
     finetune: bool,
     finetune_path: Path,
     proteins_flag: bool,
+    checkpoint_path: Path,
     fasta_flag: bool,
 ) -> bool:
     """
-    Wrapper command for phold predict. Predicts embeddings using ProstT5.
+    Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
 
     Args:
         gb_dict (Dict[str, any]): Dictionary containing GenBank records.
@@ -116,6 +117,7 @@ def subcommand_predict(
         output_probs=output_probs,
         finetune_flag=finetune,
         finetuned_model_path=finetune_path,
+        checkpoint_path=checkpoint_path,
         proteins_flag=proteins_flag,
     )
 

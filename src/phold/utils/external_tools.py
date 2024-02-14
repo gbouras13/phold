@@ -1,3 +1,10 @@
+"""
+Originally taken from Michael Hall's tbpore https://github.com/mbhall88/tbpore/blob/main/tbpore/external_tools.py
+
+Also used by a variety of other tools (Dnaapler, Plassembler, Pharokka)
+
+"""
+
 import hashlib
 import shlex
 import subprocess
