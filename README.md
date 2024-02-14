@@ -13,7 +13,7 @@ Alternatively, you can specify protein structures that you have pre-computed for
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Output](#output)
-  - [Usage](#usage)
+- [Usage](#usage)
 - [Citation](#citation)
 
 # Installation
@@ -32,39 +32,50 @@ cd phold
 pip install -e .
 ```
 
-`phold` will run in a reasonable time for small datasets with CPU only (e.g. <5 minutes for a 50kbp phage).
+`phold run` will run in a reasonable time for small datasets with CPU only (e.g. <5 minutes for a 50kbp phage).
 
-However, `phold predict` will run faster if a GPU is available, and is necessary for large metagenome datasets to run in a reasonable time. 
+However, `phold predict` will complete much faster if a GPU is available, and is necessary for large metagenome datasets to run in a reasonable time. 
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
 
-If it is not automatically installed via pip/conda, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
+If it is not automatically installed via the pip/conda installation, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
 
 # Quick Start
 
-* `phold` takes a GenBank format file output from [pharokka](https://github.com/gbouras13/pharokka) as its input.
-* It is most efficient to run `phold` in 2 steps for optimal resource usage.
-
-1. Predict the 3Di sequences with ProstT5 using `phold predict`. This is massively accelerated if a GPU available.
+* `phold` takes a GenBank format file output from [pharokka](https://github.com/gbouras13/pharokka) as its input by default.
+* If you are running `phold` on a local work station, using `phold run` is recommended. It runs both `phold predict` and `phold compare`
 * If you do not have a GPU available, add `--cpu`
 
 ```
-phold predict -i tests/test_data/pharokka.gbk -o test_predictions
+phold run -i tests/test_data/pharokka.gbk  -o test_output_phold -t 8 -d phold_structure_foldseek_db/ -m ProstT5_model
 ```
 
-2. Compare the the 3Di sequences to the structure database with Foldseek using `phold compare`. This does not utilise a GPU. 
+* On a cluster environment, it is most efficient to run `phold` in 2 steps for optimal resource usage.
+
+1. Predict the 3Di sequences with ProstT5 using `phold predict`. This is massively accelerated if a GPU available.
 
 ```
-phold comapre --predictions_dir test_predictions -o test_output_phold -t 8 -d phold_structure_foldseek_db/
+phold predict -i tests/test_data/pharokka.gbk -o test_predictions -m ProstT5_model
 ```
+
+2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU. 
+
+```
+phold comapre -i tests/test_data/pharokka.gbk --predictions_dir test_predictions -o test_output_phold -t 8 -d phold_structure_foldseek_db/
+```
+
 
 # Output
 
-* The primary outputs are `final_cds_predictions.tsv`, where you have detailed annotation information on every CDS and `phold.gbk`, which contains a GenBank format file including these annotations, and any other genomic features (tRNA, CRISPR repeats, tmRNAs) from the `pharokka` input file.
+* The primary outputs are:
+  * `phold_3di.fasta` containing the 3Di sequences
+  * `phold_per_cds_predictions.tsv` containing detailed annotation information on every CDS
+  * `phold_all_cds_functions.tsv` containing counts per contig of CDS in each PHROGs category, VFDB, CARD, ACRDB and Defensefinder databases (similar to the `pharokka_cds_functions.tsv` from Pharokka)
+  * `phold.gbk`, which contains a GenBank format file including these annotations, and keeps any other genomic features (tRNA, CRISPR repeats, tmRNAs) included the `pharokka` Genbank input file if provided.
 
 
-## Usage
+# Usage
 
 ```
 Usage: phold [OPTIONS] COMMAND [ARGS]...
@@ -84,8 +95,6 @@ Commands:
   run               phold predict then comapare all in one - GPU recommended
 ```
 
-* On large datasets, it is best to run `phold predict` (with GPU) followed by `phold compare` (CPU)
-
 
 # Citation
 
@@ -93,10 +102,10 @@ Commands:
 
 Please be sure to cite the following core dependencies and PHROGs database:
 
-* [Foldseek](https://github.com/steineggerlab/foldseek) [van Kempen M, Kim S, Tumescheit C, Mirdita M, Lee J, Gilchrist C, Söding J, and Steinegger M. Fast and accurate protein structure search with Foldseek. Nature Biotechnology, doi:10.1038/s41587-023-01773-0 (2023)](https://www.nature.com/articles/s41587-023-01773-0)
-* [ProstT5](https://github.com/mheinzinger/ProstT5) [Michael Heinzinger, Konstantin Weissenow, Joaquin Gomez Sanchez, Adrian Henkel, Martin Steinegger, Burkhard Rost. ProstT5: Bilingual Language Model for Protein Sequence and Structure. bioRxiv doi:10.1101/2023.07.23.550085 (2023)](https://www.biorxiv.org/content/10.1101/2023.07.23.550085v1)
-* [Colabfold](https://github.com/sokrypton/ColabFold) [Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1 ](https://www.nature.com/articles/s41592-022-01488-1)
-* [PHROGs](https://phrogs.lmge.uca.fr) [Terzian P., Olo Ndela E., Galiez C., Lossouarn J., Pérez Bucio R.E., Mom R., Toussaint A., Petit M.A., Enault F., "PHROG : families of prokaryotic virus proteins clustered using remote homology", NAR Genomics and Bioinformatics, (2021) https://doi.org/10.1093/nargab/lqab067](https://doi.org/10.1093/nargab/lqab067)
+* Foldseek - [van Kempen M, Kim S, Tumescheit C, Mirdita M, Lee J, Gilchrist C, Söding J, and Steinegger M. Fast and accurate protein structure search with Foldseek. Nature Biotechnology, doi:10.1038/s41587-023-01773-0 (2023)](https://www.nature.com/articles/s41587-023-01773-0)
+* ProstT5 -(https://github.com/mheinzinger/ProstT5) [Michael Heinzinger, Konstantin Weissenow, Joaquin Gomez Sanchez, Adrian Henkel, Martin Steinegger, Burkhard Rost. ProstT5: Bilingual Language Model for Protein Sequence and Structure. bioRxiv doi:10.1101/2023.07.23.550085 (2023)](https://www.biorxiv.org/content/10.1101/2023.07.23.550085v1)
+* Colabfold - (https://github.com/sokrypton/ColabFold) [Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1 ](https://www.nature.com/articles/s41592-022-01488-1)
+* PHROGs - (https://phrogs.lmge.uca.fr) [Terzian P., Olo Ndela E., Galiez C., Lossouarn J., Pérez Bucio R.E., Mom R., Toussaint A., Petit M.A., Enault F., "PHROG : families of prokaryotic virus proteins clustered using remote homology", NAR Genomics and Bioinformatics, (2021) https://doi.org/10.1093/nargab/lqab067](https://doi.org/10.1093/nargab/lqab067)
 
 Please also consider citing these supplementary databases where relevant:
 
