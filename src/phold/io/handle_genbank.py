@@ -251,7 +251,7 @@ def write_genbank(
                         end = cds_feature.location.start + 1
                     else:
                         start = cds_feature.location.start + 1
-                        end  = cds_feature.location.start + 1
+                        end  = cds_feature.location.end
 
                     cds_info = {
                         "contig_id": record_id,
