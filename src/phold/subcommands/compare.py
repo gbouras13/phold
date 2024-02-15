@@ -378,7 +378,7 @@ def subcommand_compare(
 
     # generate per CDS foldseek information df and write to genbank
     per_cds_df = write_genbank(
-        updated_cds_dict, non_cds_dict, prefix, gb_dict, output, proteins_flag, separate
+        updated_cds_dict, non_cds_dict, prefix, gb_dict, output, proteins_flag, separate, fasta_flag
     )
 
     # if prostt5, query will repeat contig_id in query - convert to cds_id
