@@ -245,7 +245,7 @@ def write_genbank(
                         "phrog": cds_feature.qualifiers["phrog"][0],
                         "function": cds_feature.qualifiers["function"][0],
                         "product": cds_feature.qualifiers["product"][0],
-                        "transl_table": cds_feature.qualifiers["transl_table"],
+                        "transl_table": cds_feature.qualifiers["transl_table"][0],
                     }
 
                     # Remove unwanted gbk attributes if they exist
@@ -283,11 +283,11 @@ def write_genbank(
         seq_record.annotations["date"] = str(
             datetime.now().strftime("%d-%b-%Y").upper()
         )
-        if separate is True:
-            if proteins_flag is False:
-                output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
-                with open(output_gbk_path, "w") as output_file:
-                    SeqIO.write(seq_record, output_file, "genbank")
+        
+        if separate is True and proteins_flag is False:
+            output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
+            with open(output_gbk_path, "w") as output_file:
+                SeqIO.write(seq_record, output_file, "genbank")
 
     per_cds_df = pd.DataFrame(per_cds_list)
 

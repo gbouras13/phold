@@ -147,7 +147,7 @@ def compare_options(func):
         click.option(
             "-e",
             "--evalue",
-            default="1e-2",
+            default="1e-3",
             type=float,
             help="e value threshold for Foldseek",
             show_default=True,
