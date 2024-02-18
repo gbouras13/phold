@@ -29,6 +29,7 @@ transformers = ">=4.34"
 torch = ">=2.1.2"
 pyrodigal-gv = ">=0.3.1"
 pyarrow = ">=14.0.0"
+alive-progress = ">=3.0.1"
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3.0"

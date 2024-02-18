@@ -9,42 +9,35 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 """
 
 # import dependencies
-import argparse
+
 import copy
-import os
-import os.path
-import random
 import re
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import  Dict, Optional, Tuple
 
 import numpy as np
-import pandas as pd
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import transformers
-from Bio import SeqIO
+
 from datasets import Dataset
 from loguru import logger
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import (
     DataCollatorForTokenClassification,
     T5EncoderModel,
-    T5Tokenizer,
-    Trainer,
-    TrainingArguments,
-    set_seed,
+    T5Tokenizer
 )
 from transformers.modeling_outputs import TokenClassifierOutput
 from transformers.models.t5.modeling_t5 import T5Config, T5PreTrainedModel, T5Stack
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 
 
-from phold.utils.constants import MODEL_DB
+from phold.utils.constants import FINETUNE_DIR
 from phold.features.predict_3Di import write_predictions
 
 
@@ -412,8 +405,10 @@ def get_embeddings_finetune(
     """
 
     predictions = {}
-
-    finetuned_model_path = Path(MODEL_DB) / "Phrostt5_finetuned.pth"
+    if finetuned_model_path is None:
+        finetuned_model_path = Path(FINETUNE_DIR) / "Phrostt5_finetuned.pth"
+    else:
+        finetuned_model_path = Path(finetuned_model_path)
 
     # Put both models to the same device
     tokenizer, model = load_model(finetuned_model_path, model_dir = model_dir, num_labels=20, mixed = False)

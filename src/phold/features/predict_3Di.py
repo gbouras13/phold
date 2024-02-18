@@ -20,7 +20,7 @@ from loguru import logger
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
-from phold.utils.constants import MODEL_DB
+from phold.utils.constants import CNN_DIR
 
 
 # Convolutional neural network (two convolutional layers)
@@ -115,7 +115,7 @@ def get_T5_model(
 
     # load
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
-    logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded.")
+    logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
     model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
         device
     )
@@ -124,6 +124,8 @@ def get_T5_model(
     vocab = T5Tokenizer.from_pretrained(
         model_name, cache_dir=f"{model_dir}/", do_lower_case=False
     )
+
+    logger.info(f"{model_name} loaded")
 
     return model, vocab
 
@@ -289,7 +291,7 @@ def load_predictor(checkpoint_path: Union[str, Path]) -> CNN:
 
     model = CNN()
 
-    # checkpoint_path = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+    # checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
     state = torch.load(checkpoint_path, map_location=device)
 
@@ -343,7 +345,7 @@ def get_embeddings(
     prostt5_prefix = "<AA2fold>"
 
 
-    checkpoint_path = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
     model, vocab = get_T5_model(
         model_dir, model_name, cpu

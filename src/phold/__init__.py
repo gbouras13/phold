@@ -20,6 +20,10 @@ from phold.utils.util import (
     print_citation,
 )
 from phold.utils.validation import instantiate_dirs, validate_input
+from phold.features.predict_3Di import get_T5_model
+from phold.utils.constants import DB_DIR
+
+from phold.databases.db import install_database, check_db_installation
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -1008,6 +1012,65 @@ def createdb(
 
     # end phold
     end_phold(start_time, "createdb")
+
+"""
+install command
+"""
+
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+            "-d",
+            "--database",
+            type=str,
+            default=None,
+            help="Specific path to install the phold database",
+        )
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    help="Force overwrites the output directory",
+)
+def install(
+    ctx,
+    database,
+    force,
+    **kwargs,
+):
+    """Installs ProstT5 model and phold database"""
+
+    # validates the directory  (need to before I start phold or else no log file is written)
+
+    if database is not None:
+        logger.info(f"You have specif")
+        database: Path = Path(database)
+    else:
+        database = Path(DB_DIR)
+
+    logger.info(f"Downloading the ProstT5 model into {database}")
+
+    model_name = "Rostlab/ProstT5_fp16"
+    
+    # always install with cpu mode as guarantee to be present
+    cpu = True
+
+    # load model (will be downloaded if not present)
+    model, vocab = get_T5_model(
+        database, model_name, cpu
+    )
+    del model
+    del vocab
+
+    logger.info(f"ProstT5 model downloaded.")
+    logger.info(f"Now downloading the Phold database.")
+
+
+    # will check if db is present, and if not, download it
+    install_database(database)
 
 
 @click.command()
