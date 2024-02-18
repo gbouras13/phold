@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
-
+from phold.features.predict_3Di_finetune import get_embeddings_finetune
 
 def subcommand_predict(
     gb_dict: dict,
@@ -19,7 +19,6 @@ def subcommand_predict(
     finetune: bool,
     finetune_path: Path,
     proteins_flag: bool,
-    checkpoint_path: Path,
     fasta_flag: bool,
 ) -> bool:
     """
@@ -102,23 +101,34 @@ def subcommand_predict(
     else:
         output_probs = True
 
-    prediction_success = get_embeddings(
-        cds_dict,
-        output,
-        prefix,
-        model_dir,
-        model_name,
-        fasta_3di,
-        half_precision=half_precision,
-        max_residues=5000,
-        max_seq_len=1000,
-        max_batch=batch_size,
-        cpu=cpu,
-        output_probs=output_probs,
-        finetune_flag=finetune,
-        finetuned_model_path=finetune_path,
-        checkpoint_path=checkpoint_path,
-        proteins_flag=proteins_flag,
-    )
+    if finetune is True:
 
+        prediction_success = get_embeddings_finetune(
+        cds_dict = cds_dict,
+        model_dir = model_dir,
+        output_3di = fasta_3di,
+        max_batch = batch_size,
+        finetuned_model_path = finetune_path,
+        proteins_flag = proteins_flag,
+    )
+    
+    else:
+
+        prediction_success = get_embeddings(
+            cds_dict,
+            output,
+            prefix,
+            model_dir,
+            model_name,
+            fasta_3di,
+            half_precision=half_precision,
+            max_residues=5000,
+            max_seq_len=1000,
+            max_batch=batch_size,
+            cpu=cpu,
+            output_probs=output_probs,
+            proteins_flag=proteins_flag,
+        )
+
+    
     return prediction_success

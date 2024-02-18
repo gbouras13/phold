@@ -120,9 +120,6 @@ def predict_options(func):
         click.option(
             "--finetune_path", help="Path to finetuned model weights", default=None
         ),
-        click.option(
-            "--checkpoint_path", help="Path to CNN model weights", default=None
-        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -241,7 +238,6 @@ def run(
     card_vfdb_evalue,
     split,
     split_threshold,
-    checkpoint_path,
     separate,
     **kwargs,
 ):
@@ -269,7 +265,6 @@ def run(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path,
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
@@ -295,7 +290,6 @@ def run(
         finetune,
         finetune_path,
         proteins_flag=False,
-        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -359,7 +353,6 @@ def predict(
     omit_probs,
     finetune,
     finetune_path,
-    checkpoint_path,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -383,7 +376,6 @@ def predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
@@ -405,7 +397,6 @@ def predict(
         finetune,
         finetune_path,
         proteins_flag=False,
-        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -569,7 +560,6 @@ def proteins_predict(
     omit_probs,
     finetune,
     finetune_path,
-    checkpoint_path,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -593,7 +583,6 @@ def proteins_predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
@@ -639,7 +628,6 @@ def proteins_predict(
         finetune,
         finetune_path,
         proteins_flag=True,
-        checkpoint_path=checkpoint_path,
         fasta_flag=False,
     )
 
