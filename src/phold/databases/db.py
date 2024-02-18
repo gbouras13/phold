@@ -15,7 +15,7 @@ from pathlib import Path
 import requests
 from alive_progress import alive_bar
 from loguru import logger
-from post_processing import remove_directory
+
 
 # set this if changes
 CURRENT_DB_VERSION: str = "0.1.0"
