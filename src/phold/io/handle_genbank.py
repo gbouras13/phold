@@ -180,7 +180,7 @@ def write_genbank(
     output: Path,
     proteins_flag: bool,
     separate: bool,
-    fasta_flag: bool
+    fasta_flag: bool,
 ) -> pd.DataFrame:
     """
     Write sequences to GenBank files.
@@ -230,7 +230,6 @@ def write_genbank(
         for cds_feature in sorted_features:
             if cds_feature.type == "CDS":
 
-
                 if proteins_flag is True:
                     cds_info = {
                         "cds_id": cds_feature.qualifiers["ID"],
@@ -251,7 +250,7 @@ def write_genbank(
                         end = cds_feature.location.start + 1
                     else:
                         start = cds_feature.location.start + 1
-                        end  = cds_feature.location.end
+                        end = cds_feature.location.end
 
                     cds_info = {
                         "contig_id": record_id,

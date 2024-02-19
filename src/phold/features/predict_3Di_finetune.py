@@ -12,36 +12,28 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 import copy
 import re
-
 from pathlib import Path
-from typing import  Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from datasets import Dataset
 from loguru import logger
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import (
-    DataCollatorForTokenClassification,
-    T5EncoderModel,
-    T5Tokenizer
-)
+from transformers import DataCollatorForTokenClassification, T5EncoderModel, T5Tokenizer
 from transformers.modeling_outputs import TokenClassifierOutput
 from transformers.models.t5.modeling_t5 import T5Config, T5PreTrainedModel, T5Stack
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 
-
-from phold.utils.constants import FINETUNE_DIR
 from phold.features.predict_3Di import write_predictions
+from phold.utils.constants import FINETUNE_DIR
 
+# Modifies an existing transformer and introduce the LoRA layers
 
-    # Modifies an existing transformer and introduce the LoRA layers
 
 class LoRAConfig:
     def __init__(self):
@@ -53,6 +45,7 @@ class LoRAConfig:
         self.lora_scaling_rank = 1
         # lora_modules and lora_layers are speicified with regular expressions
         # see https://www.w3schools.com/python/python_regex.asp for reference
+
 
 class LoRALinear(nn.Module):
     def __init__(self, linear_layer, rank, scaling_rank, init_scale):
@@ -72,14 +65,11 @@ class LoRALinear(nn.Module):
                     torch.randn(linear_layer.out_features, rank) * init_scale
                 )
             else:
-                self.lora_b = nn.Parameter(
-                    torch.zeros(linear_layer.out_features, rank)
-                )
+                self.lora_b = nn.Parameter(torch.zeros(linear_layer.out_features, rank))
         if self.scaling_rank:
             self.multi_lora_a = nn.Parameter(
                 torch.ones(self.scaling_rank, linear_layer.in_features)
-                + torch.randn(self.scaling_rank, linear_layer.in_features)
-                * init_scale
+                + torch.randn(self.scaling_rank, linear_layer.in_features) * init_scale
             )
             if init_scale < 0:
                 self.multi_lora_b = nn.Parameter(
@@ -127,13 +117,16 @@ class LoRALinear(nn.Module):
             return F.linear(input, weight, self.bias)
 
     def extra_repr(self):
-        return "in_features={}, out_features={}, bias={}, rank={}, scaling_rank={}".format(
-            self.in_features,
-            self.out_features,
-            self.bias is not None,
-            self.rank,
-            self.scaling_rank,
+        return (
+            "in_features={}, out_features={}, bias={}, rank={}, scaling_rank={}".format(
+                self.in_features,
+                self.out_features,
+                self.bias is not None,
+                self.rank,
+                self.scaling_rank,
+            )
         )
+
 
 def modify_with_lora(transformer, config):
     for m_name, module in dict(transformer.named_modules()).items():
@@ -155,10 +148,12 @@ def modify_with_lora(transformer, config):
                     )
     return transformer
 
+
 class ClassConfig:
     def __init__(self, dropout=0.2, num_labels=3):
         self.dropout_rate = dropout
         self.num_labels = num_labels
+
 
 class T5EncoderForTokenClassification(T5PreTrainedModel):
     def __init__(self, config: T5Config, class_config):
@@ -185,9 +180,7 @@ class T5EncoderForTokenClassification(T5PreTrainedModel):
 
     def parallelize(self, device_map=None):
         self.device_map = (
-            get_device_map(
-                len(self.encoder.block), range(torch.cuda.device_count())
-            )
+            get_device_map(len(self.encoder.block), range(torch.cuda.device_count()))
             if device_map is None
             else device_map
         )
@@ -281,10 +274,10 @@ class T5EncoderForTokenClassification(T5PreTrainedModel):
             attentions=outputs.attentions,
         )
 
+
 def PT5_classification_model(num_labels, model_dir, half_precision=False):
     # Load PT5 and tokenizer
     # possible to load the half preciion model (thanks to @pawel-rezo for pointing that out)
-
 
     # sets the device
 
@@ -302,7 +295,6 @@ def PT5_classification_model(num_labels, model_dir, half_precision=False):
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))
 
-
     # load
     model_name = "Rostlab/ProstT5_fp16"
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
@@ -310,11 +302,7 @@ def PT5_classification_model(num_labels, model_dir, half_precision=False):
     model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
         device
     )
-    tokenizer = T5Tokenizer.from_pretrained(
-             model_name, cache_dir=f"{model_dir}/"
-         )
-
-
+    tokenizer = T5Tokenizer.from_pretrained(model_name, cache_dir=f"{model_dir}/")
 
     # Create new Classifier model with PT5 dimensions
     class_config = ClassConfig(num_labels=num_labels)
@@ -357,12 +345,14 @@ def PT5_classification_model(num_labels, model_dir, half_precision=False):
     return model, tokenizer
 
 
-def load_model(filepath, model_dir, num_labels=1, mixed = False):
-# Creates a new PT5 model and loads the finetuned weights from a file
+def load_model(filepath, model_dir, num_labels=1, mixed=False):
+    # Creates a new PT5 model and loads the finetuned weights from a file
 
     # load a new model
-    model, tokenizer = PT5_classification_model(num_labels=num_labels, model_dir=model_dir, half_precision=mixed)
-    
+    model, tokenizer = PT5_classification_model(
+        num_labels=num_labels, model_dir=model_dir, half_precision=mixed
+    )
+
     # Load the non-frozen parameters from the saved file
     non_frozen_params = torch.load(filepath)
 
@@ -375,11 +365,12 @@ def load_model(filepath, model_dir, num_labels=1, mixed = False):
 
 
 # Dataset creation
-def create_dataset(tokenizer,seqs):
+def create_dataset(tokenizer, seqs):
     tokenized = tokenizer(seqs, max_length=1024, padding=False, truncation=True)
     dataset = Dataset.from_dict(tokenized)
-     
+
     return dataset
+
 
 def get_embeddings_finetune(
     cds_dict: Dict[str, Dict[str, Tuple[str, ...]]],
@@ -411,8 +402,9 @@ def get_embeddings_finetune(
         finetuned_model_path = Path(finetuned_model_path)
 
     # Put both models to the same device
-    tokenizer, model = load_model(finetuned_model_path, model_dir = model_dir, num_labels=20, mixed = False)
-    
+    tokenizer, model = load_model(
+        finetuned_model_path, model_dir=model_dir, num_labels=20, mixed=False
+    )
 
     global device
 
@@ -420,7 +412,9 @@ def get_embeddings_finetune(
         device = torch.device("cuda:0")
         dev_name = "cuda:0"
     else:
-        logger.error("Running phold with the finetuned PhrostT5 model requires an available GPU.")
+        logger.error(
+            "Running phold with the finetuned PhrostT5 model requires an available GPU."
+        )
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))
@@ -450,7 +444,7 @@ def get_embeddings_finetune(
         )
 
         batch = list()
-        
+
         for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
 
             # replace non-standard AAs
@@ -461,24 +455,26 @@ def get_embeddings_finetune(
             batch.append((pdb_id, seq, seq_len))
 
         # run them all
-        
+
         pdb_ids, seqs, seq_lens = zip(*batch)
 
         # Create Dataset
-        prediction_set=create_dataset(tokenizer,list(seqs))
+        prediction_set = create_dataset(tokenizer, list(seqs))
 
         # Make compatible with torch DataLoader
         prediction_set = prediction_set.with_format("torch", device=device)
 
         # For token classification we need a data collator here to pad correctly
-        data_collator = DataCollatorForTokenClassification(tokenizer) 
+        data_collator = DataCollatorForTokenClassification(tokenizer)
 
         # Create a dataloader for the test dataset
         batch_size = max_batch
-        prediction_dataloader = DataLoader(prediction_set, 
-                                            batch_size=batch_size,
-                                            shuffle = False, 
-                                            collate_fn = data_collator)
+        prediction_dataloader = DataLoader(
+            prediction_set,
+            batch_size=batch_size,
+            shuffle=False,
+            collate_fn=data_collator,
+        )
 
         # Put the model in evaluation mode
         model.eval()
@@ -486,14 +482,16 @@ def get_embeddings_finetune(
         # Make predictions on the test dataset
         phrostt5_predictions = []
 
-
         with torch.no_grad():
             for batch in tqdm(prediction_dataloader):
-                input_ids = batch['input_ids'].to(device)
-                attention_mask = batch['attention_mask'].to(device)
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
                 # Add batch results(logits) to predictions, we take the argmax here to get the predicted class
-                phrostt5_predictions += model(input_ids, attention_mask=attention_mask).logits.argmax(dim=-1).tolist()
-
+                phrostt5_predictions += (
+                    model(input_ids, attention_mask=attention_mask)
+                    .logits.argmax(dim=-1)
+                    .tolist()
+                )
 
         for batch_idx, identifier in enumerate(pdb_ids):
 
@@ -505,8 +503,6 @@ def get_embeddings_finetune(
 
             predictions[record_id][identifier] = (pred, None, None)
 
-
     write_predictions(predictions, output_3di, proteins_flag)
-
 
     return True

@@ -344,12 +344,9 @@ def get_embeddings(
 
     prostt5_prefix = "<AA2fold>"
 
-
     checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    model, vocab = get_T5_model(
-        model_dir, model_name, cpu
-    )
+    model, vocab = get_T5_model(model_dir, model_name, cpu)
     predictor = load_predictor(checkpoint_path)
 
     logger.info("Beginning ProstT5 predictions")

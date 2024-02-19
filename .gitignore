@@ -7,6 +7,10 @@ __pycache__/
 # C extensions
 *.so
 
+# database
+src/database
+src/database/*
+
 # test data
 tests/test_data/database/*
 tests/test_data/logs/*

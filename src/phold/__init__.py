@@ -8,10 +8,13 @@ from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
 
+from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
+from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
+from phold.utils.constants import DB_DIR
 from phold.utils.util import (
     begin_phold,
     clean_up_temporary_files,
@@ -20,10 +23,6 @@ from phold.utils.util import (
     print_citation,
 )
 from phold.utils.validation import instantiate_dirs, validate_input
-from phold.features.predict_3Di import get_T5_model
-from phold.utils.constants import DB_DIR
-
-from phold.databases.db import install_database, check_db_installation
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -65,6 +64,13 @@ def common_options(func):
             show_default=True,
         ),
         click.option(
+            "-d",
+            "--database",
+            type=str,
+            default=None,
+            help="Specific path to installed phold database",
+        ),
+        click.option(
             "-f",
             "--force",
             is_flag=True,
@@ -84,22 +90,6 @@ predict only options
 def predict_options(func):
     """predict command line args"""
     options = [
-        click.option(
-            "-m",
-            "--model_dir",
-            required=False,
-            type=click.Path(),
-            default="model_dir",
-            help="Path to save ProstT5_fp16 model to.",
-        ),
-        click.option(
-            "--model_name",
-            required=False,
-            type=str,
-            default="Rostlab/ProstT5_fp16",
-            show_default=True,
-            help="Name of model: Rostlab/ProstT5_fp16.",
-        ),
         click.option(
             "--batch_size",
             default=1,
@@ -138,13 +128,6 @@ compare only options
 def compare_options(func):
     """compare command line args"""
     options = [
-        click.option(
-            "-d",
-            "--database",
-            required=True,
-            type=click.Path(),
-            help="Path to phold database.",
-        ),
         click.option(
             "-e",
             "--evalue",
@@ -230,8 +213,6 @@ def run(
     prefix,
     evalue,
     force,
-    model_dir,
-    model_name,
     database,
     batch_size,
     sensitivity,
@@ -259,8 +240,6 @@ def run(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-        "--model_dir": model_dir,
-        "--model_name": model_name,
         "--evalue": evalue,
         "--database": database,
         "--batch_size": batch_size,
@@ -278,10 +257,16 @@ def run(
     # initial logging etc
     start_time = begin_phold(params, "run")
 
+    # check the database is installed
+    validate_db(database, DB_DIR)
+
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
 
     # phold predict
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
     subcommand_predict(
         gb_dict,
         output,
@@ -350,8 +335,7 @@ def predict(
     threads,
     prefix,
     force,
-    model_dir,
-    model_name,
+    database,
     batch_size,
     cpu,
     omit_probs,
@@ -373,8 +357,7 @@ def predict(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-        "--model_dir": model_dir,
-        "--model_name": model_name,
+        "--database": database,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -385,10 +368,16 @@ def predict(
     # initial logging etc
     start_time = begin_phold(params, "predict")
 
+    # check the database is installed
+    validate_db(database, DB_DIR)
+
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
 
     # runs phold predict subcommand
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
     subcommand_predict(
         gb_dict,
         output,
@@ -499,6 +488,10 @@ def compare(
     # initial logging etc
     start_time = begin_phold(params, "compare")
 
+    # check the database is installed
+    validate_db(database, DB_DIR)
+
+    # validate fasta
     fasta_flag, gb_dict = validate_input(input, threads)
 
     subcommand_compare(
@@ -557,8 +550,7 @@ def proteins_predict(
     threads,
     prefix,
     force,
-    model_dir,
-    model_name,
+    database,
     batch_size,
     cpu,
     omit_probs,
@@ -580,8 +572,7 @@ def proteins_predict(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-        "--model_dir": model_dir,
-        "--model_name": model_name,
+        "--database": database,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -592,7 +583,8 @@ def proteins_predict(
     # initial logging etc
     start_time = begin_phold(params, "protein-predict")
 
-    # validates fasta
+    # check the database is installed
+    validate_db(database, DB_DIR)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -619,6 +611,10 @@ def proteins_predict(
 
     if not cds_dict:
         logger.error(f"Error: no AA protein sequences found in {input} file")
+
+    # runs phold predict subcommand
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
 
     success = subcommand_predict(
         cds_dict,
@@ -723,7 +719,8 @@ def proteins_compare(
     # initial logging etc
     start_time = begin_phold(params, "proteins-compare")
 
-    # validates fasta
+    # check the database is installed
+    validate_db(database, DB_DIR)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -842,6 +839,9 @@ def remote(
 
     # initial logging etc
     start_time = begin_phold(params, "remote")
+
+    # check the database is installed
+    validate_db(database, DB_DIR)
 
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
@@ -1013,6 +1013,7 @@ def createdb(
     # end phold
     end_phold(start_time, "createdb")
 
+
 """
 install command
 """
@@ -1023,51 +1024,45 @@ install command
 @click.version_option(get_version(), "--version", "-V")
 @click.pass_context
 @click.option(
-            "-d",
-            "--database",
-            type=str,
-            default=None,
-            help="Specific path to install the phold database",
-        )
-@click.option(
-    "-f",
-    "--force",
-    is_flag=True,
-    help="Force overwrites the output directory",
+    "-d",
+    "--database",
+    type=str,
+    default=None,
+    help="Specific path to install the phold database",
 )
 def install(
     ctx,
     database,
-    force,
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
 
-    # validates the directory  (need to before I start phold or else no log file is written)
-
     if database is not None:
-        logger.info(f"You have specif")
+        logger.info(
+            f"You have specified the {database} directory to store the Phold database and ProstT5 model"
+        )
         database: Path = Path(database)
     else:
+        logger.info(
+            f"Downloading the Phold database into the default directory {DB_DIR}"
+        )
         database = Path(DB_DIR)
 
-    logger.info(f"Downloading the ProstT5 model into {database}")
-
     model_name = "Rostlab/ProstT5_fp16"
-    
+
+    logger.info(
+        f"Checking that the {model_name} ProstT5 model is available in {database}"
+    )
+
     # always install with cpu mode as guarantee to be present
     cpu = True
 
     # load model (will be downloaded if not present)
-    model, vocab = get_T5_model(
-        database, model_name, cpu
-    )
+    model, vocab = get_T5_model(database, model_name, cpu)
     del model
     del vocab
 
     logger.info(f"ProstT5 model downloaded.")
-    logger.info(f"Now downloading the Phold database.")
-
 
     # will check if db is present, and if not, download it
     install_database(database)
