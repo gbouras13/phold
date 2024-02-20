@@ -5,7 +5,7 @@
 The easiest way to install `phold` is via conda/mamba. This will install all python dependencies and [Foldseek](https://github.com/steineggerlab/foldseek), the only non-python dependency of `phold` all at once.
 
 ```
-maba install -c bioconda phold
+mamba install -c bioconda phold
 ```
 
 ## Pip
@@ -29,7 +29,7 @@ pip install -e .
 phold --help
 ```
 
-You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek) separately.
+You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek), the only non-Python dependency, separately.
 
 
 # Database Installation
@@ -37,8 +37,16 @@ You will still need to install [Foldseek](https://github.com/steineggerlab/folds
 To download and install the `phold` database
 
 ```
-phold install -d <path to database directory>
+phold install
 ```
+
+If you would like to specify a particular location for the database, please use `-d`
+
+```
+phold install -d <path/to/databse_dir>
+```
+
+
 <!-- 
 If you would like to specify a different database directory (recommended), that can be achieved as follows:
 
@@ -60,7 +68,9 @@ Beginner Conda Installation
 
 If you are new to using the command-line, please install conda using the following instructions.
 
-First install [Anaconda](https://www.anaconda.com/products/distribution). There are lots of options but the best in our opinion is miniforge as this will automatically install mamba, which is much faster than base conda:
+First install some flavour of [Anaconda](https://www.anaconda.com/products/distribution). 
+
+There are lots of options but the best in our opinion is miniforge as this will automatically install mamba, which is much faster than base conda:
 
    * [miniforge](https://github.com/conda-forge/miniforge).
   
@@ -98,4 +108,5 @@ mamba install -c bioconda phold
 
 ```
 phold -h
+phold install
 ```

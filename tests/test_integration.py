@@ -23,11 +23,12 @@ from loguru import logger
 
 # test data
 test_data = Path("tests/test_data")
-database_dir = Path(f"{test_data}/phold_structure_foldseek_db")
+database_dir = Path(f"{test_data}/phold_db")
 model_dir = Path(f"{test_data}/model")
 pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
+run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
@@ -38,19 +39,7 @@ remote_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_remote_fasta"
 proteins_predict_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_predict"
 proteins_compare_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_compare"
 
-# functions_data = Path(f"{test_data}/functions_files")
-# overall_data = Path(f"{test_data}/overall")
-# meta_data = Path(f"{overall_data}/Meta_example")
-# standard_data = Path(f"{overall_data}/Standard_examples")
-# standard_data_output = Path(f"{standard_data}/SAOMS1_Output")
-# stop_recoding_data = Path(f"{overall_data}/stop_recoding")
-# custom_db = Path(f"{test_data}/custom_db/microvirus.h3m")
-# custom_data = Path(f"{overall_data}/custom_examples")
-# tmrna_data = Path(f"{overall_data}/tmRNA_example")
-# AMR_data = Path(f"{overall_data}/AMR_example")
-# CRISPR_data = Path(f"{overall_data}/CRISPR_example")
-# VFDB_data = Path(f"{overall_data}/VFDB_example")
-# genbank_data = Path(f"{overall_data}/genbank_examples")
+
 logger.add(lambda _: sys.exit(1), level="ERROR")
 threads = 1
 
@@ -98,6 +87,14 @@ def test_install(tmp_dir):
     """test phold install"""
     cmd = f"phold install -d {database_dir} "
     exec_command(cmd)
+
+
+def test_run_genbank(tmp_dir):
+    """test phold run with genbank input"""
+    input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads}  --cpu -d {database_dir} -f"
+    exec_command(cmd)
+
 
 def test_predict_genbank(tmp_dir):
     """test phold predict with genbank input"""
