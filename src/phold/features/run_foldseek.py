@@ -37,7 +37,7 @@ def run_foldseek_search(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max_seqs {max_seqs} ",
+        params=f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs} ",
         logdir=logdir,
     )
 
