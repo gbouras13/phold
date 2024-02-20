@@ -42,7 +42,7 @@ Options:
   --batch_size INTEGER   batch size for ProstT5  [default: 1]
   --cpu                  Use cpus only with ProstT5
   --omit_probs           Do not output 3Di probabilities from ProstT5
-  --finetune             Use finetuned ProstT5 model
+  --finetune             Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now
   --finetune_path TEXT   Path to finetuned model weights
   ```
 
@@ -58,8 +58,7 @@ phold predict -i pharokka.gbk -o phold_predict_output
 
 Alternatively, if you have provided pre-generated .pdb format protein structures for you proteins, you can specify those by specifiying `--pdb --pdb_dir <directory>`. 
 
-`phold compare` does not use a GPU.
-
+`phold compare` does not use a GPU. Use as many CPU threads with `-t` as you can.
 
 Example usage following `phold predict`
 
@@ -67,11 +66,11 @@ Example usage following `phold predict`
 phold compare -i pharokka.gbk -o phold_compare_output  --predictions_dir phold_predict_output
 ```
 
-Example usage if you have .pdb format structures available for your phage proteins (note: the .pdb file names must be called cds_id.pdb, where cds_id is the CDS ids output from Pharokka). You can see an example in the `tests/test_data/NC_043029_pdbs` directory [here]()/
+Example usage if you have .pdb format structures available for your phage proteins (note: the .pdb file names must be called cds_id.pdb, where cds_id is the CDS ids output from Pharokka). You can see an example in the `tests/test_data/NC_043029_pdbs` directory [here]().
 
 
 ```
-phold compare -i pharokka.gbk -o phold_compare_output_pdb  --pdb --pdb_dir directory_with_pdbs
+phold compare -i pharokka.gbk -o phold_compare_output_pdb  --pdb --pdb_dir directory_with_pdbs  -t 8
 ```
 
 ```
@@ -150,6 +149,85 @@ Options:
                             hits
   --split                   Split the Foldseek runs by ProstT5 probability
   --split_threshold FLOAT   ProstT5 Probability to split by  [default: 60]
+  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
+                            the prefilter. You may want to reduce this to save
+                            disk space for enormous datasets  [default: 1000]
+```
+
+### `phold proteins-predict`
+
+Identical to `phold predict`, but instead takes a FASTA input file of amino acid protein sequences. Useful for bulk annotation of phage proteins.
+
+Example usage 
+
+```
+phold proteins-predict -i phage_proteins.faa -o phold_proteins_predict_output 
+```
+
+```
+Usage: phold proteins-predict [OPTIONS]
+
+  Runs ProstT5 on a multiFASTA input - GPU recommended
+
+Options:
+  -h, --help             Show this message and exit.
+  -V, --version          Show the version and exit.
+  -i, --input PATH       Path to input multiFASTA file  [required]
+  -o, --output PATH      Output directory   [default: output_phold]
+  -t, --threads INTEGER  Number of threads  [default: 1]
+  -p, --prefix TEXT      Prefix for output files  [default: phold]
+  -d, --database TEXT    Specific path to installed phold database
+  -f, --force            Force overwrites the output directory
+  --batch_size INTEGER   batch size for ProstT5. 1 is usually fastest.
+                         [default: 1]
+  --cpu                  Use cpus only.
+  --omit_probs           Do not output 3Di probabilities from ProstT5
+  --finetune             Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now
+  --finetune_path TEXT   Path to finetuned model weights
+
+```
+
+### `phold proteins-compare`
+
+Identical to `phold compare`, but instead takes a FASTA input file of amino acid protein sequences. Useful for bulk annotation of phage proteins.
+
+Example usage 
+
+```
+phold proteins-compare -i phage_proteins.faa --predictions_dir phold_proteins_predict_output -o phold_proteins_compare_output  -t 8
+```
+
+```
+Usage: phold proteins-compare [OPTIONS]
+
+  Runs Foldseek vs phold db on proteins input
+
+Options:
+  -h, --help                Show this message and exit.
+  -V, --version             Show the version and exit.
+  -i, --input PATH          Path to input file in multiFASTA format
+                            [required]
+  --predictions_dir PATH    Path to output directory from phold proteins-
+                            predict
+  --pdb                     Use if you have pdbs for the input proteins (e.g.
+                            with AF2/Colabfold) specified with --pdb_dir
+  --pdb_dir PATH            Path to directory with pdbs. The FASTA headers
+                            need to match names of the pdb files
+  -o, --output PATH         Output directory   [default: output_phold]
+  -t, --threads INTEGER     Number of threads  [default: 1]
+  -p, --prefix TEXT         Prefix for output files  [default: phold]
+  -d, --database TEXT       Specific path to installed phold database
+  -f, --force               Force overwrites the output directory
+  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
+  -s, --sensitivity FLOAT   sensitivity parameter for foldseek  [default: 9.5]
+  --keep_tmp_files          Keep temporary intermediate files, particularly
+                            the large foldseek_results.tsv of all Foldseek
+                            hits
+  --split                   Split the Foldseek runs by ProstT5 probability
+  --split_threshold FLOAT   ProstT5 Probability to split by  [default: 60]
+  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
+                            VFDB hits  [default: 1e-10]
+  --separate                Output separate genbank files for each contig
   --max_seqs INTEGER        Maximum results per query sequence allowed to pass
                             the prefilter. You may want to reduce this to save
                             disk space for enormous datasets  [default: 1000]

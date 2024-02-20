@@ -109,7 +109,7 @@ def predict_options(func):
         click.option(
             "--finetune",
             is_flag=True,
-            help="Finetune",
+            help="Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now",
         ),
         click.option(
             "--finetune_path", help="Path to finetuned model weights", default=None
@@ -133,7 +133,7 @@ def compare_options(func):
             "--evalue",
             default="1e-3",
             type=float,
-            help="e value threshold for Foldseek",
+            help="Evalue threshold for Foldseek",
             show_default=True,
         ),
         click.option(
@@ -165,13 +165,13 @@ def compare_options(func):
             "--card_vfdb_evalue",
             default="1e-10",
             type=float,
-            help="stricter Evalue threshold for Foldseek CARD and VFDB hits",
+            help="Stricter Evalue threshold for Foldseek CARD and VFDB hits",
             show_default=True,
         ),
         click.option(
             "--separate",
             is_flag=True,
-            help="output separate genbank files for each contig",
+            help="Output separate genbank files for each contig",
         ),
         click.option(
             "--max_seqs",
@@ -260,7 +260,7 @@ def run(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
-        "--max_seqs": max_seqs,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
@@ -312,7 +312,7 @@ def run(
         remote_flag=True,
         proteins_flag=False,
         separate=separate,
-        max_seqs=max_seqs,
+        max_seqs=max_seqs
     )
 
     # end phold
@@ -435,7 +435,7 @@ compare command
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with pdbs.  The CDS IDs need to be in the name of the file",
+    help="Path to directory with pdbs. The CDS IDs need to be in the name of the file",
     type=click.Path(),
 )
 @click.option(
@@ -494,7 +494,7 @@ def compare(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
-        "--max_seqs": max_seqs,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
@@ -526,7 +526,7 @@ def compare(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
-        max_seqs=max_seqs,
+        max_seqs=max_seqs
     )
 
     # cleanup the temp files
@@ -728,7 +728,7 @@ def proteins_compare(
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
-        "--max_seqs": max_seqs,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
@@ -783,7 +783,7 @@ def proteins_compare(
         proteins_flag=True,
         fasta_flag=False,
         separate=False,
-        max_seqs=max_seqs,
+        max_seqs=max_seqs
     )
 
     # cleanup the temp files
@@ -830,7 +830,7 @@ def remote(
     max_seqs,
     **kwargs,
 ):
-    """Uses foldseek API to run ProstT5 then foldseek locally"""
+    """Uses Foldseek API to run ProstT5 then Foldseek locally"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -852,7 +852,7 @@ def remote(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
-        "--max_seqs": max_seqs,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
@@ -921,7 +921,7 @@ def remote(
         remote_flag=True,
         proteins_flag=False,
         separate=separate,
-        max_seqs=max_seqs,
+        max_seqs=max_seqs
     )
 
     # cleanup the temp files
