@@ -257,8 +257,8 @@ def run(
     # initial logging etc
     start_time = begin_phold(params, "run")
 
-    # check the database is installed
-    validate_db(database, DB_DIR)
+    # check the database is installed and return it
+    database = validate_db(database, DB_DIR)
 
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
@@ -369,7 +369,7 @@ def predict(
     start_time = begin_phold(params, "predict")
 
     # check the database is installed
-    validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR)
 
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
@@ -489,7 +489,7 @@ def compare(
     start_time = begin_phold(params, "compare")
 
     # check the database is installed
-    validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR)
 
     # validate fasta
     fasta_flag, gb_dict = validate_input(input, threads)
@@ -584,7 +584,7 @@ def proteins_predict(
     start_time = begin_phold(params, "protein-predict")
 
     # check the database is installed
-    validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -720,7 +720,7 @@ def proteins_compare(
     start_time = begin_phold(params, "proteins-compare")
 
     # check the database is installed
-    validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -841,7 +841,7 @@ def remote(
     start_time = begin_phold(params, "remote")
 
     # check the database is installed
-    validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR)
 
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)

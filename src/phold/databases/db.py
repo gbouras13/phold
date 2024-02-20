@@ -213,7 +213,7 @@ def check_db_installation(db_dir: Path) -> bool:
     return downloaded_flag
 
 
-def validate_db(database: str, default_dir: str) -> None:
+def validate_db(database: str, default_dir: str) -> Path:
     """
     Validates the Phold database is installed.
 
@@ -244,3 +244,5 @@ def validate_db(database: str, default_dir: str) -> None:
             logger.error(
                 f"Phold database not found. Please run phold install -d {database} to download and install the Phold database"
             )
+
+    return database
