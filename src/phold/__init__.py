@@ -173,6 +173,13 @@ def compare_options(func):
             is_flag=True,
             help="output separate genbank files for each contig",
         ),
+        click.option(
+            "--max_seqs",
+            type=int,
+            default=1000,
+            show_default=True,
+            help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -224,6 +231,7 @@ def run(
     split,
     split_threshold,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -252,6 +260,7 @@ def run(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
@@ -303,6 +312,7 @@ def run(
         remote_flag=True,
         proteins_flag=False,
         separate=separate,
+        max_seqs=max_seqs,
     )
 
     # end phold
@@ -454,6 +464,7 @@ def compare(
     split_threshold,
     card_vfdb_evalue,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -483,6 +494,7 @@ def compare(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
@@ -514,6 +526,7 @@ def compare(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files
@@ -687,6 +700,7 @@ def proteins_compare(
     split_threshold,
     card_vfdb_evalue,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -714,6 +728,7 @@ def proteins_compare(
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
@@ -768,6 +783,7 @@ def proteins_compare(
         proteins_flag=True,
         fasta_flag=False,
         separate=False,
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files
@@ -811,6 +827,7 @@ def remote(
     split_threshold,
     card_vfdb_evalue,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """Uses foldseek API to run ProstT5 then foldseek locally"""
@@ -835,6 +852,7 @@ def remote(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
@@ -903,6 +921,7 @@ def remote(
         remote_flag=True,
         proteins_flag=False,
         separate=separate,
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files

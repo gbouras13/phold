@@ -40,6 +40,7 @@ def subcommand_compare(
     proteins_flag: bool,
     fasta_flag: bool,
     separate: bool,
+    max_seqs: int,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -64,6 +65,7 @@ def subcommand_compare(
         proteins_flag (bool): Flag indicating whether proteins are used.
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
+        max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -275,6 +277,7 @@ def subcommand_compare(
             logdir,
             evalue,
             sensitivity,
+            max_seqs,
         )
 
         # make result tsv for high prob vs structure db
@@ -306,6 +309,7 @@ def subcommand_compare(
             logdir,
             evalue,
             sensitivity,
+            max_seqs,
         )
 
         # make result tsv
@@ -352,6 +356,7 @@ def subcommand_compare(
             logdir,
             evalue,
             sensitivity,
+            max_seqs,
         )
 
         # make result tsv
