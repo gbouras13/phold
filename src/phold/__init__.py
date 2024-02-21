@@ -311,6 +311,7 @@ def run(
         split_threshold=split_threshold,
         remote_flag=True,
         proteins_flag=False,
+        fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs
     )
