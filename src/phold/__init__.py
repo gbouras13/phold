@@ -8,10 +8,13 @@ from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
 
+from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
+from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
+from phold.utils.constants import DB_DIR
 from phold.utils.util import (
     begin_phold,
     clean_up_temporary_files,
@@ -61,6 +64,13 @@ def common_options(func):
             show_default=True,
         ),
         click.option(
+            "-d",
+            "--database",
+            type=str,
+            default=None,
+            help="Specific path to installed phold database",
+        ),
+        click.option(
             "-f",
             "--force",
             is_flag=True,
@@ -81,22 +91,6 @@ def predict_options(func):
     """predict command line args"""
     options = [
         click.option(
-            "-m",
-            "--model_dir",
-            required=False,
-            type=click.Path(),
-            default="model_dir",
-            help="Path to save ProstT5_fp16 model to.",
-        ),
-        click.option(
-            "--model_name",
-            required=False,
-            type=str,
-            default="Rostlab/ProstT5_fp16",
-            show_default=True,
-            help="Name of model: Rostlab/ProstT5_fp16.",
-        ),
-        click.option(
             "--batch_size",
             default=1,
             help="batch size for ProstT5. 1 is usually fastest.",
@@ -115,13 +109,10 @@ def predict_options(func):
         click.option(
             "--finetune",
             is_flag=True,
-            help="Finetune",
+            help="Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now",
         ),
         click.option(
             "--finetune_path", help="Path to finetuned model weights", default=None
-        ),
-        click.option(
-            "--checkpoint_path", help="Path to CNN model weights", default=None
         ),
     ]
     for option in reversed(options):
@@ -138,18 +129,11 @@ def compare_options(func):
     """compare command line args"""
     options = [
         click.option(
-            "-d",
-            "--database",
-            required=True,
-            type=click.Path(),
-            help="Path to phold database.",
-        ),
-        click.option(
             "-e",
             "--evalue",
-            default="1e-2",
+            default="1e-3",
             type=float,
-            help="e value threshold for Foldseek",
+            help="Evalue threshold for Foldseek",
             show_default=True,
         ),
         click.option(
@@ -181,13 +165,20 @@ def compare_options(func):
             "--card_vfdb_evalue",
             default="1e-10",
             type=float,
-            help="stricter Evalue threshold for Foldseek CARD and VFDB hits",
+            help="Stricter Evalue threshold for Foldseek CARD and VFDB hits",
             show_default=True,
         ),
         click.option(
             "--separate",
             is_flag=True,
-            help="output separate genbank files for each contig",
+            help="Output separate genbank files for each contig",
+        ),
+        click.option(
+            "--max_seqs",
+            type=int,
+            default=1000,
+            show_default=True,
+            help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
         ),
     ]
     for option in reversed(options):
@@ -229,8 +220,6 @@ def run(
     prefix,
     evalue,
     force,
-    model_dir,
-    model_name,
     database,
     batch_size,
     sensitivity,
@@ -241,8 +230,8 @@ def run(
     card_vfdb_evalue,
     split,
     split_threshold,
-    checkpoint_path,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -259,8 +248,6 @@ def run(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-        "--model_dir": model_dir,
-        "--model_name": model_name,
         "--evalue": evalue,
         "--database": database,
         "--batch_size": batch_size,
@@ -269,20 +256,26 @@ def run(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path,
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
     start_time = begin_phold(params, "run")
 
+    # check the database is installed and return it
+    database = validate_db(database, DB_DIR)
+
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
 
     # phold predict
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
     subcommand_predict(
         gb_dict,
         output,
@@ -295,7 +288,6 @@ def run(
         finetune,
         finetune_path,
         proteins_flag=False,
-        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -319,7 +311,9 @@ def run(
         split_threshold=split_threshold,
         remote_flag=True,
         proteins_flag=False,
+        fasta_flag=fasta_flag,
         separate=separate,
+        max_seqs=max_seqs
     )
 
     # end phold
@@ -352,14 +346,12 @@ def predict(
     threads,
     prefix,
     force,
-    model_dir,
-    model_name,
+    database,
     batch_size,
     cpu,
     omit_probs,
     finetune,
     finetune_path,
-    checkpoint_path,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -376,23 +368,27 @@ def predict(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-        "--model_dir": model_dir,
-        "--model_name": model_name,
+        "--database": database,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
     start_time = begin_phold(params, "predict")
 
+    # check the database is installed
+    database = validate_db(database, DB_DIR)
+
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
 
     # runs phold predict subcommand
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
     subcommand_predict(
         gb_dict,
         output,
@@ -405,7 +401,6 @@ def predict(
         finetune,
         finetune_path,
         proteins_flag=False,
-        checkpoint_path=checkpoint_path,
         fasta_flag=fasta_flag,
     )
 
@@ -441,7 +436,7 @@ compare command
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with pdbs.  The CDS IDs need to be in the name of the file",
+    help="Path to directory with pdbs. The CDS IDs need to be in the name of the file",
     type=click.Path(),
 )
 @click.option(
@@ -470,6 +465,7 @@ def compare(
     split_threshold,
     card_vfdb_evalue,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -499,11 +495,16 @@ def compare(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
     start_time = begin_phold(params, "compare")
 
+    # check the database is installed
+    database = validate_db(database, DB_DIR)
+
+    # validate fasta
     fasta_flag, gb_dict = validate_input(input, threads)
 
     subcommand_compare(
@@ -526,6 +527,7 @@ def compare(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
+        max_seqs=max_seqs
     )
 
     # cleanup the temp files
@@ -562,14 +564,12 @@ def proteins_predict(
     threads,
     prefix,
     force,
-    model_dir,
-    model_name,
+    database,
     batch_size,
     cpu,
     omit_probs,
     finetune,
     finetune_path,
-    checkpoint_path,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -586,20 +586,19 @@ def proteins_predict(
         "--threads": threads,
         "--force": force,
         "--prefix": prefix,
-        "--model_dir": model_dir,
-        "--model_name": model_name,
+        "--database": database,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--checkpoint_path": checkpoint_path,
     }
 
     # initial logging etc
     start_time = begin_phold(params, "protein-predict")
 
-    # validates fasta
+    # check the database is installed
+    database = validate_db(database, DB_DIR)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -627,6 +626,10 @@ def proteins_predict(
     if not cds_dict:
         logger.error(f"Error: no AA protein sequences found in {input} file")
 
+    # runs phold predict subcommand
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
     success = subcommand_predict(
         cds_dict,
         output,
@@ -639,7 +642,6 @@ def proteins_predict(
         finetune,
         finetune_path,
         proteins_flag=True,
-        checkpoint_path=checkpoint_path,
         fasta_flag=False,
     )
 
@@ -699,6 +701,7 @@ def proteins_compare(
     split_threshold,
     card_vfdb_evalue,
     separate,
+    max_seqs,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -726,12 +729,14 @@ def proteins_compare(
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-compare")
 
-    # validates fasta
+    # check the database is installed
+    database = validate_db(database, DB_DIR)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -779,6 +784,7 @@ def proteins_compare(
         proteins_flag=True,
         fasta_flag=False,
         separate=False,
+        max_seqs=max_seqs
     )
 
     # cleanup the temp files
@@ -822,9 +828,10 @@ def remote(
     split_threshold,
     card_vfdb_evalue,
     separate,
+    max_seqs,
     **kwargs,
 ):
-    """Uses foldseek API to run ProstT5 then foldseek locally"""
+    """Uses Foldseek API to run ProstT5 then Foldseek locally"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
@@ -846,10 +853,14 @@ def remote(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
+        "--max_seqs": max_seqs
     }
 
     # initial logging etc
     start_time = begin_phold(params, "remote")
+
+    # check the database is installed
+    database = validate_db(database, DB_DIR)
 
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
@@ -911,6 +922,7 @@ def remote(
         remote_flag=True,
         proteins_flag=False,
         separate=separate,
+        max_seqs=max_seqs
     )
 
     # cleanup the temp files
@@ -1020,6 +1032,60 @@ def createdb(
 
     # end phold
     end_phold(start_time, "createdb")
+
+
+"""
+install command
+"""
+
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-d",
+    "--database",
+    type=str,
+    default=None,
+    help="Specific path to install the phold database",
+)
+def install(
+    ctx,
+    database,
+    **kwargs,
+):
+    """Installs ProstT5 model and phold database"""
+
+    if database is not None:
+        logger.info(
+            f"You have specified the {database} directory to store the Phold database and ProstT5 model"
+        )
+        database: Path = Path(database)
+    else:
+        logger.info(
+            f"Downloading the Phold database into the default directory {DB_DIR}"
+        )
+        database = Path(DB_DIR)
+
+    model_name = "Rostlab/ProstT5_fp16"
+
+    logger.info(
+        f"Checking that the {model_name} ProstT5 model is available in {database}"
+    )
+
+    # always install with cpu mode as guarantee to be present
+    cpu = True
+
+    # load model (will be downloaded if not present)
+    model, vocab = get_T5_model(database, model_name, cpu)
+    del model
+    del vocab
+
+    logger.info(f"ProstT5 model downloaded.")
+
+    # will check if db is present, and if not, download it
+    install_database(database)
 
 
 @click.command()

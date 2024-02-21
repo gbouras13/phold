@@ -180,6 +180,7 @@ def write_genbank(
     output: Path,
     proteins_flag: bool,
     separate: bool,
+    fasta_flag: bool,
 ) -> pd.DataFrame:
     """
     Write sequences to GenBank files.
@@ -192,6 +193,7 @@ def write_genbank(
         output (Union[str, Path]): Path to the output directory.
         proteins_flag (bool): Flag indicating whether proteins are present.
         separate (bool): Flag indicating whether to write separate GenBank files.
+        fasta_flag (bool): Flag indicating whether input is a FASTA file.
 
     Returns:
         pd.DataFrame: DataFrame containing information about each CDS.
@@ -236,16 +238,30 @@ def write_genbank(
                         "product": cds_feature.qualifiers["product"][0],
                     }
                 else:
+                    # because for some reason when parsing the genbank, it is a list, fasta it is not
+                    if fasta_flag is True:
+                        transl_table = cds_feature.qualifiers["transl_table"]
+                    else:
+                        transl_table = cds_feature.qualifiers["transl_table"][0]
+
+                    # to reverse the start and end for output + fix off by 1 error with start relative to pharokka
+                    if cds_feature.location.strand == "-":
+                        start = cds_feature.location.end
+                        end = cds_feature.location.start + 1
+                    else:
+                        start = cds_feature.location.start + 1
+                        end = cds_feature.location.end
+
                     cds_info = {
                         "contig_id": record_id,
                         "cds_id": cds_feature.qualifiers["ID"][0],
-                        "start": cds_feature.location.start,
-                        "end": cds_feature.location.end,
+                        "start": start,
+                        "end": end,
                         "strand": cds_feature.location.strand,
                         "phrog": cds_feature.qualifiers["phrog"][0],
                         "function": cds_feature.qualifiers["function"][0],
                         "product": cds_feature.qualifiers["product"][0],
-                        "transl_table": cds_feature.qualifiers["transl_table"],
+                        "transl_table": transl_table,
                     }
 
                     # Remove unwanted gbk attributes if they exist
@@ -283,11 +299,11 @@ def write_genbank(
         seq_record.annotations["date"] = str(
             datetime.now().strftime("%d-%b-%Y").upper()
         )
-        if separate is True:
-            if proteins_flag is False:
-                output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
-                with open(output_gbk_path, "w") as output_file:
-                    SeqIO.write(seq_record, output_file, "genbank")
+
+        if separate is True and proteins_flag is False:
+            output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
+            with open(output_gbk_path, "w") as output_file:
+                SeqIO.write(seq_record, output_file, "genbank")
 
     per_cds_df = pd.DataFrame(per_cds_list)
 

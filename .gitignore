@@ -7,11 +7,17 @@ __pycache__/
 # C extensions
 *.so
 
+# database
+src/database
+src/database/*
+
 # test data
-tests/test_data/database/*
+tests/test_data/phold_db
+tests/test_data/outputs
+tests/test_data/phold_db/*
+tests/test_data/outputs/*
 tests/test_data/logs/*
 tests/test_data/model/*
-tests/test_data/database/*
 tests/test_data/combined_truncated_phold_predict_gbk/*
 
 # Distribution / packaging

@@ -64,8 +64,9 @@ def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
                     f"Request for {cds_id} L={seq_len} failed with status code {response.status_code}"
                 )
 
-            # Add 1s delay between requests so don't destroy the server
-            time.sleep(1)
+            # Add 3s delay between requests so don't destroy the server
+            # 1s delay risks https error
+            time.sleep(3)
 
             # add the prediction to the seq
             predictions[record_id][cds_id] = seq_3Di

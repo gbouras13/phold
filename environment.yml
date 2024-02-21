@@ -1,0 +1,24 @@
+name: phold_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - foldseek ==8.ef4e960
+  - python >=3.8,<3.12
+  - biopython >=1.76
+  - alive-progress >=3.0.1
+  - datasets >=2.15
+  - requests >=2.25
+  - pyarrow >=14.0.0
+  - pandas >=1.4.2
+  - loguru >=0.5.3
+  - pyyaml >=6.0
+  - click >=8.0.0
+  - sentencepiece >=0.1.99
+  - transformers >=4.34
+  - torch >=2.1.2
+  - pyrodigal-gv >=0.3.1
+
+
+

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "phold"
 version = "0.1.0" # change VERSION too
-description = "Phage Annotations with Protein Structures"
+description = "Phage Annotations using Protein Structures"
 authors = ["George Bouras <george.bouras@adelaide.edu.au>", "Susanna Grigson <susie.grigson@gmail.com>"]
 license = "MIT"
 readme = "README.md"
@@ -22,12 +22,14 @@ loguru = ">=0.5.3"
 pyyaml = ">=6.0"
 pandas = ">=1.4.2"
 biopython = ">=1.76"
-requests = ">=2.15"
+datasets = ">=2.15"
+requests = ">=2.25"
 sentencepiece = ">=0.1.99"
 transformers = ">=4.34"
 torch = ">=2.1.2"
 pyrodigal-gv = ">=0.3.1"
 pyarrow = ">=14.0.0"
+alive-progress = ">=3.0.1"
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3.0"

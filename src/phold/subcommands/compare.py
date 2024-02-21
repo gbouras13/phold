@@ -40,6 +40,7 @@ def subcommand_compare(
     proteins_flag: bool,
     fasta_flag: bool,
     separate: bool,
+    max_seqs: int,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -64,6 +65,7 @@ def subcommand_compare(
         proteins_flag (bool): Flag indicating whether proteins are used.
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
+        max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -275,6 +277,7 @@ def subcommand_compare(
             logdir,
             evalue,
             sensitivity,
+            max_seqs,
         )
 
         # make result tsv for high prob vs structure db
@@ -306,6 +309,7 @@ def subcommand_compare(
             logdir,
             evalue,
             sensitivity,
+            max_seqs,
         )
 
         # make result tsv
@@ -352,6 +356,7 @@ def subcommand_compare(
             logdir,
             evalue,
             sensitivity,
+            max_seqs,
         )
 
         # make result tsv
@@ -378,7 +383,14 @@ def subcommand_compare(
 
     # generate per CDS foldseek information df and write to genbank
     per_cds_df = write_genbank(
-        updated_cds_dict, non_cds_dict, prefix, gb_dict, output, proteins_flag, separate
+        updated_cds_dict,
+        non_cds_dict,
+        prefix,
+        gb_dict,
+        output,
+        proteins_flag,
+        separate,
+        fasta_flag,
     )
 
     # if prostt5, query will repeat contig_id in query - convert to cds_id
@@ -440,6 +452,9 @@ def subcommand_compare(
     if proteins_flag is False:
 
         contig_ids = merged_df["contig_id"].unique()
+
+        # get list of all functions counts
+        functions_list = []
 
         for contig in contig_ids:
 
@@ -532,14 +547,14 @@ def subcommand_compare(
                 {
                     "Description": ["VFDB_Virulence_Factors"],
                     "Count": [vfdb_count],
-                    "contig": [contig],
+                    "Contig": [contig],
                 }
             )
             card_row = pd.DataFrame(
                 {
                     "Description": ["CARD_AMR"],
                     "Count": [card_count],
-                    "contig": [contig],
+                    "Contig": [contig],
                 }
             )
 
@@ -547,7 +562,7 @@ def subcommand_compare(
                 {
                     "Description": ["ACR_anti_crispr"],
                     "Count": [acr_count],
-                    "contig": [contig],
+                    "Contig": [contig],
                 }
             )
 
@@ -555,21 +570,19 @@ def subcommand_compare(
                 {
                     "Description": ["Defensefinder"],
                     "Count": [defensefinder_count],
-                    "contig": [contig],
+                    "Contig": [contig],
                 }
             )
 
-            combo_list = []
-
-            # eappend it all to combo_list
-            combo_list.append(cds_df)
-            combo_list.append(vfdb_row)
-            combo_list.append(card_row)
-            combo_list.append(acr_row)
-            combo_list.append(defensefinder_row)
+            # eappend it all to functions_list
+            functions_list.append(cds_df)
+            functions_list.append(vfdb_row)
+            functions_list.append(card_row)
+            functions_list.append(acr_row)
+            functions_list.append(defensefinder_row)
 
         # combine all contigs into one final df
-        description_total_df = pd.concat(combo_list)
+        description_total_df = pd.concat(functions_list)
 
         descriptions_total_path: Path = Path(output) / f"{prefix}_all_cds_functions.tsv"
         description_total_df.to_csv(descriptions_total_path, index=False, sep="\t")

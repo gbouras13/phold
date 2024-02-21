@@ -1,13 +1,9 @@
 import shutil
 import sys
 from pathlib import Path
-from typing import Union
+from typing import Dict, Union
 
 from loguru import logger
-
-
-# imports
-from typing import Dict, Union
 
 from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
 

@@ -10,11 +10,8 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 import csv
 import json
-import shutil
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from urllib import request
 
 import numpy as np
 import torch
@@ -23,7 +20,7 @@ from loguru import logger
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
-from phold.utils.constants import MODEL_DB
+from phold.utils.constants import CNN_DIR
 
 
 # Convolutional neural network (two convolutional layers)
@@ -79,8 +76,6 @@ def get_T5_model(
     model_dir: Path,
     model_name: str,
     cpu: bool,
-    finetuned_model_path: Path,
-    finetune_flag: bool,
 ) -> (T5EncoderModel, T5Tokenizer):
     """
     Loads a T5 model and tokenizer.
@@ -89,8 +84,6 @@ def get_T5_model(
         model_dir (Path): Directory where the model and tokenizer is be stored.
         model_name (str): Name of the pre-trained T5 model.
         cpu (bool): Whether to use CPU only.
-        finetuned_model_path (Path): Path to the finetuned model weights.
-        finetune_flag (bool): Flag indicating whether finetuning is enabled.
 
     Returns:
         Tuple[T5EncoderModel, T5Tokenizer]: Tuple containing the loaded T5 model and tokenizer.
@@ -122,25 +115,17 @@ def get_T5_model(
 
     # load
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
-    logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded.")
+    logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
     model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
         device
     )
-
-    # finetuned LoRA weights
-    if finetune_flag is True:
-        # Load the non-frozen parameters from the saved file
-        non_frozen_params = torch.load(finetuned_model_path, map_location=device)
-
-        # Assign the non-frozen parameters to the corresponding parameters of the model
-        for param_name, param in model.named_parameters():
-            if param_name in non_frozen_params:
-                param.data = non_frozen_params[param_name].data
 
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
         model_name, cache_dir=f"{model_dir}/", do_lower_case=False
     )
+
+    logger.info(f"{model_name} loaded")
 
     return model, vocab
 
@@ -306,8 +291,7 @@ def load_predictor(checkpoint_path: Union[str, Path]) -> CNN:
 
     model = CNN()
 
-    # default path no finetuning lives here
-    # checkpoint_path = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+    # checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
     state = torch.load(checkpoint_path, map_location=device)
 
@@ -332,9 +316,6 @@ def get_embeddings(
     max_batch: int = 100,
     cpu: bool = False,
     output_probs: bool = True,
-    finetune_flag: bool = False,
-    finetuned_model_path: Optional[str] = None,
-    checkpoint_path: Optional[str] = None,
     proteins_flag: bool = False,
 ) -> bool:
     """
@@ -353,9 +334,6 @@ def get_embeddings(
         max_batch (int, optional): Maximum batch size. Defaults to 100.
         cpu (bool, optional): Whether to use CPU for processing. Defaults to False.
         output_probs (bool, optional): Whether to output probabilities. Defaults to True.
-        finetune_flag (bool, optional): Whether finetuned model is enabled. Defaults to False.
-        finetuned_model_path (Optional[str], optional): Path to the finetuned model weights. Defaults to None.
-        checkpoint_path (Optional[str], optional): Path to the checkpoint for the CNN model. Defaults to None.
         proteins_flag (bool, optional): Whether the sequences are proteins. Defaults to False.
 
     Returns:
@@ -366,14 +344,9 @@ def get_embeddings(
 
     prostt5_prefix = "<AA2fold>"
 
-    if finetuned_model_path is None:
-        finetuned_model_path = Path(MODEL_DB) / "Phrostt5_finetuned.pth"
-    if checkpoint_path is None:
-        checkpoint_path = Path(MODEL_DB) / "cnn_chkpnt" / "model.pt"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    model, vocab = get_T5_model(
-        model_dir, model_name, cpu, finetuned_model_path, finetune_flag
-    )
+    model, vocab = get_T5_model(model_dir, model_name, cpu)
     predictor = load_predictor(checkpoint_path)
 
     logger.info("Beginning ProstT5 predictions")
