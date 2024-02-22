@@ -238,19 +238,26 @@ def write_genbank(
                         "product": cds_feature.qualifiers["product"][0],
                     }
                 else:
-                    # because for some reason when parsing the genbank, it is a list, fasta it is not
+                    # because for some reason when parsing the pharokka genbank , it is a list, fasta it is not
                     if fasta_flag is True:
                         transl_table = cds_feature.qualifiers["transl_table"]
                     else:
                         transl_table = cds_feature.qualifiers["transl_table"][0]
 
-                    # to reverse the start and end for output + fix off by 1 error with start relative to pharokka
-                    if cds_feature.location.strand == "-":
-                        start = cds_feature.location.end
-                        end = cds_feature.location.start + 1
-                    else:
-                        start = cds_feature.location.start + 1
+                    # to reverse the start and end coordinates for output tsv + fix pyrodigal 0 index start relative to pharokka
+                    if cds_feature.location.strand == -1: # neg strand
+                        start = cds_feature.location.end 
+                        if fasta_flag is True: # pyrodigal
+                            end = cds_feature.location.start + 1
+                        else:
+                            end = cds_feature.location.start 
+                    else: # pos strand
+                        if fasta_flag is True: # pyrodigal
+                            start = cds_feature.location.start + 1
+                        else:
+                            start = cds_feature.location.start 
                         end = cds_feature.location.end
+
 
                     cds_info = {
                         "contig_id": record_id,

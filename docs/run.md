@@ -119,6 +119,12 @@ Options:
 
 Also recommended if you are running `phold` in a low-resource environment without a GPU e.g. with a laptop - you will also need to specify `--cpu`.
 
+Example usage where GPU is available:
+
+```
+phold run -i pharokka.gbk -o phold_output  -t 8
+```
+
 ```
 Usage: phold run [OPTIONS]
 
@@ -213,6 +219,90 @@ Options:
                             with AF2/Colabfold) specified with --pdb_dir
   --pdb_dir PATH            Path to directory with pdbs. The FASTA headers
                             need to match names of the pdb files
+  -o, --output PATH         Output directory   [default: output_phold]
+  -t, --threads INTEGER     Number of threads  [default: 1]
+  -p, --prefix TEXT         Prefix for output files  [default: phold]
+  -d, --database TEXT       Specific path to installed phold database
+  -f, --force               Force overwrites the output directory
+  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
+  -s, --sensitivity FLOAT   sensitivity parameter for foldseek  [default: 9.5]
+  --keep_tmp_files          Keep temporary intermediate files, particularly
+                            the large foldseek_results.tsv of all Foldseek
+                            hits
+  --split                   Split the Foldseek runs by ProstT5 probability
+  --split_threshold FLOAT   ProstT5 Probability to split by  [default: 60]
+  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
+                            VFDB hits  [default: 1e-10]
+  --separate                Output separate genbank files for each contig
+  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
+                            the prefilter. You may want to reduce this to save
+                            disk space for enormous datasets  [default: 1000]
+```
+
+### `phold remote`
+
+This command queries the Foldseek webserver to predict the 3Di sequence instead of running ProstT5 locally, followed by a local Foldseek search against the Phold database locally. This is recommended for users with extremely low compute (such as an old laptop) or who can't get ProstT5 to run on their machine.
+
+Example usage 
+
+```
+phold remote -i pharokka.gbk  -o phold_remote_output  -t 8
+```
+
+
+```
+Usage: phold remote [OPTIONS]
+
+  Uses Foldseek API to run ProstT5 then Foldseek locally
+
+Options:
+  -h, --help                Show this message and exit.
+  -V, --version             Show the version and exit.
+  -i, --input PATH          Path to input file in Genbank format or nucleotide
+                            FASTA format  [required]
+  -o, --output PATH         Output directory   [default: output_phold]
+  -t, --threads INTEGER     Number of threads  [default: 1]
+  -p, --prefix TEXT         Prefix for output files  [default: phold]
+  -d, --database TEXT       Specific path to installed phold database
+  -f, --force               Force overwrites the output directory
+  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
+  -s, --sensitivity FLOAT   sensitivity parameter for foldseek  [default: 9.5]
+  --keep_tmp_files          Keep temporary intermediate files, particularly
+                            the large foldseek_results.tsv of all Foldseek
+                            hits
+  --split                   Split the Foldseek runs by ProstT5 probability
+  --split_threshold FLOAT   ProstT5 Probability to split by  [default: 60]
+  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
+                            VFDB hits  [default: 1e-10]
+  --separate                Output separate genbank files for each contig
+  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
+                            the prefilter. You may want to reduce this to save
+                            disk space for enormous datasets  [default: 1000]
+```
+
+
+
+### `phold createdb`
+
+This in an auxillary command that allows you to create a Foldseek compatible database from AA and 3Di protein sequences (such as those created by `phold predict`). 
+
+Example usage 
+
+```
+phold createdb --fasta_aa phold_aa.fasta  --fasta_3di phold_3di.fasta -o my_foldseek_db  
+```
+
+
+```
+Usage: phold remote [OPTIONS]
+
+  Uses Foldseek API to run ProstT5 then Foldseek locally
+
+Options:
+  -h, --help                Show this message and exit.
+  -V, --version             Show the version and exit.
+  -i, --input PATH          Path to input file in Genbank format or nucleotide
+                            FASTA format  [required]
   -o, --output PATH         Output directory   [default: output_phold]
   -t, --threads INTEGER     Number of threads  [default: 1]
   -p, --prefix TEXT         Prefix for output files  [default: phold]

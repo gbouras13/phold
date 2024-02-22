@@ -31,6 +31,21 @@ phold --help
 
 You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek), the only non-Python dependency, separately.
 
+## Torch 
+
+To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
+
+If it is not automatically installed via the pip/conda installation, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. 
+
+If you have an older version of the CUDA driver installed on your NVIDIA GPU, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
+
+Phold has been tested on NVIDIA GPUs (A100, RTX4090) and AMD GPUs (Radeon). 
+
+Installation on AMD GPUs requires `torch` compatible with rocm e.g.
+
+```
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+```
 
 # Database Installation
 
@@ -46,25 +61,7 @@ If you would like to specify a particular location for the database, please use 
 phold install -d <path/to/databse_dir>
 ```
 
-
-<!-- 
-If you would like to specify a different database directory (recommended), that can be achieved as follows:
-
-`install_databases.py -o <path/to/databse_dir>`
-
-If this does not work, you an alternatively download the databases from Zenodo at https://zenodo.org/record/8276347/files/pharokka_v1.4.0_databases.tar.gz and untar the directory in a location of your choice.
-
-If you prefer to use the command line:
-
-```
-wget "https://zenodo.org/record/8267900/files/pharokka_v1.4.0_databases.tar.gz"
-tar -xzf pharokka_v1.4.0_databases.tar.gz
-```
-
-which will create a directory called "pharokka_v1.4.0_databases" containing the databases. -->
-
-Beginner Conda Installation
-----
+# Beginner Conda Installation
 
 If you are new to using the command-line, please install conda using the following instructions.
 
@@ -86,10 +83,10 @@ conda config --add channels conda-forge
 
 We would recommend installing `phold` into a fresh environment. Assuming you installed miniforge, to create a environment called `pholdENV` with `phold` installed:
 
-* To create a conda environment called `pholdENV`
+* To create a conda environment called `pholdENV` with foldseek installed
 
 ```
-conda create -n pholdENV
+conda create -n pholdENV foldseek pip
 ```
 
 * To activate the environment
@@ -98,10 +95,10 @@ conda create -n pholdENV
 conda activate pholdENV
 ```
 
-* To install phold
+* To install `phold`
 
 ```
-mamba install -c bioconda phold
+pip install phold
 ```
 
 * Once that has finished downloading and installing, you can check installation worked using:

@@ -140,7 +140,7 @@ def compare_options(func):
             "-s",
             "--sensitivity",
             default="9.5",
-            help="sensitivity parameter for foldseek",
+            help="Sensitivity parameter for foldseek",
             type=float,
             show_default=True,
         ),
@@ -225,6 +225,7 @@ def run(
     sensitivity,
     cpu,
     omit_probs,
+    keep_tmp_files,
     finetune,
     finetune_path,
     card_vfdb_evalue,
@@ -252,6 +253,7 @@ def run(
         "--database": database,
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
+        "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
         "--finetune": finetune,
@@ -315,6 +317,10 @@ def run(
         separate=separate,
         max_seqs=max_seqs
     )
+
+    # cleanup the temp files
+    if keep_tmp_files is False:
+        clean_up_temporary_files(output)
 
     # end phold
     end_phold(start_time, "run")

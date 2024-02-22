@@ -6,7 +6,7 @@
 
 Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5.
 
-Benchmarking is ongoing but `phold` outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less well-characterised phages.
+Benchmarking is ongoing but `phold` strongly outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less well-characterised phages such as those from metagenomic datasets.
 
 # Table of Contents
 
