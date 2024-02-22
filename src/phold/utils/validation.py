@@ -1,4 +1,5 @@
 import shutil
+import subprocess as sp
 import sys
 from pathlib import Path
 from typing import Dict, Union
@@ -83,3 +84,42 @@ def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:
     # instantiate outdir
     if Path(output_dir).exists() is False:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+
+def check_dependencies() -> None:
+    """
+    Checks the dependencies and versions of non Python programs (i.e. Foldseek)
+
+    Parameters:
+        None
+
+    Returns:
+        None
+
+    """
+
+    #############
+    # foldseek
+    #############
+    try:
+        process = sp.Popen(["foldseek", "version"], stdout=sp.PIPE, stderr=sp.STDOUT)
+    except:
+        logger.error("Foldseek not found. Please reinstall phold.")
+
+    foldseek_out, _ = process.communicate()
+    foldseek_out = foldseek_out.decode()
+
+    foldseek_version = foldseek_out.strip()
+    foldseek_major_version = int(foldseek_version.split(".")[0])
+    foldseek_minor_version = str(foldseek_version.split(".")[1])
+
+    logger.info(
+        f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
+    )
+
+    if foldseek_major_version != 8:
+        logger.error("Foldseek is the wrong version. Please install v8.ef4e960")
+    if foldseek_minor_version != "ef4e960":
+        logger.error("Foldseek is the wrong version. Please install v8.ef4e960")
+
+    logger.info("Foldseek version is ok")

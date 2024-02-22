@@ -244,20 +244,19 @@ def write_genbank(
                     else:
                         transl_table = cds_feature.qualifiers["transl_table"][0]
 
-                    # to reverse the start and end coordinates for output tsv + fix pyrodigal 0 index start relative to pharokka
-                    if cds_feature.location.strand == -1: # neg strand
-                        start = cds_feature.location.end 
-                        if fasta_flag is True: # pyrodigal
+                    # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
+                    if cds_feature.location.strand == -1:  # neg strand
+                        start = cds_feature.location.end
+                        if fasta_flag is True:  # pyrodigal
+                            end = cds_feature.location.start
+                        else:  # genbank
                             end = cds_feature.location.start + 1
-                        else:
-                            end = cds_feature.location.start 
-                    else: # pos strand
-                        if fasta_flag is True: # pyrodigal
+                    else:  # pos strand
+                        if fasta_flag is True:  # pyrodigal
+                            start = cds_feature.location.start
+                        else:  # genbank
                             start = cds_feature.location.start + 1
-                        else:
-                            start = cds_feature.location.start 
                         end = cds_feature.location.end
-
 
                     cds_info = {
                         "contig_id": record_id,

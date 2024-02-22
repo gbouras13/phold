@@ -22,7 +22,7 @@ from phold.utils.util import (
     get_version,
     print_citation,
 )
-from phold.utils.validation import instantiate_dirs, validate_input
+from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -262,11 +262,14 @@ def run(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
-        "--max_seqs": max_seqs
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
     start_time = begin_phold(params, "run")
+
+    # check foldseek is installed
+    check_dependencies()
 
     # check the database is installed and return it
     database = validate_db(database, DB_DIR)
@@ -315,7 +318,7 @@ def run(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
-        max_seqs=max_seqs
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files
@@ -501,11 +504,14 @@ def compare(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
-        "--max_seqs": max_seqs
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
     start_time = begin_phold(params, "compare")
+
+    # check foldseek is installed
+    check_dependencies()
 
     # check the database is installed
     database = validate_db(database, DB_DIR)
@@ -533,7 +539,7 @@ def compare(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
-        max_seqs=max_seqs
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files
@@ -735,11 +741,14 @@ def proteins_compare(
         "--split": split,
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
-        "--max_seqs": max_seqs
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-compare")
+
+    # check foldseek is installed
+    check_dependencies()
 
     # check the database is installed
     database = validate_db(database, DB_DIR)
@@ -790,7 +799,7 @@ def proteins_compare(
         proteins_flag=True,
         fasta_flag=False,
         separate=False,
-        max_seqs=max_seqs
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files
@@ -859,11 +868,14 @@ def remote(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
-        "--max_seqs": max_seqs
+        "--max_seqs": max_seqs,
     }
 
     # initial logging etc
     start_time = begin_phold(params, "remote")
+
+    # check foldseek is installed
+    check_dependencies()
 
     # check the database is installed
     database = validate_db(database, DB_DIR)
@@ -928,7 +940,7 @@ def remote(
         remote_flag=True,
         proteins_flag=False,
         separate=separate,
-        max_seqs=max_seqs
+        max_seqs=max_seqs,
     )
 
     # cleanup the temp files
@@ -1019,6 +1031,9 @@ def createdb(
 
     # initial logging etc
     start_time = begin_phold(params, "createdb")
+
+    # check foldseek is installed
+    check_dependencies()
 
     logger.info(f"Creating the Foldseek database using {fasta_aa} and {fasta_3di}.")
     logger.info(
