@@ -346,12 +346,12 @@ def calculate_topfunctions_results(
                 if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                            0
-                        ] = result_dict[record_id][cds_id]["phrog"]
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                            0
-                        ] = result_dict[record_id][cds_id]["product"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
+                            result_dict[record_id][cds_id]["phrog"]
+                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                            result_dict[record_id][cds_id]["product"]
+                        )
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]

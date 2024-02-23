@@ -114,7 +114,9 @@ def test_compare_pdb():
 def test_predict_fasta():
     """test phold predict with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads}  --cpu -f"
+    cmd = (
+        f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads}  --cpu -f"
+    )
     exec_command(cmd)
 
 
