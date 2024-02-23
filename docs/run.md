@@ -111,7 +111,7 @@ Options:
   --max_seqs INTEGER        Maximum results per query sequence allowed to pass
                             the prefilter. You may want to reduce this to save
                             disk space for enormous datasets  [default: 1000]
-  ```
+```
 
 ### `phold run`
 
