@@ -1,0 +1,49 @@
+name: CI
+
+on: 
+  push:
+    branches: [ci]
+  pull_request:
+    branches: [ci]
+
+jobs:
+  tests:
+    name: "Python ${{ matrix.python-version }}"
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    strategy:
+      matrix:
+        # os: [macos-latest, ubuntu-latest]
+        os: [macos-latest]
+        python-version: ["3.10"]
+
+    steps:
+      - uses: "actions/checkout@v3"
+        with:
+          fetch-depth: 0
+
+      # Setup env
+      - uses: "conda-incubator/setup-miniconda@v2"
+        with:
+          activate-environment: phold_env
+          environment-file: environment.yml
+          python-version: ${{ matrix.python-version }}
+          auto-activate-base: false
+          miniforge-variant: Mambaforge
+          channels: conda-forge,bioconda,defaults
+          channel-priority: strict
+          auto-update-conda: true
+      - name: Install phold 
+        shell: bash -l {0}
+        run: |
+          mamba install python=${{ matrix.python-version }}
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+          pip install pytest-cov
+      - name: Run tests and collect coverage
+        run: pytest --cov=./ --cov-report=xml

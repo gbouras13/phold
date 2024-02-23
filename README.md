@@ -6,7 +6,9 @@
 
 Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5.
 
-Benchmarking is ongoing but `phold` outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less well-characterised phages.
+Benchmarking is ongoing but `phold` strongly outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less characterised phages such as those from metagenomic datasets.
+
+If you have already annotated your phage(s) with Pharokka, `phold` takes the Genbank output of Pharokka as an input option, so you can easily update the annotation with more functional predictions!
 
 # Table of Contents
 

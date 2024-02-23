@@ -41,19 +41,19 @@ def create_sub_db_outputs(
         "function",
         "product",
         "annotation_method",
-        "function_with_highest_bitscore_percentage",
-        "top_bitscore_percentage_not_unknown",
-        "top_bitscore_percentage_not_unknown",
-        "head_and_packaging_bitscore_percentage",
-        "integration_and_excision_bitscore_percentage",
-        "tail_bitscore_percentage",
-        "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_percentage",
-        "DNA_RNA_and_nucleotide_metabolism_bitscore_percentage",
-        "connector_bitscore_percentage",
-        "transcription_regulation_bitscore_percentage",
-        "lysis_bitscore_percentage",
-        "other_bitscore_percentage",
-        "unknown_function_bitscore_percentage",
+        "function_with_highest_bitscore_proportion",
+        "top_bitscore_proportion_not_unknown",
+        "top_bitscore_proportion_not_unknown",
+        "head_and_packaging_bitscore_proportion",
+        "integration_and_excision_bitscore_proportion",
+        "tail_bitscore_proportion",
+        "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion",
+        "DNA_RNA_and_nucleotide_metabolism_bitscore_proportion",
+        "connector_bitscore_proportion",
+        "transcription_regulation_bitscore_proportion",
+        "lysis_bitscore_proportion",
+        "other_bitscore_proportion",
+        "unknown_function_bitscore_proportion",
     ]
 
     acr_merged_output_path: Path = Path(sub_db_tophits_dir) / "acr_cds_predictions.tsv"
@@ -101,7 +101,6 @@ def create_sub_db_outputs(
 
     # cleanup only if it has a hit
     if len(card_df) > 0:
-
         card_merged_df = pd.merge(
             card_df, card_metadata_df, on="Protein Accession", how="left"
         )
@@ -125,7 +124,6 @@ def create_sub_db_outputs(
 
     # cleanup only if it has a hit
     if len(defensefinder_df) > 0:
-
         defensefinder_metadata_df = pd.merge(
             defensefinder_df, defensefinder_metadata_df, on="reference", how="left"
         )

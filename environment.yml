@@ -5,7 +5,7 @@ channels:
   - defaults
 dependencies:
   - foldseek ==8.ef4e960
-  - python >=3.8,<3.12
+  - python >=3.8,<3.11
   - biopython >=1.76
   - alive-progress >=3.0.1
   - datasets >=2.15
@@ -17,7 +17,6 @@ dependencies:
   - click >=8.0.0
   - sentencepiece >=0.1.99
   - transformers >=4.34
-  - torch >=2.1.2
   - pyrodigal-gv >=0.3.1
 
 

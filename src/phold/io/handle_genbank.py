@@ -229,7 +229,6 @@ def write_genbank(
         # clean cds_feature and append for dataframe
         for cds_feature in sorted_features:
             if cds_feature.type == "CDS":
-
                 if proteins_flag is True:
                     cds_info = {
                         "cds_id": cds_feature.qualifiers["ID"],
@@ -238,18 +237,24 @@ def write_genbank(
                         "product": cds_feature.qualifiers["product"][0],
                     }
                 else:
-                    # because for some reason when parsing the genbank, it is a list, fasta it is not
+                    # because for some reason when parsing the pharokka genbank , it is a list, fasta it is not
                     if fasta_flag is True:
                         transl_table = cds_feature.qualifiers["transl_table"]
                     else:
                         transl_table = cds_feature.qualifiers["transl_table"][0]
 
-                    # to reverse the start and end for output + fix off by 1 error with start relative to pharokka
-                    if cds_feature.location.strand == "-":
+                    # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
+                    if cds_feature.location.strand == -1:  # neg strand
                         start = cds_feature.location.end
-                        end = cds_feature.location.start + 1
-                    else:
-                        start = cds_feature.location.start + 1
+                        if fasta_flag is True:  # pyrodigal
+                            end = cds_feature.location.start
+                        else:  # genbank
+                            end = cds_feature.location.start + 1
+                    else:  # pos strand
+                        if fasta_flag is True:  # pyrodigal
+                            start = cds_feature.location.start
+                        else:  # genbank
+                            start = cds_feature.location.start + 1
                         end = cds_feature.location.end
 
                     cds_info = {

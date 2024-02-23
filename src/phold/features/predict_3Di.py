@@ -379,7 +379,6 @@ def get_embeddings(
 
         batch = list()
         for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
-
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)
