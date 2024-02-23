@@ -17,7 +17,6 @@ dependencies:
   - click >=8.0.0
   - sentencepiece >=0.1.99
   - transformers >=4.34
-  - torch >=2.1.2
   - pyrodigal-gv >=0.3.1
 
 

@@ -32,7 +32,7 @@ jobs:
           channels: conda-forge,bioconda,defaults
           channel-priority: strict
           auto-update-conda: true
-      - name: Install pharokka 
+      - name: Install phold 
         shell: bash -l {0}
         run: |
           mamba install python=${{ matrix.python-version }}
