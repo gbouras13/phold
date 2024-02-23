@@ -1,0 +1,23 @@
+site_name: phold
+site_url: "https://github.com/gbouras13/phold"
+site_author: George Bouras
+theme:
+    name: readthedocs
+    highlightjs: true
+    hljs_languages:
+        - yaml
+        - bash
+        - shell
+        - python
+nav:
+    - ABOUT:
+      - Overview: index.md
+      - Method: method.md
+      - Citation: citation.md
+    - RUNNING:
+      - Install: install.md
+      - Usage: run.md
+      - Output: output.md
+    - TUTORIAL:
+      - Tutorial: tutorial.md
+
