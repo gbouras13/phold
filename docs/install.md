@@ -1,0 +1,109 @@
+# Installation
+
+## Conda
+
+The easiest way to install `phold` is via conda/mamba. This will install all python dependencies and [Foldseek](https://github.com/steineggerlab/foldseek), the only non-python dependency of `phold` all at once.
+
+```
+mamba install -c bioconda phold
+```
+
+## Pip
+
+You can also install `phold` using pip
+
+```
+pip install phold
+```
+
+You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek) separately.
+
+## Source
+
+Alternatively, the development version of `phold` (which may include new, untested features) can be installed manually via github. 
+
+```
+git clone https://github.com/gbouras13/pharokka.git
+cd phold
+pip install -e .
+phold --help
+```
+
+You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek), the only non-Python dependency, separately.
+
+## Torch 
+
+To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
+
+If it is not automatically installed via the pip/conda installation, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. 
+
+If you have an older version of the CUDA driver installed on your NVIDIA GPU, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
+
+Phold has been tested on NVIDIA GPUs (A100, RTX4090) and AMD GPUs (Radeon). 
+
+Installation on AMD GPUs requires `torch` compatible with rocm e.g.
+
+```
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+```
+
+# Database Installation
+
+To download and install the `phold` database
+
+```
+phold install
+```
+
+If you would like to specify a particular location for the database, please use `-d`
+
+```
+phold install -d <path/to/databse_dir>
+```
+
+# Beginner Conda Installation
+
+If you are new to using the command-line, please install conda using the following instructions.
+
+First install some flavour of [Anaconda](https://www.anaconda.com/products/distribution). 
+
+There are lots of options but the best in our opinion is miniforge as this will automatically install mamba, which is much faster than base conda:
+
+   * [miniforge](https://github.com/conda-forge/miniforge).
+  
+Please follow the instructions at the links to install based on your computer architecture. 
+
+After your installation is complete, you should add the following channels to your conda configuration:
+
+```
+conda config --add channels defaults
+conda config --add channels bioconda
+conda config --add channels conda-forge
+```
+
+We would recommend installing `phold` into a fresh environment. Assuming you installed miniforge, to create a environment called `pholdENV` with `phold` installed:
+
+* To create a conda environment called `pholdENV` with foldseek installed
+
+```
+conda create -n pholdENV foldseek pip
+```
+
+* To activate the environment
+
+```
+conda activate pholdENV
+```
+
+* To install `phold`
+
+```
+pip install phold
+```
+
+* Once that has finished downloading and installing, you can check installation worked using:
+
+```
+phold -h
+phold install
+```
