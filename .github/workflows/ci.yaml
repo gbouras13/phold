@@ -38,5 +38,6 @@ jobs:
           mamba install python=${{ matrix.python-version }}
           python -m pip install --upgrade pip
           pip install -e .
+          pip install pytest
       - name: Run tests
         run: pytest .
