@@ -30,7 +30,7 @@ jobs:
           auto-activate-base: false
           miniforge-variant: Mambaforge
           channels: conda-forge,bioconda,defaults
-          channel-priority: strict
+          channel-priority: flexible
           auto-update-conda: true
       - name: Install phold 
         shell: bash -l {0}
