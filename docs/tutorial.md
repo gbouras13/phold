@@ -1,6 +1,6 @@
 # `phold` Tutorial
 
-* This tutorial assumes you have [mamba](https://github.com/conda-forge/miniforge) installed and the correct channels available. Please see the installation page for more details.
+* This tutorial assumes you have [mamba](https://github.com/conda-forge/miniforge) installed and the correct channels available. Please see the [install page](https://phold.readthedocs.io/en/latest/install/) for more details.
 
 ## Step 1 Get the `phold` repository and test data
 
