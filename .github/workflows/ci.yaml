@@ -42,4 +42,4 @@ jobs:
           pip install pytest
       - name: Run tests
         run: |
-          pytest .
+          pytest --cov=./ --cov-report=xml

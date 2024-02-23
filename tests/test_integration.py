@@ -51,9 +51,9 @@ def remove_directory(dir_path):
         shutil.rmtree(dir_path)
 
 
-# @pytest.fixture(scope="session")
-# def tmp_dir(tmpdir_factory):
-#     return tmpdir_factory.mktemp("tmp")
+@pytest.fixture(scope="session")
+def tmp_dir(tmpdir_factory):
+    return tmpdir_factory.mktemp("tmp")
 
 
 # the server can be down
@@ -79,67 +79,63 @@ def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
 
 def test_install():
     """test phold install"""
-    cmd = f"phold install "
+    cmd = f"phold install -d {database_dir}"
     exec_command(cmd)
 
 
 def test_run_genbank():
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold install "
-    exec_command(cmd)
-    cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads}  --cpu  -f"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} --cpu -d {database_dir} -f"
     exec_command(cmd)
 
 
 def test_predict_genbank():
     """test phold predict with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  --cpu  -f"
+    cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  --cpu -d {database_dir} -f"
     exec_command(cmd)
 
 
 def test_compare_genbank():
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads}  -f"
+    cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
 
 def test_compare_pdb():
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
-    cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads}  --pdb --pdb_dir {pdb_dir} -f"
+    cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
 
 
 def test_predict_fasta():
     """test phold predict with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = (
-        f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads}  --cpu -f"
-    )
+    cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads} -d {database_dir}  --cpu -f"
     exec_command(cmd)
 
 
 def test_compare_fasta():
     """test phold compare with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
-    cmd = f"phold compare -i {input_fasta} -o {compare_fasta_dir} --predictions_dir {predict_fasta_dir} -t {threads} -f"
+    cmd = f"phold compare -i {input_fasta} -o {compare_fasta_dir} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
 
 def test_proteins_predict():
     """test phold proteins-predict"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
-    cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads}  --cpu -f"
+    cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} --cpu -f"
     exec_command(cmd)
 
 
 def test_proteins_compare():
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
-    cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads}  -f"
+    cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
 
@@ -148,7 +144,7 @@ if run_remote is True:
     def test_remote_genbank():
         """test phold remote with genbank input"""
         input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-        cmd = f"phold remote -i {input_gbk} -o {remote_gbk_dir} -t {threads}  -f"
+        cmd = f"phold remote -i {input_gbk} -o {remote_gbk_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 
     def test_remote_fasta():
@@ -156,7 +152,7 @@ if run_remote is True:
         input_fasta: Path = (
             f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
         )
-        cmd = f"phold remote -i {input_fasta} -o {remote_fasta_dir} -t {threads} -f"
+        cmd = f"phold remote -i {input_fasta} -o {remote_fasta_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 
 
