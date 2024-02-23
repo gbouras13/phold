@@ -7,8 +7,6 @@ Usage: pytest .
 # import
 import os
 
-# this is needed due to a github actions CI issue https://github.com/pytorch/pytorch/issues/78490
-os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 import shutil
 
 # import functions
@@ -55,6 +53,10 @@ def remove_directory(dir_path):
 def tmp_dir(tmpdir_factory):
     return tmpdir_factory.mktemp("tmp")
 
+@pytest.fixture(autouse=True)
+def workingdir(tmp_dir, monkeypatch):
+    """set the working directory for all tests"""
+    monkeypatch.chdir(tmp_dir)
 
 # the server can be down
 run_remote = False
