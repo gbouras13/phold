@@ -7,6 +7,7 @@ Usage: pytest .
 # import
 import os
 
+# this is needed due to a github actions CI issue https://github.com/pytorch/pytorch/issues/78490
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 import shutil
 
@@ -26,7 +27,6 @@ from loguru import logger
 # test data
 test_data = Path("tests/test_data")
 database_dir = Path(f"{test_data}/phold_db")
-model_dir = Path(f"{test_data}/model")
 pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -175,5 +175,6 @@ if run_remote is True:
 #             exec_command(cmd)
 
 
-# remove_directory(predict_gbk_dir)
-# remove_directory(database_dir)
+remove_directory(output_dir)
+
+
