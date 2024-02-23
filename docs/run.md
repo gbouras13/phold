@@ -14,7 +14,7 @@ If you have trouble running ProstT5, please use `phold remote`.
 
 Most subcommands of `phold` takes as their input an entry Genbank formatted file that contains the output of [`pharokka`](https://github.com/gbouras13/pharokka) for your phage or phage contigs. This will be called `pharokka.gbk` by default in your pharokka output.
 
-Alternatively, `phold` will detect if the input is a FASTA contig/genome file as input. If so, [`Pyrodigal-gv`](https://github.com/althonos/pyrodigal-gv]) will then be run to quickly predict the CDS and these will be annotated. However, neither tRNAs, tmRNA nor CRISPR repeats will be predicted (unlike in pharokka) for now.
+Alternatively, `phold` will detect if the input is a FASTA contig/genome file as input. If so, [Pyrodigal-gv](https://github.com/althonos/pyrodigal-gv]) will then be run to quickly predict the CDS and these will be annotated. However, neither tRNAs, tmRNA nor CRISPR repeats will be predicted (unlike in pharokka) for now.
 
 For `phold proteins-predict` and `phold proteins-compare`, the input will be a FASTA format file containing amino acid protein sequences. These commands are useful for annotating bulk phage proteins. 
 
@@ -24,7 +24,7 @@ For `phold proteins-predict` and `phold proteins-compare`, the input will be a F
 
 `predict` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [foldseek](https://github.com/steineggerlab/foldseek). This module is greatly accelerated if you have a GPU available and is recommended
 
-```
+```bash
 Usage: phold predict [OPTIONS]
 
   Uses ProstT5 to predict 3Di tokens - GPU recommended
@@ -42,13 +42,13 @@ Options:
   --batch_size INTEGER   batch size for ProstT5  [default: 1]
   --cpu                  Use cpus only with ProstT5
   --omit_probs           Do not output 3Di probabilities from ProstT5
-  --finetune             Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now
+  --finetune             Use finetuned ProstT5 model. Experimental and not recommended for now
   --finetune_path TEXT   Path to finetuned model weights
-  ```
+```
 
 Example usage (assuming you have run `phold install`)
 
-```
+```bash
 phold predict -i pharokka.gbk -o phold_predict_output 
 ```
 
@@ -62,18 +62,18 @@ Alternatively, if you have provided pre-generated .pdb format protein structures
 
 Example usage following `phold predict`
 
-```
+```bash
 phold compare -i pharokka.gbk -o phold_compare_output  --predictions_dir phold_predict_output
 ```
 
-Example usage if you have .pdb format structures available for your phage proteins (note: the .pdb file names must be called cds_id.pdb, where cds_id is the CDS ids output from Pharokka). You can see an example in the `tests/test_data/NC_043029_pdbs` directory [here]().
+Example usage if you have .pdb format structures available for your phage proteins (note: the .pdb file names must be called cds_id.pdb, where cds_id is the CDS ids output from Pharokka). You can see an example in the `tests/test_data/NC_043029_pdbs` directory [here](https://github.com/gbouras13/phold/tree/main/tests/test_data/NC_043029_pdbs).
 
 
-```
+```bash
 phold compare -i pharokka.gbk -o phold_compare_output_pdb  --pdb --pdb_dir directory_with_pdbs  -t 8
 ```
 
-```
+```bash
 Usage: phold compare [OPTIONS]
 
   Runs Foldseek vs phold db
@@ -121,11 +121,11 @@ Also recommended if you are running `phold` in a low-resource environment withou
 
 Example usage where GPU is available:
 
-```
+```bash
 phold run -i pharokka.gbk -o phold_output  -t 8
 ```
 
-```
+```bash
 Usage: phold run [OPTIONS]
 
   phold predict then comapare all in one - GPU recommended
@@ -166,11 +166,11 @@ Identical to `phold predict`, but instead takes a FASTA input file of amino acid
 
 Example usage 
 
-```
+```bash
 phold proteins-predict -i phage_proteins.faa -o phold_proteins_predict_output 
 ```
 
-```
+```bash
 Usage: phold proteins-predict [OPTIONS]
 
   Runs ProstT5 on a multiFASTA input - GPU recommended
@@ -190,7 +190,6 @@ Options:
   --omit_probs           Do not output 3Di probabilities from ProstT5
   --finetune             Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now
   --finetune_path TEXT   Path to finetuned model weights
-
 ```
 
 ### `phold proteins-compare`
@@ -199,11 +198,11 @@ Identical to `phold compare`, but instead takes a FASTA input file of amino acid
 
 Example usage 
 
-```
+```bash
 phold proteins-compare -i phage_proteins.faa --predictions_dir phold_proteins_predict_output -o phold_proteins_compare_output  -t 8
 ```
 
-```
+```bash
 Usage: phold proteins-compare [OPTIONS]
 
   Runs Foldseek vs phold db on proteins input
@@ -245,12 +244,11 @@ This command queries the Foldseek webserver to predict the 3Di sequence instead 
 
 Example usage 
 
-```
+```bash
 phold remote -i pharokka.gbk  -o phold_remote_output  -t 8
 ```
 
-
-```
+```bash
 Usage: phold remote [OPTIONS]
 
   Uses Foldseek API to run ProstT5 then Foldseek locally
@@ -288,12 +286,12 @@ This in an auxillary command that allows you to create a Foldseek compatible dat
 
 Example usage 
 
-```
+```bash
 phold createdb --fasta_aa phold_aa.fasta  --fasta_3di phold_3di.fasta -o my_foldseek_db  
 ```
 
 
-```
+```bash
 Usage: phold remote [OPTIONS]
 
   Uses Foldseek API to run ProstT5 then Foldseek locally
