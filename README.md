@@ -43,13 +43,15 @@ pip install -e .
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
 
-If it is not automatically installed via the pip/conda installation, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
+If it is not automatically installed via the pip installation, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
 Once `phold` is installed, to download and install the database run:
 
 ```
 phold install
 ```
+
+* Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are 7.7GB uncompressed).
 
 # Quick Start
 
