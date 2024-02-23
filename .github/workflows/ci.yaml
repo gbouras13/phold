@@ -39,7 +39,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install pytest
-          KMP_DUPLICATE_LIB_OK=TRUE
       - name: Run tests
         run: |
           pytest .

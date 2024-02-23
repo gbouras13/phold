@@ -140,9 +140,9 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
                 feature.qualifiers["function"] = "unknown function"
                 feature.qualifiers["product"] = "hypothetical protein"
                 feature.qualifiers["phrog"] = "No_PHROG"
-                feature.qualifiers["source"] = (
-                    f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
-                )
+                feature.qualifiers[
+                    "source"
+                ] = f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
                 feature.qualifiers["transl_table"] = gene.translation_table
                 # from the API
                 # translation_table (int, optional) – An alternative translation table to use to translate the gene.
@@ -229,7 +229,6 @@ def write_genbank(
         # clean cds_feature and append for dataframe
         for cds_feature in sorted_features:
             if cds_feature.type == "CDS":
-
                 if proteins_flag is True:
                     cds_info = {
                         "cds_id": cds_feature.qualifiers["ID"],

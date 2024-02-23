@@ -103,7 +103,6 @@ def subcommand_predict(
         output_probs = True
 
     if finetune is True:
-
         prediction_success = get_embeddings_finetune(
             cds_dict=cds_dict,
             model_dir=model_dir,
@@ -114,7 +113,6 @@ def subcommand_predict(
         )
 
     else:
-
         prediction_success = get_embeddings(
             cds_dict,
             output,

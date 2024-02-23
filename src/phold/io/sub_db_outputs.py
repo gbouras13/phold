@@ -101,7 +101,6 @@ def create_sub_db_outputs(
 
     # cleanup only if it has a hit
     if len(card_df) > 0:
-
         card_merged_df = pd.merge(
             card_df, card_metadata_df, on="Protein Accession", how="left"
         )
@@ -125,7 +124,6 @@ def create_sub_db_outputs(
 
     # cleanup only if it has a hit
     if len(defensefinder_df) > 0:
-
         defensefinder_metadata_df = pd.merge(
             defensefinder_df, defensefinder_metadata_df, on="reference", how="left"
         )

@@ -446,7 +446,6 @@ def get_embeddings_finetune(
         batch = list()
 
         for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
-
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)
@@ -494,7 +493,6 @@ def get_embeddings_finetune(
                 )
 
         for batch_idx, identifier in enumerate(pdb_ids):
-
             s_len = seq_lens[batch_idx]
 
             # get the prediction and trim off the padded residues

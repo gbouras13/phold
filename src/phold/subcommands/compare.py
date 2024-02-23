@@ -252,7 +252,6 @@ def subcommand_compare(
     #####
 
     if split is True:
-
         #############
         # high - vs structures
         #############
@@ -327,7 +326,6 @@ def subcommand_compare(
 
     # no split
     else:
-
         short_db_name = prefix
         database_name = "all_phold_structures"
         if short_db_name == database_name:
@@ -450,14 +448,12 @@ def subcommand_compare(
     # save the function counts is not proteins
 
     if proteins_flag is False:
-
         contig_ids = merged_df["contig_id"].unique()
 
         # get list of all functions counts
         functions_list = []
 
         for contig in contig_ids:
-
             contig_df = merged_df[merged_df["contig_id"] == contig]
 
             cds_count = len(contig_df)

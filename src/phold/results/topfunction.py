@@ -280,7 +280,6 @@ def calculate_topfunctions_results(
 
     # loop over all the foldseek tophits and add to the dict
     for _, row in filtered_tophits_df.iterrows():
-
         if proteins_flag is False:
             record_id = row["contig_id"]
         else:
@@ -322,10 +321,8 @@ def calculate_topfunctions_results(
 
     # iterates over the records
     for record_id, record in updated_cds_dict.items():
-
         # iterates over the features
         for cds_id, cds_feature in updated_cds_dict[record_id].items():
-
             # proteins/FASTA input -> no pharokka input -> fake input to make the updating work
             if proteins_flag is True or fasta_flag is True:
                 cds_feature.qualifiers["function"] = ["unknown function"]
@@ -340,7 +337,6 @@ def calculate_topfunctions_results(
             # if the result_dict is not empty
             # this is a foldseek hit
             if result_dict[record_id][cds_id] != {}:
-
                 # get the foldseek function
                 # function will be None if there is no foldseek hit - shouldn't happen here but error handling
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
@@ -348,15 +344,14 @@ def calculate_topfunctions_results(
                 # same phrog as pharokka do nothing
                 # different phrog as pharokka
                 if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
-
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
-                            result_dict[record_id][cds_id]["phrog"]
-                        )
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
-                            result_dict[record_id][cds_id]["product"]
-                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                            0
+                        ] = result_dict[record_id][cds_id]["phrog"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
+                            0
+                        ] = result_dict[record_id][cds_id]["product"]
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
