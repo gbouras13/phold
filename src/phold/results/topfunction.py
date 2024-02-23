@@ -135,13 +135,13 @@ def get_topfunctions(
 
     def weighted_function(group: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate weighted function percentages based on bitscores.
+        Calculate weighted function proportion based on bitscores.
 
         Args:
             group (pd.DataFrame): DataFrame containing foldseek search results for a group.
 
         Returns:
-            pd.DataFrame: DataFrame containing weighted function percentages.
+            pd.DataFrame: DataFrame containing weighted function proportion.
         """
 
         # normalise counts by total bitscore
@@ -164,7 +164,7 @@ def get_topfunctions(
             for key, value in bitscore_by_function.items():
                 if key != "unknown function":
                     weighted_counts_normalised[key] = round(
-                        value / total_functional_bitscore, 2
+                        value / total_functional_bitscore, 3
                     )
 
             top_bitscore_function = max(
@@ -173,32 +173,32 @@ def get_topfunctions(
             top_bitscore_perc = max(weighted_counts_normalised.values())
 
         d = {
-            "function_with_highest_bitscore_percentage": [top_bitscore_function],
-            "top_bitscore_percentage_not_unknown": [top_bitscore_perc],
-            "head_and_packaging_bitscore_percentage": [
+            "function_with_highest_bitscore_proportion": [top_bitscore_function],
+            "top_bitscore_proportion_not_unknown": [top_bitscore_perc],
+            "head_and_packaging_bitscore_proportion": [
                 weighted_counts_normalised.get("head and packaging", 0)
             ],
-            "integration_and_excision_bitscore_percentage": [
+            "integration_and_excision_bitscore_proportion": [
                 weighted_counts_normalised.get("integration and excision", 0)
             ],
-            "tail_bitscore_percentage": [weighted_counts_normalised.get("tail", 0)],
-            "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_percentage": [
+            "tail_bitscore_proportion": [weighted_counts_normalised.get("tail", 0)],
+            "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion": [
                 weighted_counts_normalised.get(
                     "moron, auxiliary metabolic gene and host takeover", 0
                 )
             ],
-            "DNA_RNA_and_nucleotide_metabolism_bitscore_percentage": [
+            "DNA_RNA_and_nucleotide_metabolism_bitscore_proportion": [
                 weighted_counts_normalised.get("DNA, RNA and nucleotide metabolism", 0)
             ],
-            "connector_bitscore_percentage": [
+            "connector_bitscore_proportion": [
                 weighted_counts_normalised.get("connector", 0)
             ],
-            "transcription_regulation_bitscore_percentage": [
+            "transcription_regulation_bitscore_proportion": [
                 weighted_counts_normalised.get("transcription regulation", 0)
             ],
-            "lysis_bitscore_percentage": [weighted_counts_normalised.get("lysis", 0)],
-            "other_bitscore_percentage": [weighted_counts_normalised.get("other", 0)],
-            "unknown_function_bitscore_percentage": [
+            "lysis_bitscore_proportion": [weighted_counts_normalised.get("lysis", 0)],
+            "other_bitscore_proportion": [weighted_counts_normalised.get("other", 0)],
+            "unknown_function_bitscore_proportion": [
                 weighted_counts_normalised.get("unknown function", 0)
             ],
         }
