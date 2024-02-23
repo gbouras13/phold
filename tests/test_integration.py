@@ -6,6 +6,7 @@ Usage: pytest .
 
 # import
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 import shutil
 
@@ -48,15 +49,9 @@ def remove_directory(dir_path):
     if os.path.exists(dir_path):
         shutil.rmtree(dir_path)
 
-
-@pytest.fixture(scope="session")
-def tmp_dir(tmpdir_factory):
-    return tmpdir_factory.mktemp("tmp")
-
-@pytest.fixture(autouse=True)
-def workingdir(tmp_dir, monkeypatch):
-    """set the working directory for all tests"""
-    monkeypatch.chdir(tmp_dir)
+# @pytest.fixture(scope="session")
+# def tmp_dir(tmpdir_factory):
+#     return tmpdir_factory.mktemp("tmp")
 
 # the server can be down
 run_remote = False
@@ -88,8 +83,6 @@ def test_install():
 def test_run_genbank():
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold install -d {database_dir}"
-    exec_command(cmd)
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} --cpu -d {database_dir} -f"
     exec_command(cmd)
 
