@@ -2,7 +2,7 @@ name: CI
 
 on: 
   push:
-    branches: [ci]
+    branches: [dev]
   pull_request:
     branches: [ci]
 
@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-latest, ubuntu-latest]
-        os: [macos-latest]
+        os: [ubuntu-latest]
         python-version: ["3.10"]
 
     steps:
