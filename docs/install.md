@@ -1,35 +1,18 @@
 # Installation
 
-## Conda
+The only way to install `phold` is from source for now. 
 
-The easiest way to install `phold` is via conda/mamba. This will install all python dependencies and [Foldseek](https://github.com/steineggerlab/foldseek), the only non-python dependency of `phold` all at once.
+Pypi and (hopefully) conda installations will be available soon. 
 
-```
-mamba install -c bioconda phold
-```
-
-## Pip
-
-You can also install `phold` using pip
+The only required non-Python dependency is [Foldseek](https://github.com/steineggerlab/foldseek). To install `phold` in a conda environment using [mamba](https://github.com/conda-forge/miniforge):
 
 ```
-pip install phold
-```
-
-You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek) separately.
-
-## Source
-
-Alternatively, the development version of `phold` (which may include new, untested features) can be installed manually via github. 
-
-```
-git clone https://github.com/gbouras13/pharokka.git
-cd phold
+mamba create -n pholdENV pip foldseek python=3.11
+conda activate pholdENV
+git clone https://github.com/gbouras13/phold.git
+cd phold 
 pip install -e .
-phold --help
 ```
-
-You will still need to install [Foldseek](https://github.com/steineggerlab/foldseek), the only non-Python dependency, separately.
 
 ## Torch 
 
@@ -60,6 +43,8 @@ If you would like to specify a particular location for the database, please use 
 ```
 phold install -d <path/to/databse_dir>
 ```
+
+* Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are 7.7GB uncompressed).
 
 # Beginner Conda Installation
 
