@@ -86,6 +86,8 @@ def test_install():
 def test_run_genbank():
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+    cmd = f"phold install "
+    exec_command(cmd)
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads}  --cpu  -f"
     exec_command(cmd)
 
