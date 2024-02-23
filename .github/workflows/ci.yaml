@@ -40,6 +40,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install pytest
-      - name: Run tests
-        run: |
-          pytest --cov=./ --cov-report=xml
+          pip install pytest-cov
+      - name: Run tests and collect coverage
+        run: pytest --cov=./ --cov-report=xml
