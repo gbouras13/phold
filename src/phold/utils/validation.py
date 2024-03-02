@@ -70,15 +70,18 @@ def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:
     logger.info(f"Checking the output directory {output_dir}")
     if force is True:
         if Path(output_dir).exists():
+            logger.info(
+                f"Removing {output_dir} because --force was specified"
+            )
             shutil.rmtree(output_dir)
         else:
             logger.info(
-                "--force was specified even though the output directory does not already exist. Continuing."
+                "--force was specified even though the output directory does not already exist. Continuing"
             )
     else:
         if Path(output_dir).exists():
             logger.error(
-                "Output directory already exists and force was not specified. Please specify -f or --force to overwrite the output directory."
+                "Output directory already exists and force was not specified. Please specify -f or --force to overwrite the output directory"
             )
 
     # instantiate outdir
