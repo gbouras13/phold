@@ -155,7 +155,7 @@ Options:
 `phold plot` will allow you to create Circos plots with [pyCirclize](https://github.com/moshi4/pyCirclize) for all your phage(s). For example:
 
 ```
-phold plot -i tests/test_data/NC_043029.gbk  -o NC_043029_phold_plots -t '${Stenotrophomonas}$ Phage SMA6'  
+phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plots -t '${Stenotrophomonas}$ Phage SMA6'  
 ```
 
 <p align="center">
