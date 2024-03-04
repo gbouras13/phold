@@ -26,7 +26,7 @@ def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
 
     logger.info("Querying the Foldseek ProstT5 server")
     logger.info(
-        "Each CDS will be queried with a 1 second delay, so as not to overwhelm the server"
+        "Each CDS will be queried with a 2 second delay, so as not to overwhelm the server"
     )
     logger.info("Please be patient")
 
@@ -64,9 +64,9 @@ def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
                     f"Request for {cds_id} L={seq_len} failed with status code {response.status_code}"
                 )
 
-            # Add 3s delay between requests so don't destroy the server
+            # Add 2s delay between requests so don't destroy the server
             # 1s delay risks https error
-            time.sleep(3)
+            time.sleep(2)
 
             # add the prediction to the seq
             predictions[record_id][cds_id] = seq_3Di

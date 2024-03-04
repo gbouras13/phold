@@ -1,6 +1,7 @@
 # `phold` Tutorial
 
 * This tutorial assumes you have [mamba](https://github.com/conda-forge/miniforge) installed and the correct channels available. Please see the [install page](https://phold.readthedocs.io/en/latest/install/) for more details.
+* This tutorial uses _Stenotrophomonas_ phage SMA6, accession NC_043029.
 
 ## Step 1 Get the `phold` repository and test data
 
@@ -45,12 +46,25 @@ phold install
 
 ```bash
 phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029
-conda deactivate
 ```
 
 * If you do not have a GPU available:
 
 ```bash
 phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --cpu
-conda deactivate
 ```
+
+## Step 5 Running `phold plot`
+
+* `phold` can generate Circos plot of your phage(s)
+* The plot will be saves in the `NC_043029_phold_plots` directory. See the [documentation](https://phold.readthedocs.io/en/latest/run/#phold-plot) for more parameter details
+* `phold plot` provides .png and .svg outputs
+
+```bash
+phold plot -i NC_043029_phold_output/phold.gbk -o NC_043029_phold_plot -t '${Stenotrophomonas}$ Phage SMA6'
+```
+
+![Image](NC_043029.png)
+
+
+

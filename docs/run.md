@@ -320,3 +320,61 @@ Options:
                             the prefilter. You may want to reduce this to save
                             disk space for enormous datasets  [default: 1000]
 ```
+
+### `phold plot`
+
+This in an auxillary command that allows you to create Circos plots for your phage(s) with [pyCirclize](https://github.com/moshi4/pyCirclize). It requires only the `phold` Genbank file as its input and will output .png and .svg format files.
+
+If you have annotated more than 1 contig with `phold`, `phold plot` will automatically plot then all in separate files. The contig ids will be the prefix of the output plot file names.
+
+Example usage 
+
+```bash
+phold plot -i phold.gbk -o phold_plots
+```
+
+
+```bash
+Usage: phold plot [OPTIONS]
+
+  Creates Phold Circular Genome Plots
+
+Options:
+  -h, --help                      Show this message and exit.
+  -V, --version                   Show the version and exit.
+  -i, --input PATH                Path to input file in Genbank format (in the
+                                  phold output directory)  [required]
+  -o, --output PATH               Output directory to store phold plots
+                                  [default: phold_plots]
+  -p, --prefix TEXT               Prefix for output files. Needs to match what
+                                  phold was run with.  [default: phold]
+  -f, --force                     Force overwrites the output directory
+  -a, --all                       Plot every contig.
+  -t, --plot_title TEXT           Plot title. Only applies if --all is not
+                                  specified. Will default to the phage\'s
+                                  contig id.
+  --label_hypotheticals           Flag to label hypothetical or unknown
+                                  proteins. By default these are not labelled
+  --remove_other_features_labels  Flag to remove labels for
+                                  tRNA/tmRNA/CRISPRs. By default these are
+                                  labelled.  They will still be plotted in
+                                  black
+  --title_size FLOAT              Controls title size. Must be an integer.
+                                  Defaults to 20
+  --label_size INTEGER            Controls annotation label size. Must be an
+                                  integer. Defaults to 8
+  --interval INTEGER              Axis tick interval. Must be an integer. Must
+                                  be an integer. Defaults to 5000.
+  --truncate INTEGER              Number of characters to include in annoation
+                                  labels before truncation with ellipsis.
+                                  Must be an integer. Defaults to 20.
+  --dpi INTEGER                   Resultion \(dots per inch\). Must be an
+                                  integer. Defaults to 600.
+  --annotations FLOAT             Controls the proporition of annotations
+                                  labelled. Must be a proportion between 0 and
+                                  1 inclusive.  0 = no annotations, 0.5 = half
+                                  of the annotations, 1 = all annotations.
+                                  Defaults to 1. Chosen in order of CDS size.
+  --label_ids TEXT                Text file with list of CDS IDs \(from gff
+                                  file\) that are guaranteed to be labelled.
+```

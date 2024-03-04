@@ -3,10 +3,13 @@
 from pathlib import Path
 
 import click
-import pandas as pd
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
+from pycirclize.parser import Genbank
+
+
+from phold.plot.plot import create_circos_plot
 
 from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
@@ -939,6 +942,7 @@ def remote(
         split_threshold=split_threshold,
         remote_flag=True,
         proteins_flag=False,
+        fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
     )
@@ -1107,6 +1111,233 @@ def install(
 
     # will check if db is present, and if not, download it
     install_database(database)
+
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Path to input file in Genbank format (in the phold output directory)",
+    type=click.Path(),
+    required=True,
+)
+@click.option(
+    "-o",
+    "--output",
+    default="phold_plots",
+    show_default=True,
+    type=click.Path(),
+    help="Output directory to store phold plots",
+)
+@click.option(
+    "-p",
+    "--prefix",
+    default="phold",
+    help="Prefix for output files. Needs to match what phold was run with.",
+    type=str,
+    show_default=True,
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    help="Force overwrites the output directory",
+)
+@click.option("-a", "--all", is_flag=True, help="Plot every contig.")
+@click.option(
+    "-t",
+    "--plot_title",
+    default=None,
+    help="Plot title. Only applies if --all is not specified. Will default to the phage's contig id.",
+)
+@click.option(
+    "--label_hypotheticals",
+    help="Flag to label hypothetical or unknown proteins. By default these are not labelled",
+    is_flag=True,
+)
+@click.option(
+    "--remove_other_features_labels",
+    help="Flag to remove labels for tRNA/tmRNA/CRISPRs. By default these are labelled. \nThey will still be plotted in black",
+    is_flag=True,
+)
+@click.option(
+    "--title_size",
+    type=float,
+    default=20.0,
+    help="Controls title size. Must be an integer. Defaults to 20",
+)
+@click.option(
+    "--label_size",
+    type=int,
+    default=8,
+    help="Controls annotation label size. Must be an integer. Defaults to 8",
+)
+@click.option(
+    "--interval",
+    default=5000,
+    type=int,
+    help="Axis tick interval. Must be an integer. Must be an integer. Defaults to 5000.",
+)
+@click.option(
+    "--truncate",
+    type=int,
+    default=20,
+    help="Number of characters to include in annoation labels before truncation with ellipsis. \nMust be an integer. Defaults to 20.",
+)
+@click.option(
+    "--dpi",
+    default="600",
+    type=int,
+    help="Resultion (dots per inch). Must be an integer. Defaults to 600.",
+)
+@click.option(
+    "--annotations",
+    default=1,
+    type=float,
+    help="Controls the proporition of annotations labelled. Must be a proportion between 0 and 1 inclusive. \n0 = no annotations, 0.5 = half of the annotations, 1 = all annotations. \nDefaults to 1. Chosen in order of CDS size.",
+)
+@click.option(
+    "--label_ids",
+    default=None,
+    type=str,
+    help="Text file with list of CDS IDs (from gff file) that are guaranteed to be labelled.",
+)
+def plot(
+    ctx,
+    prefix,
+    input,
+    output,
+    force,
+    all,
+    plot_title,
+    label_hypotheticals,
+    remove_other_features_labels,
+    title_size,
+    label_size,
+    interval,
+    truncate,
+    dpi,
+    annotations,
+    label_ids,
+    **kwargs,
+):
+    """Creates Phold Circular Genome Plots"""
+
+    # validates the directory  (need to before I start phold or else no log file is written)
+    instantiate_dirs(output, force)
+
+    output: Path = Path(output)
+    logdir: Path = Path(output) / "logs"
+
+    params = {
+        "--input": input,
+        "--output": output,
+        "--force": force,
+        "--prefix": prefix,
+        "--all": all,
+        "--plot_title": plot_title,
+        "--label_hypotheticals": label_hypotheticals,
+        "--remove_other_features_labels": remove_other_features_labels,
+        "--title_size": title_size,
+        "--label_size": label_size,
+        "--interval": interval,
+        "--truncate": truncate,
+        "--dpi": dpi,
+        "--annotations": annotations,
+        "--label_ids": label_ids,
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "plot")
+
+    # single threaded plots
+    threads = 1
+
+    fasta_flag, gb_dict = validate_input(input, threads)
+
+    gbk = Genbank(input)
+
+    # gets all contigs and seqs
+    gb_seq_dict = gbk.get_seqid2seq()
+
+    gb_size_dict = gbk.get_seqid2size()
+
+    contig_count = len(gb_seq_dict)
+
+    # gets all features - will get all regardless of type (tRNA etc from pharokka)
+    gb_feature_dict = gbk.get_seqid2features()
+
+
+    # if there is 1 contig, then plot_title 
+    if contig_count > 1 and plot_title is not None:
+        logger.warning(f"More than one contig found. Ignoring --plot_title {plot_title}")
+
+    # set contig id as title if single contig and no plot_title given
+    if contig_count == 1 and plot_title is None:
+        plot_title = str(contig_count)
+
+        
+
+    # check label_ids
+
+    # list of all IDs that need to be labelled from file
+    label_force_list = []
+
+    if label_ids is not None:
+        logger.info(
+            f"You have specified a file {label_ids} containing a list of CDS IDs to force label."
+        )
+        # check if it is a file
+        if Path(label_ids).exists() is False:
+            logger.error(f"{label_ids} was not found.")
+        # check if it contains text
+        try:
+            # Open the file in read mode
+            with open(Path(label_ids), "r") as file:
+                # Read the first character
+                # will error if file is empty
+                first_char = file.read(1)
+
+                # read all the labels
+                with open(Path(label_ids)) as f:
+                    ignore_dict = {x.rstrip().split()[0] for x in f}
+                # label force list
+                label_force_list = list(ignore_dict)
+
+        except FileNotFoundError:
+            logger.warning(
+                f"{label_ids} contains no text. No contigs will be ignored"
+            )
+    
+
+    # if there is 1 contig, then all the parameters will apply
+    
+    for contig_id, contig_sequence in gb_seq_dict.items():
+
+        logger.info(f"Plotting {contig_id}")
+
+        create_circos_plot(
+            contig_id,
+            contig_sequence,
+            contig_count,
+            gb_size_dict,
+            gb_feature_dict,
+            gbk,
+            interval,
+            annotations,
+            title_size,
+            plot_title,
+            truncate,
+            output,
+            dpi,
+            label_size,
+            label_hypotheticals,
+            remove_other_features_labels,
+            label_force_list,
+        )
 
 
 @click.command()

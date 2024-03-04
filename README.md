@@ -10,15 +10,21 @@ Benchmarking is ongoing but `phold` strongly outperforms [Pharokka](https://gith
 
 If you have already annotated your phage(s) with Pharokka, `phold` takes the Genbank output of Pharokka as an input option, so you can easily update the annotation with more functional predictions!
 
+# Tutorial
+
+Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutorial/](https://phold.readthedocs.io/en/latest/tutorial/).
+
 # Table of Contents
 
 - [phold - phage annotation using protein structures](#phold---phage-annotation-using-protein-structures)
+- [Tutorial](#tutorial)
 - [Table of Contents](#table-of-contents)
 - [Documentation](#documentation)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Output](#output)
 - [Usage](#usage)
+- [Plotting](#plotting)
 - [Citation](#citation)
 
 # Documentation
@@ -143,6 +149,18 @@ Options:
                             the prefilter. You may want to reduce this to save
                             disk space for enormous datasets  [default: 1000]
   ```
+
+# Plotting 
+
+`phold plot` will allow you to create Circos plots with [pyCirclize](https://github.com/moshi4/pyCirclize) for all your phage(s). For example:
+
+```
+phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plots -t '${Stenotrophomonas}$ Phage SMA6'  
+```
+
+<p align="center">
+  <img src="img/NC_043029.png" alt="NC_043029" height=600>
+</p>
 
 # Citation
 
