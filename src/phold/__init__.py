@@ -1251,7 +1251,7 @@ def plot(
     }
 
     # initial logging etc
-    start_time = begin_phold(params, "run")
+    start_time = begin_phold(params, "plot")
 
     # single threaded plots
     threads = 1
@@ -1272,8 +1272,14 @@ def plot(
 
 
     # if there is 1 contig, then plot_title 
-    if contig_count > 1 and plot_title != None:
+    if contig_count > 1 and plot_title is not None:
         logger.warning(f"More than one contig found. Ignoring --plot_title {plot_title}")
+
+    # set contig id as title if single contig and no plot_title given
+    if contig_count == 1 and plot_title is None:
+        plot_title = str(contig_count)
+
+        
 
     # check label_ids
 

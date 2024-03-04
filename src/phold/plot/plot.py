@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Union, Tuple
+from typing import List, Dict
 
 from loguru import logger
 from pycirclize import Circos
@@ -42,12 +42,12 @@ def create_circos_plot(
         gbk (Genbank): Parser for GenBank files from pycirclize.
         interval (int): Interval for x-axis ticks.
         annotations (int): Number of annotations to plot.
-        title_size (Union[int, float]): Font size for the plot title.
+        title_size (float): Font size for the plot title.
         plot_title (str): Title of the plot.
         truncate (int): Number of characters to truncate CDS labels to.
         output (str): Output directory path.
         dpi (int): Dots per inch for the output plot.
-        label_size (Union[int, float]): Font size for labels.
+        label_size (int): Font size for labels.
         label_hypotheticals (bool): Whether to include hypothetical labels.
         remove_other_features_labels (bool): Whether to remove labels for other features.
         label_force_list (List[str]): List of feature IDs to force label.
@@ -64,7 +64,7 @@ def create_circos_plot(
     seq_len = gb_size_dict[contig_id]
     circos = Circos(sectors={contig_id: seq_len})
 
-    if contig_count == 1 and contig_count != None:
+    if contig_count == 1:
         circos.text(plot_title, size=int(title_size), r=190)
     else:
         circos.text(contig_id, size=int(title_size), r=190)
