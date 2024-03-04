@@ -14,7 +14,7 @@ cd phold
 
 ## Step 2 Installing and Running `Pharokka`
 
-* Feel free to skip this step if you only want phage CDS annotations from `phold` - Pharokka also gives you tRNA, tmRNAs and CRISPRs, plots and other summary features `phold` lacks (at least for now).
+* Feel free to skip this step if you only want phage CDS annotations from `phold` - Pharokka also gives you tRNA, tmRNAs and CRISPRs and other summary features `phold` lacks (at least for now).
 
 
 * To install and run pharokka (change `-t 8` to the number of available threads)
@@ -61,7 +61,7 @@ phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t
 * `phold plot` provides .png and .svg outputs
 
 ```bash
-phold plot -i NC_043029_phold_output/phold.gbk -o NC_043029_phold_plot -t '${Stenotrophomonas}$ Phage SMA6'
+phold plot -i NC_043029_phold_output/NC_043029.gbk -o NC_043029_phold_plot -t '${Stenotrophomonas}$ Phage SMA6'
 ```
 
 ![Image](NC_043029.png)
