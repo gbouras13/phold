@@ -21,9 +21,6 @@ dependencies:
   - pytorch >=2.1.2
   - numpy >=1.20
   - pycirclize >=0.3.1
-  - just
-  - poetry
-  - ripgrep
 
 
 
