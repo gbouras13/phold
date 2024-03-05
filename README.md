@@ -40,7 +40,7 @@ Pypi and conda installations will be available soon.
 The only required non-Python dependency is `foldseek`. To install `phold` in a conda environment using [mamba](https://github.com/conda-forge/miniforge):
 
 ```
-mamba create -n pholdENV pip foldseek python=3.11
+mamba create -n pholdENV -c conda-forge -c bioconda pip foldseek python=3.11
 conda activate pholdENV
 git clone https://github.com/gbouras13/phold.git
 cd phold 
