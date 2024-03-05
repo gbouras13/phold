@@ -30,9 +30,10 @@ conda deactivate
 ## Step 3 Installing `phold`
 
 * To install phold from source, replace the pip step with `pip install -e .`
+* `phold` should work with Python v3.8-3.11. The below uses 3.11
 
 ```bash
-mamba create -n pholdENV foldseek pip
+mamba create -n pholdENV foldseek pip python=3.11
 conda activate pholdENV
 pip install phold 
 phold install

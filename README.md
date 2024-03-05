@@ -65,7 +65,7 @@ phold install
 * If you are running `phold` on a local work statio with GPU available, using `phold run` is recommended. It runs both `phold predict` and `phold compare`
 
 ```
-phold run -i tests/test_data/pharokka.gbk  -o test_output_phold -t 8
+phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 ```
 
 * If you do not have a GPU available, add `--cpu`
@@ -77,13 +77,13 @@ phold run -i tests/test_data/pharokka.gbk  -o test_output_phold -t 8
 1. Predict the 3Di sequences with ProstT5 using `phold predict`. This is massively accelerated if a GPU available.
 
 ```
-phold predict -i tests/test_data/pharokka.gbk -o test_predictions 
+phold predict -i tests/test_data/NC_043029.gbk -o test_predictions 
 ```
 
 2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU. 
 
 ```
-phold compare -i tests/test_data/pharokka.gbk --predictions_dir test_predictions -o test_output_phold -t 8 
+phold compare -i tests/test_data/NC_043029.gbk --predictions_dir test_predictions -o test_output_phold -t 8 
 ```
 
 # Output
