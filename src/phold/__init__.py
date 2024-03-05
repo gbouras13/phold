@@ -1270,16 +1270,15 @@ def plot(
     # gets all features - will get all regardless of type (tRNA etc from pharokka)
     gb_feature_dict = gbk.get_seqid2features()
 
-
-    # if there is 1 contig, then plot_title 
+    # if there is 1 contig, then plot_title
     if contig_count > 1 and plot_title is not None:
-        logger.warning(f"More than one contig found. Ignoring --plot_title {plot_title}")
+        logger.warning(
+            f"More than one contig found. Ignoring --plot_title {plot_title}"
+        )
 
     # set contig id as title if single contig and no plot_title given
     if contig_count == 1 and plot_title is None:
         plot_title = str(contig_count)
-
-        
 
     # check label_ids
 
@@ -1308,15 +1307,11 @@ def plot(
                 label_force_list = list(ignore_dict)
 
         except FileNotFoundError:
-            logger.warning(
-                f"{label_ids} contains no text. No contigs will be ignored"
-            )
-    
+            logger.warning(f"{label_ids} contains no text. No contigs will be ignored")
 
     # if there is 1 contig, then all the parameters will apply
-    
-    for contig_id, contig_sequence in gb_seq_dict.items():
 
+    for contig_id, contig_sequence in gb_seq_dict.items():
         logger.info(f"Plotting {contig_id}")
 
         create_circos_plot(

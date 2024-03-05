@@ -7,9 +7,10 @@ from pycirclize.parser import Genbank
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 import numpy as np
-from Bio import  SeqUtils
+from Bio import SeqUtils
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature
+
 
 def create_circos_plot(
     contig_id: str,
@@ -56,7 +57,6 @@ def create_circos_plot(
         None
     """
 
-
     png_plot_file: Path = Path(output) / f"{contig_id}.png"
     svg_plot_file: Path = Path(output) / f"{contig_id}.svg"
 
@@ -74,33 +74,53 @@ def create_circos_plot(
     cds_track.axis(fc="#EEEEEE", ec="none")
 
     data_dict = {
-    "acr_defense_vfdb_card": {"col": "#FF0000", "fwd_list": [], "rev_list": []},
-    "unk": {"col": "#AAAAAA", "fwd_list": [], "rev_list": []},
-    "other": {"col": "#4deeea", "fwd_list": [], "rev_list": []},
-    "tail": {"col": "#74ee15", "fwd_list": [], "rev_list": []},
-    "transcription": {"col": "#ffe700", "fwd_list": [], "rev_list": []},
-    "dna": {"col": "#f000ff", "fwd_list": [], "rev_list": []},
-    "lysis": {"col": "#001eff", "fwd_list": [], "rev_list": []},
-    "moron": {"col": "#8900ff", "fwd_list": [], "rev_list": []},
-    "int": {"col": "#E0B0FF", "fwd_list": [], "rev_list": []},
-    "head": {"col": "#ff008d", "fwd_list": [], "rev_list": []},
-    "con": {"col": "#5A5A5A", "fwd_list": [], "rev_list": []},
-}
+        "acr_defense_vfdb_card": {"col": "#FF0000", "fwd_list": [], "rev_list": []},
+        "unk": {"col": "#AAAAAA", "fwd_list": [], "rev_list": []},
+        "other": {"col": "#4deeea", "fwd_list": [], "rev_list": []},
+        "tail": {"col": "#74ee15", "fwd_list": [], "rev_list": []},
+        "transcription": {"col": "#ffe700", "fwd_list": [], "rev_list": []},
+        "dna": {"col": "#f000ff", "fwd_list": [], "rev_list": []},
+        "lysis": {"col": "#001eff", "fwd_list": [], "rev_list": []},
+        "moron": {"col": "#8900ff", "fwd_list": [], "rev_list": []},
+        "int": {"col": "#E0B0FF", "fwd_list": [], "rev_list": []},
+        "head": {"col": "#ff008d", "fwd_list": [], "rev_list": []},
+        "con": {"col": "#5A5A5A", "fwd_list": [], "rev_list": []},
+    }
 
-    fwd_features = [feature for feature in gb_feature_dict[contig_id] if feature.location.strand == 1]
-    rev_features = [feature for feature in gb_feature_dict[contig_id] if feature.location.strand == -1]
-    cds_features = [feature for feature in gb_feature_dict[contig_id] if feature.type == "CDS"]
-    trna_features = [feature for feature in gb_feature_dict[contig_id] if feature.type == "tRNA"]
-    tmrna_features = [feature for feature in gb_feature_dict[contig_id] if feature.type == "tmRNA"]
-    crispr_features = [feature for feature in gb_feature_dict[contig_id] if feature.type == "repeat_region"]
+    fwd_features = [
+        feature
+        for feature in gb_feature_dict[contig_id]
+        if feature.location.strand == 1
+    ]
+    rev_features = [
+        feature
+        for feature in gb_feature_dict[contig_id]
+        if feature.location.strand == -1
+    ]
+    cds_features = [
+        feature for feature in gb_feature_dict[contig_id] if feature.type == "CDS"
+    ]
+    trna_features = [
+        feature for feature in gb_feature_dict[contig_id] if feature.type == "tRNA"
+    ]
+    tmrna_features = [
+        feature for feature in gb_feature_dict[contig_id] if feature.type == "tmRNA"
+    ]
+    crispr_features = [
+        feature
+        for feature in gb_feature_dict[contig_id]
+        if feature.type == "repeat_region"
+    ]
 
     # fwd features first
-
 
     for f in fwd_features:
         if f.type == "CDS":
             if (
-                "vfdb" in f.qualifiers.get("phrog")[0] or "card" in f.qualifiers.get("phrog")[0] or "acr" in f.qualifiers.get("phrog")[0] or "defensefinder" in f.qualifiers.get("phrog")[0]
+                "vfdb" in f.qualifiers.get("phrog")[0]
+                or "card" in f.qualifiers.get("phrog")[0]
+                or "acr" in f.qualifiers.get("phrog")[0]
+                or "defensefinder" in f.qualifiers.get("phrog")[0]
             ):  # vfdb or card or acr or defensefinder
                 data_dict["acr_defense_vfdb_card"]["fwd_list"].append(f)
             else:  # no vfdb or card
@@ -112,11 +132,15 @@ def create_circos_plot(
                     data_dict["tail"]["fwd_list"].append(f)
                 elif f.qualifiers.get("function")[0] == "transcription regulation":
                     data_dict["transcription"]["fwd_list"].append(f)
-                elif "DNA" in f.qualifiers.get("function")[0]: # to make compatible with pharokka
+                elif (
+                    "DNA" in f.qualifiers.get("function")[0]
+                ):  # to make compatible with pharokka
                     data_dict["dna"]["fwd_list"].append(f)
                 elif f.qualifiers.get("function")[0] == "lysis":
                     data_dict["lysis"]["fwd_list"].append(f)
-                elif "moron" in f.qualifiers.get("function")[0]: # to make compatible with pharokka
+                elif (
+                    "moron" in f.qualifiers.get("function")[0]
+                ):  # to make compatible with pharokka
                     data_dict["moron"]["fwd_list"].append(f)
                 elif f.qualifiers.get("function")[0] == "integration and excision":
                     data_dict["int"]["fwd_list"].append(f)
@@ -128,7 +152,10 @@ def create_circos_plot(
     for f in rev_features:
         if f.type == "CDS":
             if (
-                "vfdb" in f.qualifiers.get("phrog")[0] or "card" in f.qualifiers.get("phrog")[0] or "acr" in f.qualifiers.get("phrog")[0] or "defensefinder" in f.qualifiers.get("phrog")[0]
+                "vfdb" in f.qualifiers.get("phrog")[0]
+                or "card" in f.qualifiers.get("phrog")[0]
+                or "acr" in f.qualifiers.get("phrog")[0]
+                or "defensefinder" in f.qualifiers.get("phrog")[0]
             ):  # vfdb or card or acr or defensefinder
                 data_dict["acr_defense_vfdb_card"]["rev_list"].append(f)
             else:  # no vfdb or card
@@ -140,11 +167,15 @@ def create_circos_plot(
                     data_dict["tail"]["rev_list"].append(f)
                 elif f.qualifiers.get("function")[0] == "transcription regulation":
                     data_dict["transcription"]["rev_list"].append(f)
-                elif "DNA" in f.qualifiers.get("function")[0]: # to make compatible with pharokka
+                elif (
+                    "DNA" in f.qualifiers.get("function")[0]
+                ):  # to make compatible with pharokka
                     data_dict["dna"]["rev_list"].append(f)
                 elif f.qualifiers.get("function")[0] == "lysis":
                     data_dict["lysis"]["rev_list"].append(f)
-                elif "moron" in f.qualifiers.get("function")[0]: # to make compatible with pharokka
+                elif (
+                    "moron" in f.qualifiers.get("function")[0]
+                ):  # to make compatible with pharokka
                     data_dict["moron"]["rev_list"].append(f)
                 elif f.qualifiers.get("function")[0] == "integration and excision":
                     data_dict["int"]["rev_list"].append(f)
@@ -173,12 +204,11 @@ def create_circos_plot(
     #### Extra Features
     ###################################################
 
-
     extras_col = "black"
 
     fwd_list = []
     for f in fwd_features:
-        if f.type in ["tRNA", "tmRNA", "tmRNA" ] :
+        if f.type in ["tRNA", "tmRNA", "tmRNA"]:
             fwd_list.append(f)
 
     cds_track.genomic_features(
@@ -190,7 +220,7 @@ def create_circos_plot(
 
     rev_list = []
     for f in rev_features:
-        if f.type in ["tRNA", "tmRNA", "tmRNA" ] :
+        if f.type in ["tRNA", "tmRNA", "tmRNA"]:
             rev_list.append(f)
 
     cds_track.genomic_features(
@@ -292,12 +322,9 @@ def create_circos_plot(
                 length_list_crispr[i] for i in filtered_indices_crispr
             ]
 
-
     ##################################
     ####### truncate CDS labels
     ##################################
-
-
 
     # Extract CDS product labels
     pos_list, labels, length_list, id_list = [], [], [], []
@@ -333,7 +360,6 @@ def create_circos_plot(
                     length_list.append(length)
                     id_list.append(id)
 
-
     ###################################################
     #### thin out CDS annotations
     ###################################################
@@ -352,9 +378,8 @@ def create_circos_plot(
             "You have input a --annotations value less than 0. Setting to 0 (will plot no annotations). Continuing"
         )
         annotations = 0
-    
 
-####### running the sparsity
+    ####### running the sparsity
 
     quantile_length = np.quantile(length_list, annotations)
     # Create an empty list to store the filtered indices
@@ -381,7 +406,6 @@ def create_circos_plot(
         label_size=label_size,
         line_kws=dict(ec="grey"),
     )
-
 
     ###################################################
     # set other features
@@ -415,8 +439,7 @@ def create_circos_plot(
             line_kws=dict(ec="grey"),
         )
 
-
-###################################################
+    ###################################################
     # set gc content and skew coordinates
     ###################################################
     gc_content_start = 42.5
@@ -427,7 +450,9 @@ def create_circos_plot(
     # Plot GC content
     gc_content_track = sector.add_track((gc_content_start, gc_content_end))
     pos_list, gc_contents = gbk.calc_gc_content(seq=contig_sequence)
-    gc_contents = gc_contents - SeqUtils.gc_fraction(contig_sequence)*100  # needs biopython >=1.80
+    gc_contents = (
+        gc_contents - SeqUtils.gc_fraction(contig_sequence) * 100
+    )  # needs biopython >=1.80
     positive_gc_contents = np.where(gc_contents > 0, gc_contents, 0)
     negative_gc_contents = np.where(gc_contents < 0, gc_contents, 0)
     abs_max_gc_content = np.max(np.abs(gc_contents))
@@ -595,7 +620,7 @@ def create_circos_plot(
 
     dpi = int(dpi)
 
-        # save as png
+    # save as png
     fig.savefig(png_plot_file, dpi=dpi)
 
     # Save the image as an SVG
