@@ -35,7 +35,7 @@ Check out the full documentation at [https://phold.readthedocs.io](https://phold
 
 The only way to install `phold` is from source for now. 
 
-Pypi and conda installations will be available soon. 
+PyPI and conda installations will be available soon. 
 
 The only required non-Python dependency is `foldseek`. To install `phold` in a conda environment using [mamba](https://github.com/conda-forge/miniforge):
 
@@ -70,7 +70,7 @@ phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 
 * If you do not have a GPU available, add `--cpu`
 * `phold run` will run in a reasonable time for small datasets with CPU only (e.g. <5 minutes for a 50kbp phage).
-* However, `phold predict` will complete much faster if a GPU is available, and is necessary for large metagenome datasets to run in a reasonable time. 
+* However, `phold predict` will complete much faster if a GPU is available, and is necessary for large metagenomic datasets to run in a reasonable time. 
 
 * In a cluster environment, it is most efficient to run `phold` in 2 steps for optimal resource usage.
 
@@ -164,7 +164,7 @@ phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plo
 
 # Citation
 
-`phold` is a work in progress, a preprint will be coming hopefully soon - if you use it please cite the github repository https://github.com/gbouras13/phold for now.
+`phold` is a work in progress, a preprint will be coming hopefully soon - if you use it please cite the GitHub repository https://github.com/gbouras13/phold for now.
 
 Please be sure to cite the following core dependencies and PHROGs database:
 
