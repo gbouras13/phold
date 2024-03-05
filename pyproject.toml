@@ -74,10 +74,4 @@ exe = [
 include-package-data = true
 zip-safe = true  # This just means it's safe to zip up the bdist
 
-[tool.setuptools.package-data]
-"phold.cnn.cnn_chkpt" = ["*.pth"]
-"phold.finetune" = ["*.pt"]
 
-[tool.setuptools.packages.find]
-namespaces = true
-where = ["src"]

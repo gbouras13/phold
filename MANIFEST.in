@@ -1,0 +1,2 @@
+include src/phold/cnn/cnn_chkpnt/*pt
+include src/phold/finetune/*pth
