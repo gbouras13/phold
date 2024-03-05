@@ -1,6 +1,6 @@
 # phold - phage annotation using protein structures
 
-`phold` is sensititve annotation tool for bacteriophage genomes and metagenomes using protein strucutal homology. 
+`phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
 
 `phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of 803k protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
 
@@ -62,7 +62,7 @@ phold install
 # Quick Start
 
 * `phold` takes a GenBank format file output from [pharokka](https://github.com/gbouras13/pharokka) as its input by default. 
-* If you are running `phold` on a local work statio with GPU available, using `phold run` is recommended. It runs both `phold predict` and `phold compare`
+* If you are running `phold` on a local work station with GPU available, using `phold run` is recommended. It runs both `phold predict` and `phold compare`
 
 ```
 phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
