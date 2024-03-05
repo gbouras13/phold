@@ -22,6 +22,8 @@ dependencies:
   - numpy >=1.20
   - pycirclize >=0.3.1
   - just
+  - poetry
+
 
 
 
