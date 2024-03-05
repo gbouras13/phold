@@ -70,9 +70,7 @@ def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:
     logger.info(f"Checking the output directory {output_dir}")
     if force is True:
         if Path(output_dir).exists():
-            logger.info(
-                f"Removing {output_dir} because --force was specified"
-            )
+            logger.info(f"Removing {output_dir} because --force was specified")
             shutil.rmtree(output_dir)
         else:
             logger.info(

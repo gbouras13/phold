@@ -1,0 +1,4 @@
+include src/phold/utils/CITATION
+include src/phold/utils/VERSION
+include src/phold/cnn/cnn_chkpnt/*pt
+include src/phold/finetune/*pth

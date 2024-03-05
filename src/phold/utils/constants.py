@@ -1,6 +1,6 @@
 from pathlib import Path
 
-repo_root = Path(__file__).parent.parent.parent.resolve()
+repo_root = Path(__file__).parent.parent.resolve()
 
 CNN_DIR = repo_root / "cnn/"
 

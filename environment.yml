@@ -6,7 +6,7 @@ channels:
 dependencies:
   - foldseek ==8.ef4e960
   - python >=3.8,<3.11
-  - biopython >=1.76
+  - biopython >=1.80
   - alive-progress >=3.0.1
   - datasets >=2.15
   - requests >=2.25
@@ -18,6 +18,13 @@ dependencies:
   - sentencepiece >=0.1.99
   - transformers >=4.34
   - pyrodigal-gv >=0.3.1
+  - pytorch >=2.1.2
+  - numpy >=1.20
+  - pycirclize >=0.3.1
+  - just
+  - poetry
+  - ripgrep
+
 
 
 
