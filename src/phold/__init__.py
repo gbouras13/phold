@@ -174,7 +174,7 @@ def compare_options(func):
         click.option(
             "--separate",
             is_flag=True,
-            help="Output separate genbank files for each contig",
+            help="Output separate GenBank files for each contig",
         ),
         click.option(
             "--max_seqs",
@@ -334,7 +334,7 @@ def run(
 
 """
 predict command
-Uses ProstT5 to predict 3Di sequences from AA, genbank
+Uses ProstT5 to predict 3Di sequences from AA, GenBank
 """
 
 
@@ -454,7 +454,7 @@ compare command
 @click.option(
     "--filter_pdbs",
     is_flag=True,
-    help="Flag that creates a copy of the PDBs with matching record IDs found in the genbank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the PDBs with matching record IDs found in the GenBank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options

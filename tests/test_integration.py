@@ -8,7 +8,7 @@ pytest .
 pytest --run_remote .  
 
 # to run with remote and with gpu
-pytest --run_remote .  --gpu_available
+pytest --run_remote  --gpu_available .
 
 """
 
