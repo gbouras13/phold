@@ -29,21 +29,18 @@ conda deactivate
 
 ## Step 3 Installing `phold`
 
-* To install phold from source, replace the pip step with `pip install -e .`
-* `phold` should work with Python v3.8-3.11. The below uses 3.11
+* To install `phold` with mamba from bioconda (assuming you have an NVIDIA GPU available):
 
 ```bash
-mamba create -n pholdENV foldseek pip python=3.11
+mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 conda activate pholdENV
-pip install phold 
 phold install
 ```
 
+* If you do not have a GPU available, remove `pytorch=*=cuda*`
+* For more installation options, see the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
+
 ## Step 4 Running `phold`
-
-* If you skipped step 2, replace `NC_043029_pharokka_output/pharokka.gbk` with `tests/test_data/NC_043029.fasta`
-
-* If you have a GPU available:
 
 ```bash
 phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029
@@ -55,10 +52,12 @@ phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t
 phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --cpu
 ```
 
+* If you skipped step 2, replace `NC_043029_pharokka_output/pharokka.gbk` with `tests/test_data/NC_043029.fasta`
+
 ## Step 5 Running `phold plot`
 
 * `phold` can generate Circos plot of your phage(s)
-* The plot will be saves in the `NC_043029_phold_plots` directory. See the [documentation](https://phold.readthedocs.io/en/latest/run/#phold-plot) for more parameter details
+* The plot will be saved in the `NC_043029_phold_plots` directory. See the [documentation](https://phold.readthedocs.io/en/latest/run/#phold-plot) for more parameter details
 * `phold plot` provides .png and .svg outputs
 
 ```bash

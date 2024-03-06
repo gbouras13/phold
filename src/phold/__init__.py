@@ -174,7 +174,7 @@ def compare_options(func):
         click.option(
             "--separate",
             is_flag=True,
-            help="Output separate genbank files for each contig",
+            help="Output separate GenBank files for each contig",
         ),
         click.option(
             "--max_seqs",
@@ -334,7 +334,7 @@ def run(
 
 """
 predict command
-Uses ProstT5 to predict 3Di sequences from AA, genbank
+Uses ProstT5 to predict 3Di sequences from AA, GenBank
 """
 
 
@@ -454,7 +454,7 @@ compare command
 @click.option(
     "--filter_pdbs",
     is_flag=True,
-    help="Flag that creates a copy of the PDBs with matching record IDs found in the genbank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the PDBs with matching record IDs found in the GenBank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options
@@ -891,34 +891,41 @@ def remote(
 
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
-    # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-    if fasta_flag is False:
-        for record_id, record in gb_dict.items():
-            cds_dict[record_id] = {}
 
-            for cds_feature in record.features:
-                if cds_feature.type == "CDS":
+    # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
+    
+    for record_id, record in gb_dict.items():
+        cds_dict[record_id] = {}
+
+        for cds_feature in record.features:
+            if cds_feature.type == "CDS":
+                if fasta_flag is False:
+                    cds_feature.qualifiers["translation"] = cds_feature.qualifiers["translation"][0]
                     cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
-    else:  # if from pyrodigal, then exists
-        cds_dict = gb_dict
+                else:
+                    cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
+
 
     ## write the CDS to file
+    # FASTA -> takes the whole thing
+    # Pharokka GBK -> requires just the first entry, the GBK is parsed as a list
 
     with open(fasta_aa, "w+") as out_f:
         for contig_id, rest in cds_dict.items():
-            aa_contig_dict = cds_dict[contig_id]
 
+            aa_contig_dict = cds_dict[contig_id]
             # writes the CDS to file
             for seq_id, cds_feature in aa_contig_dict.items():
                 out_f.write(f">{contig_id}:{seq_id}\n")
-                out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+                out_f.write(f"{cds_feature.qualifiers['translation']}\n")
+
 
     ############
     # prostt5 remote
     ############
 
     fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
-    query_remote_3di(cds_dict, fasta_3di)
+    query_remote_3di(cds_dict, fasta_3di, fasta_flag)
 
     ############
     # run compare vs db

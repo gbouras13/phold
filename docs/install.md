@@ -1,12 +1,36 @@
 # Installation
 
-The only way to install `phold` is from source for now. 
+The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
 
-Pypi and (hopefully) conda installations will be available soon. 
+To install `phold` using [mamba](https://github.com/conda-forge/miniforge):
 
-The only required non-Python dependency is [Foldseek](https://github.com/steineggerlab/foldseek). To install `phold` in a conda environment using [mamba](https://github.com/conda-forge/miniforge):
-
+```bash
+mamba create -n pholdENV -c conda-forge -c bioconda phold 
 ```
+
+To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. By default conda/mamba will install a CPU-only version. 
+
+Therefore, if you have an NVIDIA GPU, please try:
+
+```bash
+mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
+```
+
+## Pip
+
+You can also install the `phold` using pip.
+
+```bash
+pip install phold
+```
+
+You will need to have [Foldseek](https://github.com/steineggerlab/foldseek) installed and available in the $PATH.
+
+## Source
+
+You can install the latest version of `phold` with potentially untested and unreleased changes into a conda environment using [mamba](https://github.com/conda-forge/miniforge) as follows:
+
+```bash
 mamba create -n pholdENV pip foldseek python=3.11
 conda activate pholdENV
 git clone https://github.com/gbouras13/phold.git
@@ -18,15 +42,15 @@ pip install -e .
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
 
-If it is not automatically installed via the pip/conda installation, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. 
+If it is not automatically installed via the installation methods above, please see [this link](https://pytorch.org) for more instructions on how to install `pytorch`. 
 
 If you have an older version of the CUDA driver installed on your NVIDIA GPU, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
 Phold has been tested on NVIDIA GPUs (A100, RTX4090) and AMD GPUs (Radeon). 
 
-Installation on AMD GPUs requires `torch` compatible with rocm e.g.
+Installation on AMD GPUs requires a version of `torch` compatible with rocm e.g.
 
-```
+```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
 ```
 
@@ -34,13 +58,13 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 To download and install the `phold` database
 
-```
+```bash
 phold install
 ```
 
-If you would like to specify a particular location for the database, please use `-d`
+If you would like to specify a particular location for the database (e.g. if you use `phold` on a shared server), please use `-d`
 
-```
+```bash
 phold install -d <path/to/databse_dir>
 ```
 
@@ -60,35 +84,36 @@ Please follow the instructions at the links to install based on your computer ar
 
 After your installation is complete, you should add the following channels to your conda configuration:
 
-```
+```bash
 conda config --add channels defaults
 conda config --add channels bioconda
 conda config --add channels conda-forge
 ```
 
-We would recommend installing `phold` into a fresh environment. Assuming you installed miniforge, to create a environment called `pholdENV` with `phold` installed:
+We would recommend installing `phold` into a fresh environment. Assuming you installed miniforge, to create an environment called `pholdENV` with `phold` installed (assuming you have an NVIDIA GPU):
 
-* To create a conda environment called `pholdENV` with foldseek installed
 
+```bash
+mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 ```
-conda create -n pholdENV foldseek pip
+
+If you don't have a GPU:
+
+```bash
+mamba create -n pholdENV -c conda-forge -c bioconda phold 
 ```
 
-* To activate the environment
+Then activate the environment
 
-```
+```bash
 conda activate pholdENV
 ```
 
-* To install `phold`
+You can then check installation worked and download the `phold` databases:
 
-```
-pip install phold
-```
-
-* Once that has finished downloading and installing, you can check installation worked using:
-
-```
+```bash
 phold -h
 phold install
 ```
+
+See the [tutorial](https://phold.readthedocs.io/en/latest/tutorial/) for more information on how to run `phold`.
