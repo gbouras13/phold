@@ -36,6 +36,7 @@ pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
+run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
@@ -97,6 +98,14 @@ def test_run_genbank(gpu_available):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_run_fasta(gpu_available):
+    """test phold run with genbank input"""
+    input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
 
 def test_predict_genbank(gpu_available):
     """test phold predict with genbank input"""
@@ -123,7 +132,7 @@ def test_compare_pdb():
 
 def test_predict_fasta(gpu_available):
     """test phold predict with fasta input"""
-    input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+    input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
