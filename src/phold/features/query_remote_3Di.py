@@ -9,7 +9,7 @@ import requests
 from loguru import logger
 
 
-def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
+def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path, fasta_flag: bool) -> None:
     """
 
     Query remote Foldseek ProstT5 server for 3Di predictions of amino acid sequences and write to file.
@@ -17,6 +17,7 @@ def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
     Args:
         cds_dict (Dict[str, dict]): Dictionary containing CDS sequences.
         fasta_3di (Path): Path to save the generated 3Di FASTA file.
+        fasta_flag (bool): True if input is a FASTA file
 
     Returns:
         None
@@ -43,7 +44,10 @@ def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path) -> None:
         for cds_id, seq_feature in seq_record_dict.items():
             logger.info(f"Querying {cds_id}")
             # get the amino acid seq
-            aa_seq = seq_feature.qualifiers["translation"][0]
+            if fasta_flag is True:
+                aa_seq = seq_feature.qualifiers["translation"]
+            else: # 1 index issue with pharokka
+                aa_seq = seq_feature.qualifiers["translation"][0]
             seq_len = len(aa_seq)
 
             url = f"{url_base}{aa_seq}"

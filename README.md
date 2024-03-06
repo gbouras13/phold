@@ -40,9 +40,9 @@ Check out the full documentation at [https://phold.readthedocs.io](https://phold
 
 For more details (particularly if you are using a non-NVIDIA GPU), check out the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
 
-The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) along with the Python dependencies.
+The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
 
-To install `phold` in a using [mamba](https://github.com/conda-forge/miniforge):
+To install `phold` using [mamba](https://github.com/conda-forge/miniforge):
 
 ```bash
 mamba create -n pholdENV -c conda-forge -c bioconda phold 
