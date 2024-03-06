@@ -106,6 +106,10 @@ def get_T5_model(
     else:
         device = torch.device("cpu")
         dev_name = "cpu"
+        if cpu is not True:
+            logger.warning("No available GPU was found, but --cpu was not specified")
+            logger.warning("ProstT5 will be run with CPU only")
+
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))
