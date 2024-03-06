@@ -1,4 +1,9 @@
-# phold - phage annotation using protein structures
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/phold/badges/version.svg)](https://anaconda.org/bioconda/phold)
+[![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/phold)](https://img.shields.io/conda/dn/bioconda/phold)
+[![PyPI version](https://badge.fury.io/py/phold.svg)](https://badge.fury.io/py/phold)
+[![Downloads](https://static.pepy.tech/badge/phold)](https://pepy.tech/project/phold)
+
+# phold - Phage Annotation using Protein Structures
 
 `phold` is sensititve annotation tool for bacteriophage genomes and metagenomes using protein strucutal homology. 
 
@@ -16,7 +21,7 @@ Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutori
 
 # Table of Contents
 
-- [phold - phage annotation using protein structures](#phold---phage-annotation-using-protein-structures)
+- [phold - Phage Annotation using Protein Structures](#phold---phage-annotation-using-protein-structures)
 - [Tutorial](#tutorial)
 - [Table of Contents](#table-of-contents)
 - [Documentation](#documentation)
@@ -33,6 +38,8 @@ Check out the full documentation at [https://phold.readthedocs.io](https://phold
 
 # Installation
 
+For more details (particularly if you are using a non-NVIDIA GPU), check out the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
+
 The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) along with the Python dependencies.
 
 To install `phold` in a using [mamba](https://github.com/conda-forge/miniforge):
@@ -43,7 +50,7 @@ mamba create -n pholdENV -c conda-forge -c bioconda phold
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. By default conda/mamba will install a CPU-only version. 
 
-Therefore, if you have an NVIDIA GPU available, please try:
+Therefore, if you have an NVIDIA GPU, please try:
 
 ```bash
 mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
@@ -76,13 +83,13 @@ phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 
 1. Predict the 3Di sequences with ProstT5 using `phold predict`. This is massively accelerated if a GPU available.
 
-```
+```bash
 phold predict -i tests/test_data/NC_043029.gbk -o test_predictions 
 ```
 
 2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU. 
 
-```
+```bash
 phold compare -i tests/test_data/NC_043029.gbk --predictions_dir test_predictions -o test_output_phold -t 8 
 ```
 
@@ -96,7 +103,7 @@ phold compare -i tests/test_data/NC_043029.gbk --predictions_dir test_prediction
 
 # Usage
 
-```
+```bash
 Usage: phold [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -114,7 +121,7 @@ Commands:
   run               phold predict then comapare all in one - GPU recommended
 ```
 
-```
+```bash
 Usage: phold run [OPTIONS]
 
   phold predict then comapare all in one - GPU recommended
@@ -154,7 +161,7 @@ Options:
 
 `phold plot` will allow you to create Circos plots with [pyCirclize](https://github.com/moshi4/pyCirclize) for all your phage(s). For example:
 
-```
+```bash
 phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plots -t '${Stenotrophomonas}$ Phage SMA6'  
 ```
 
