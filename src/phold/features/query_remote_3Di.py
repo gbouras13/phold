@@ -44,10 +44,7 @@ def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path, fasta_flag: boo
         for cds_id, seq_feature in seq_record_dict.items():
             logger.info(f"Querying {cds_id}")
             # get the amino acid seq
-            if fasta_flag is True:
-                aa_seq = seq_feature.qualifiers["translation"]
-            else: # 1 index issue with pharokka
-                aa_seq = seq_feature.qualifiers["translation"][0]
+            aa_seq = seq_feature.qualifiers["translation"]
             seq_len = len(aa_seq)
 
             url = f"{url_base}{aa_seq}"

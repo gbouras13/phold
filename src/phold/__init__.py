@@ -917,10 +917,8 @@ def remote(
             # writes the CDS to file
             for seq_id, cds_feature in aa_contig_dict.items():
                 out_f.write(f">{contig_id}:{seq_id}\n")
-                if fasta_flag is True:
-                    out_f.write(f"{cds_feature.qualifiers['translation']}\n")
-                else:
-                    out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+                out_f.write(f"{cds_feature.qualifiers['translation']}\n")
+
 
     ############
     # prostt5 remote
