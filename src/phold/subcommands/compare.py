@@ -90,7 +90,7 @@ def subcommand_compare(
                 if fasta_flag is False:
                     if cds_feature.type == "CDS":
                         # update DNA, RNA and nucleotide metabolism from pharokka as it is broken as of 1.6.1
-                        if cds_feature.qualifiers["function"][0] == "DNA":
+                        if "DNA" in cds_feature.qualifiers["function"][0] :
                             cds_feature.qualifiers["function"][
                                 0
                             ] = "DNA, RNA and nucleotide metabolism"
@@ -98,7 +98,7 @@ def subcommand_compare(
                                 cds_feature.qualifiers["function"][0]
                             ]  # Keep only the first element
                         # moron, auxiliary metabolic gene and host takeover as it is broken as of 1.6.1
-                        if cds_feature.qualifiers["function"][0] == "moron":
+                        if "moron" in cds_feature.qualifiers["function"][0] :
                             cds_feature.qualifiers["function"][
                                 0
                             ] = "moron, auxiliary metabolic gene and host takeover"

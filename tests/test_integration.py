@@ -1,6 +1,14 @@
 """
 Integration tests for phold
-Usage: pytest .
+
+# to run pytest without remote and no gpu
+pytest .
+
+# to run with remote and no gpu
+pytest --run_remote .  
+
+# to run with remote and with gpu
+pytest --run_remote .  --gpu_available
 
 """
 
@@ -49,12 +57,13 @@ def remove_directory(dir_path):
         shutil.rmtree(dir_path)
 
 
-# @pytest.fixture(scope="session")
-# def tmp_dir(tmpdir_factory):
-#     return tmpdir_factory.mktemp("tmp")
+@pytest.fixture(scope="session")
+def gpu_available(pytestconfig):
+    return pytestconfig.getoption("gpu_available")
 
-# the server can be down
-run_remote = False
+@pytest.fixture(scope="session")
+def run_remote(pytestconfig):
+    return pytestconfig.getoption("run_remote")
 
 
 def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
@@ -80,17 +89,21 @@ def test_install():
     exec_command(cmd)
 
 
-def test_run_genbank():
+def test_run_genbank(gpu_available):
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} --cpu -d {database_dir} -f"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
 
-def test_predict_genbank():
+def test_predict_genbank(gpu_available):
     """test phold predict with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  --cpu -d {database_dir} -f"
+    cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
 
@@ -108,10 +121,12 @@ def test_compare_pdb():
     exec_command(cmd)
 
 
-def test_predict_fasta():
+def test_predict_fasta(gpu_available):
     """test phold predict with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
-    cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads} -d {database_dir}  --cpu -f"
+    cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
 
@@ -122,10 +137,12 @@ def test_compare_fasta():
     exec_command(cmd)
 
 
-def test_proteins_predict():
+def test_proteins_predict(gpu_available):
     """test phold proteins-predict"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
-    cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} --cpu -f"
+    cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
 
@@ -143,19 +160,20 @@ def test_plot():
     exec_command(cmd)
 
 
-if run_remote is True:
 
-    def test_remote_genbank():
-        """test phold remote with genbank input"""
-        input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+def test_remote_genbank(run_remote):
+    """test phold remote with genbank input"""
+    input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+    if run_remote is True:
         cmd = f"phold remote -i {input_gbk} -o {remote_gbk_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 
-    def test_remote_fasta():
-        """test phold remote with fasta input"""
-        input_fasta: Path = (
-            f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
-        )
+def test_remote_fasta(run_remote):
+    """test phold remote with fasta input"""
+    input_fasta: Path = (
+        f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
+    )
+    if run_remote is True:
         cmd = f"phold remote -i {input_fasta} -o {remote_fasta_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 

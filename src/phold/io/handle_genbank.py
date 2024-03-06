@@ -237,7 +237,7 @@ def write_genbank(
                         "product": cds_feature.qualifiers["product"][0],
                     }
                 else:
-                    # because for some reason when parsing the pharokka genbank , it is a list, fasta it is not
+                    # because for some reason when parsing the pharokka genbank, it is a list, fasta it is not
                     if fasta_flag is True:
                         transl_table = cds_feature.qualifiers["transl_table"]
                     else:
@@ -257,9 +257,14 @@ def write_genbank(
                             start = cds_feature.location.start + 1
                         end = cds_feature.location.end
 
+                    if fasta_flag is True:
+                        cds_id = cds_feature.qualifiers["ID"]
+                    else: # because for some reason when parsing the pharokka genbank, it is a list
+                        cds_id = cds_feature.qualifiers["ID"][0]
+
                     cds_info = {
                         "contig_id": record_id,
-                        "cds_id": cds_feature.qualifiers["ID"][0],
+                        "cds_id": cds_id,
                         "start": start,
                         "end": end,
                         "strand": cds_feature.location.strand,
