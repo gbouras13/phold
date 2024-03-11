@@ -1,4 +1,4 @@
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb]
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb)
 
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/phold/badges/version.svg)](https://anaconda.org/bioconda/phold)
 [![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/phold)](https://img.shields.io/conda/dn/bioconda/phold)
