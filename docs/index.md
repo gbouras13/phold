@@ -13,4 +13,7 @@ The `phold` databse consists of approximately 803k protein structures generated 
 * [acrDB](https://bcb.unl.edu/AcrDB/) - nearly 3.7k anti-crispr proteins predicted in this [study](https://doi.org/10.1089/crispr.2023.0011).
 * [Defensefinder](https://defensefinder.mdmlab.fr) - 455 monomer prokaryotic defense proteins.
 
+# Google Colab Notebook
+
+If you don't want to install `phold` locally, you can run it without any code using the Google Colab notebook [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb).
 

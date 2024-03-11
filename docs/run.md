@@ -325,7 +325,7 @@ Options:
 
 This in an auxillary command that allows you to create Circos plots for your phage(s) with [pyCirclize](https://github.com/moshi4/pyCirclize). It requires only the `phold` Genbank file as its input and will output .png and .svg format files.
 
-If you have annotated more than 1 contig with `phold`, `phold plot` will automatically plot then all in separate files. The contig ids will be the prefix of the output plot file names.
+If you have annotated more than 1 contig with `phold`, `phold plot` will automatically plot them all in separate files. The contig ids will be the prefix of the output plot file names.
 
 Example usage 
 

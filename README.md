@@ -1,3 +1,5 @@
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb)
+
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/phold/badges/version.svg)](https://anaconda.org/bioconda/phold)
 [![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/phold)](https://img.shields.io/conda/dn/bioconda/phold)
 [![PyPI version](https://badge.fury.io/py/phold.svg)](https://badge.fury.io/py/phold)
@@ -19,10 +21,15 @@ If you have already annotated your phage(s) with Pharokka, `phold` takes the Gen
 
 Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutorial/](https://phold.readthedocs.io/en/latest/tutorial/).
 
+# Google Colab Notebook
+
+If you don't want to install `phold` locally, you can run it without any code using the Google Colab notebook [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb).
+
 # Table of Contents
 
 - [phold - Phage Annotation using Protein Structures](#phold---phage-annotation-using-protein-structures)
 - [Tutorial](#tutorial)
+- [Google Colab Notebook](#google-colab-notebook)
 - [Table of Contents](#table-of-contents)
 - [Documentation](#documentation)
 - [Installation](#installation)
