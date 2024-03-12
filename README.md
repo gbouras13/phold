@@ -1,4 +1,4 @@
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold.ipynb)
 
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/phold/badges/version.svg)](https://anaconda.org/bioconda/phold)
 [![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/phold)](https://img.shields.io/conda/dn/bioconda/phold)
@@ -21,15 +21,18 @@ If you have already annotated your phage(s) with Pharokka, `phold` takes the Gen
 
 Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutorial/](https://phold.readthedocs.io/en/latest/tutorial/).
 
-# Google Colab Notebook
+# Google Colab Notebooks
 
-If you don't want to install `phold` locally, you can run it without any code using the Google Colab notebook [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb).
+If you don't want to install `phold` locally, you can run it without any code using one of the following Google Colab notebooks:
+
+* To run `pharokka` + `phold` (recommended)  [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold.ipynb)
+* To run only `phold` [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb)
 
 # Table of Contents
 
 - [phold - Phage Annotation using Protein Structures](#phold---phage-annotation-using-protein-structures)
 - [Tutorial](#tutorial)
-- [Google Colab Notebook](#google-colab-notebook)
+- [Google Colab Notebooks](#google-colab-notebooks)
 - [Table of Contents](#table-of-contents)
 - [Documentation](#documentation)
 - [Installation](#installation)
