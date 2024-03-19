@@ -92,9 +92,17 @@ conda config --add channels conda-forge
 
 We would recommend installing `phold` into a fresh environment. Assuming you installed miniforge, to create an environment called `pholdENV` with `phold` installed (assuming you have an NVIDIA GPU):
 
-
 ```bash
 mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
+```
+
+If you have a Mac that runs Apple Silicon (M1/M2/M3),  please try:
+
+```bash
+mamba create -n pholdENV python==3.11  
+conda activate pholdENV
+mamba install pytorch::pytorch torchvision torchaudio -c pytorch 
+mamba install -c conda-forge -c bioconda phold 
 ```
 
 If you don't have a GPU:

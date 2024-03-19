@@ -60,10 +60,19 @@ mamba create -n pholdENV -c conda-forge -c bioconda phold
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. By default conda/mamba will install a CPU-only version. 
 
-Therefore, if you have an NVIDIA GPU, please try:
+If you have an NVIDIA GPU, please try:
 
 ```bash
 mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
+```
+
+If you have a Mac running Apple Silicon chip (M1/2/3), `phold` should be able to use the GPU. Please try:
+
+```bash
+mamba create -n pholdENV python==3.11  
+conda activate pholdENV
+mamba install pytorch::pytorch torchvision torchaudio -c pytorch 
+mamba install -c conda-forge -c bioconda phold 
 ```
 
 If you are having trouble with `pytorch` see [this link](https://pytorch.org) for more instructions. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
