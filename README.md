@@ -66,7 +66,7 @@ If you have an NVIDIA GPU, please try:
 mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 ```
 
-If you have a Mac running Apple Silicon chip (M1/2/3), `phold` should be able to use the GPU. Please try:
+If you have a Mac running an Apple Silicon chip (M1/M2/M3), `phold` should be able to use the GPU. Please try:
 
 ```bash
 mamba create -n pholdENV python==3.11  
