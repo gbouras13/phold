@@ -5,6 +5,7 @@ from loguru import logger
 from pycirclize import Circos
 from pycirclize.parser import Genbank
 from matplotlib.lines import Line2D
+import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
 from Bio import SeqUtils
@@ -625,3 +626,5 @@ def create_circos_plot(
 
     # Save the image as an SVG
     fig.savefig(svg_plot_file, format="svg", dpi=dpi)
+
+    plt.close(fig)
