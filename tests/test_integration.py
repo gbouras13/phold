@@ -10,6 +10,10 @@ pytest --run_remote .
 # to run with remote and with gpu
 pytest --run_remote  --gpu_available .
 
+# to run with 8 threads 
+
+pytest --run_remote  --gpu_available --threads 8 .
+
 """
 
 # import
@@ -51,7 +55,7 @@ plots_dir: Path = f"{output_dir}/plot_output"
 
 
 logger.add(lambda _: sys.exit(1), level="ERROR")
-threads = 1
+# threads = 1
 
 
 def remove_directory(dir_path):
@@ -65,6 +69,11 @@ def gpu_available(pytestconfig):
 @pytest.fixture(scope="session")
 def run_remote(pytestconfig):
     return pytestconfig.getoption("run_remote")
+
+@pytest.fixture(scope="session")
+def threads(pytestconfig):
+    return pytestconfig.getoption("threads")
+
 
 
 def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
@@ -90,7 +99,7 @@ def test_install():
     exec_command(cmd)
 
 
-def test_run_genbank(gpu_available):
+def test_run_genbank(gpu_available, threads):
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
@@ -98,7 +107,7 @@ def test_run_genbank(gpu_available):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
-def test_run_fasta(gpu_available):
+def test_run_fasta(gpu_available, threads):
     """test phold run with genbank input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
@@ -107,7 +116,7 @@ def test_run_fasta(gpu_available):
     exec_command(cmd)
 
 
-def test_predict_genbank(gpu_available):
+def test_predict_genbank(gpu_available, threads):
     """test phold predict with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  -d {database_dir} -f"
@@ -116,27 +125,27 @@ def test_predict_genbank(gpu_available):
     exec_command(cmd)
 
 
-def test_compare_genbank():
+def test_compare_genbank(threads):
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
 
-def test_compare_pdb():
+def test_compare_pdb(threads):
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
 
-def test_proteins_compare_pdb():
+def test_proteins_compare_pdb(threads):
     """test phold proteins-compare with pdbs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
 
 
-def test_predict_fasta(gpu_available):
+def test_predict_fasta(gpu_available, threads):
     """test phold predict with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads} -d {database_dir} -f"
@@ -145,14 +154,14 @@ def test_predict_fasta(gpu_available):
     exec_command(cmd)
 
 
-def test_compare_fasta():
+def test_compare_fasta(threads):
     """test phold compare with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold compare -i {input_fasta} -o {compare_fasta_dir} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
 
-def test_proteins_predict(gpu_available):
+def test_proteins_predict(gpu_available, threads):
     """test phold proteins-predict"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f"
@@ -161,7 +170,7 @@ def test_proteins_predict(gpu_available):
     exec_command(cmd)
 
 
-def test_proteins_compare():
+def test_proteins_compare(threads):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
@@ -176,14 +185,14 @@ def test_plot():
 
 
 
-def test_remote_genbank(run_remote):
+def test_remote_genbank(run_remote, threads):
     """test phold remote with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     if run_remote is True:
         cmd = f"phold remote -i {input_gbk} -o {remote_gbk_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 
-def test_remote_fasta(run_remote):
+def test_remote_fasta(run_remote, threads):
     """test phold remote with fasta input"""
     input_fasta: Path = (
         f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
