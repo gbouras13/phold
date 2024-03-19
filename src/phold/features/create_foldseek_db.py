@@ -210,7 +210,7 @@ def generate_foldseek_db_from_pdbs(
 
     if num_pdbs == 0:
         logger.error(
-            f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir}"
+            f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir} directory"
         )
 
     # generate the db

@@ -1,5 +1,11 @@
 # History
 
+0.1.3 (2024-03-19)
+------------------
+
+* Adds compability with Apple Silicon (M1/M2/M3) GPUs
+* Fixes memory issue for `phold plot` with many contigs
+
 0.1.2 (2024-03-06)
 ------------------
 

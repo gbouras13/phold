@@ -46,6 +46,7 @@ remote_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_remote_gbk"
 remote_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_remote_fasta"
 proteins_predict_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_predict"
 proteins_compare_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_compare"
+proteins_compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_pdb"
 plots_dir: Path = f"{output_dir}/plot_output"
 
 
@@ -56,7 +57,6 @@ threads = 1
 def remove_directory(dir_path):
     if os.path.exists(dir_path):
         shutil.rmtree(dir_path)
-
 
 @pytest.fixture(scope="session")
 def gpu_available(pytestconfig):
@@ -127,6 +127,12 @@ def test_compare_pdb():
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
+    exec_command(cmd)
+
+def test_proteins_compare_pdb():
+    """test phold proteins-compare with pdbs input"""
+    input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
+    cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
 
 
