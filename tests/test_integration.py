@@ -11,7 +11,6 @@ pytest --run_remote .
 pytest --run_remote  --gpu_available .
 
 # to run with 8 threads 
-
 pytest --run_remote  --gpu_available --threads 8 .
 
 """
