@@ -38,6 +38,17 @@ cd phold
 pip install -e .
 ```
 
+## Mac (M1/M2/M3)
+
+If you have a Mac that runs Apple Silicon (M1/M2/M3), please try:
+
+```bash
+mamba create -n pholdENV python==3.11  
+conda activate pholdENV
+mamba install pytorch::pytorch torchvision torchaudio -c pytorch 
+mamba install -c conda-forge -c bioconda phold 
+```
+
 ## Torch 
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
@@ -46,7 +57,7 @@ If it is not automatically installed via the installation methods above, please 
 
 If you have an older version of the CUDA driver installed on your NVIDIA GPU, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
-Phold has been tested on NVIDIA GPUs (A100, RTX4090) and AMD GPUs (Radeon). 
+Phold has been tested on NVIDIA (A100, RTX4090), AMD (MI250) and Mac (M1 Pro) GPUs. 
 
 Installation on AMD GPUs requires a version of `torch` compatible with rocm e.g.
 
@@ -92,11 +103,9 @@ conda config --add channels conda-forge
 
 We would recommend installing `phold` into a fresh environment. Assuming you installed miniforge, to create an environment called `pholdENV` with `phold` installed (assuming you have an NVIDIA GPU):
 
-
 ```bash
 mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 ```
-
 If you don't have a GPU:
 
 ```bash

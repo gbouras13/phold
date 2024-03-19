@@ -96,20 +96,24 @@ def get_T5_model(
 
     global device
 
-    if torch.cuda.is_available():
-        if cpu is True:
-            device = torch.device("cpu")
-            dev_name = "cpu"
-        else:
-            device = torch.device("cuda:0")
-            dev_name = "cuda:0"
-    else:
+    if cpu is True:
         device = torch.device("cpu")
         dev_name = "cpu"
-        if cpu is not True:
-            logger.warning("No available GPU was found, but --cpu was not specified")
-            logger.warning("ProstT5 will be run with CPU only")
-
+    else:
+        # check for NVIDIA/cuda
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+            dev_name = "cuda:0"
+        # check for apple silicon/metal
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+            dev_name = "mps"
+        else:
+            device = torch.device("cpu")
+            dev_name = "cpu"
+            if cpu is not True:
+                logger.warning("No available GPU was found, but --cpu was not specified")
+                logger.warning("ProstT5 will be run with CPU only")
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))
