@@ -239,9 +239,17 @@ def write_genbank(
                 else:
                     # because for some reason when parsing the pharokka genbank, it is a list, fasta it is not
                     if fasta_flag is True:
-                        transl_table = cds_feature.qualifiers["transl_table"]
+                        try:
+                            transl_table = cds_feature.qualifiers["transl_table"]
+                        except:
+                            # for older pharokka input before v1.5.0
+                            transl_table = "11"
                     else:
-                        transl_table = cds_feature.qualifiers["transl_table"][0]
+                        try:
+                            transl_table = cds_feature.qualifiers["transl_table"][0]
+                        except:
+                            # for older pharokka input before v1.5.0 
+                            transl_table = "11"
 
                     # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
                     if cds_feature.location.strand == -1:  # neg strand
