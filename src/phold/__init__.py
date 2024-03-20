@@ -454,7 +454,7 @@ compare command
 @click.option(
     "--filter_pdbs",
     is_flag=True,
-    help="Flag that creates a copy of the PDBs with matching record IDs found in the GenBank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options
@@ -693,13 +693,13 @@ Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with pdbs. The FASTA headers need to match names of the pdb files",
+    help="Path to directory with .pdb files. The FASTA headers need to match names of the .pdb files",
     type=click.Path(),
 )
 @click.option(
     "--filter_pdbs",
     is_flag=True,
-    help="Flag that creates a copy of the PDBs with matching record IDs found in the GenBank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input. Helpful if you have a directory with lots of .pdb files and want to annotate only some.",
 )
 @common_options
 @compare_options
