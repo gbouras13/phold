@@ -177,8 +177,6 @@ def generate_foldseek_db_from_pdbs(
 
     for id in sequences_aa.keys():
 
-        # cds_id = id.split(":")[1]
-
         # in case the header has a colon in it - this will cause a bug if so
         cds_id = id.split(":")[1:] 
         cds_id = ":".join(cds_id).strip() 

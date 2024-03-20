@@ -696,6 +696,11 @@ Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
     help="Path to directory with pdbs. The FASTA headers need to match names of the pdb files",
     type=click.Path(),
 )
+@click.option(
+    "--filter_pdbs",
+    is_flag=True,
+    help="Flag that creates a copy of the PDBs with matching record IDs found in the GenBank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+)
 @common_options
 @compare_options
 def proteins_compare(
@@ -711,6 +716,7 @@ def proteins_compare(
     predictions_dir,
     pdb,
     pdb_dir,
+    filter_pdbs,
     keep_tmp_files,
     split,
     split_threshold,
@@ -740,6 +746,7 @@ def proteins_compare(
         "--predictions_dir": predictions_dir,
         "--pdb": pdb,
         "--pdb_dir": pdb_dir,
+        "--filter_pdbs": filter_pdbs,
         "--keep_tmp_files": keep_tmp_files,
         "--split": split,
         "--split_threshold": split_threshold,
@@ -795,7 +802,7 @@ def proteins_compare(
         pdb,
         pdb_dir,
         logdir,
-        filter_pdbs=False,
+        filter_pdbs,
         split=split,
         split_threshold=split_threshold,
         remote_flag=False,
