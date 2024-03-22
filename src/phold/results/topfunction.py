@@ -83,8 +83,15 @@ def get_topfunctions(
         "envhog_" + foldseek_df.loc[mask, "tophit_protein"]
     )
 
-    foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
+    # strip off efam
+    mask = foldseek_df["phrog"].str.startswith("efam_")
+    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
+        "efam_", ""
+    )
+    # no need to add it on to protein - already done
 
+
+    foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
     # read in the mapping tsv
     phrog_annot_mapping_tsv: Path = Path(database) / "phold_annots.tsv"
     phrog_mapping_df = pd.read_csv(phrog_annot_mapping_tsv, sep="\t")

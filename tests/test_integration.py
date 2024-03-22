@@ -39,7 +39,9 @@ pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
+run_gbk_pharokka_1_4_1_dir : Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
+run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
@@ -100,6 +102,14 @@ def test_install():
 
 def test_run_genbank(gpu_available, threads):
     """test phold run with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+def test_run_genbank_old_pharokka(gpu_available, threads):
+    """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
@@ -114,6 +124,13 @@ def test_run_fasta(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_run_efam(gpu_available, threads):
+    """test phold run with a tophit to efam"""
+    input_fasta: Path = f"{test_data}/KF623293.1_subset_efam.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_efam_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_predict_genbank(gpu_available, threads):
     """test phold predict with genbank input"""
@@ -142,7 +159,6 @@ def test_proteins_compare_pdb(threads):
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
-
 
 def test_predict_fasta(gpu_available, threads):
     """test phold predict with fasta input"""
