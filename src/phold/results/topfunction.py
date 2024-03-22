@@ -174,10 +174,15 @@ def get_topfunctions(
                         value / total_functional_bitscore, 3
                     )
 
-            top_bitscore_function = max(
-                weighted_counts_normalised, key=weighted_counts_normalised.get
-            )
-            top_bitscore_perc = max(weighted_counts_normalised.values())
+            # error where weighted_counts_normalised was empty for maxseqs = 10000
+            if weighted_counts_normalised:
+                top_bitscore_function = max(
+                    weighted_counts_normalised, key=weighted_counts_normalised.get
+                )
+                top_bitscore_perc = max(weighted_counts_normalised.values())
+            else:
+                top_bitscore_function = "unknown function"
+                top_bitscore_perc = 0
 
         d = {
             "function_with_highest_bitscore_proportion": [top_bitscore_function],
