@@ -176,10 +176,9 @@ def generate_foldseek_db_from_pdbs(
     no_pdb_cds_ids = []
 
     for id in sequences_aa.keys():
-
         # in case the header has a colon in it - this will cause a bug if so
-        cds_id = id.split(":")[1:] 
-        cds_id = ":".join(cds_id).strip() 
+        cds_id = id.split(":")[1:]
+        cds_id = ":".join(cds_id).strip()
 
         # record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs

@@ -90,7 +90,6 @@ def get_topfunctions(
     )
     # no need to add it on to protein - already done
 
-
     foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
     # read in the mapping tsv
     phrog_annot_mapping_tsv: Path = Path(database) / "phold_annots.tsv"

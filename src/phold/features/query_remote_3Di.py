@@ -9,7 +9,9 @@ import requests
 from loguru import logger
 
 
-def query_remote_3di(cds_dict: Dict[str, dict], fasta_3di: Path, fasta_flag: bool) -> None:
+def query_remote_3di(
+    cds_dict: Dict[str, dict], fasta_3di: Path, fasta_flag: bool
+) -> None:
     """
 
     Query remote Foldseek ProstT5 server for 3Di predictions of amino acid sequences and write to file.

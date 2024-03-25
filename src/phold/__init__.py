@@ -8,24 +8,18 @@ from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
 from pycirclize.parser import Genbank
 
-
-from phold.plot.plot import create_circos_plot
-
 from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
+from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR
-from phold.utils.util import (
-    begin_phold,
-    clean_up_temporary_files,
-    end_phold,
-    get_version,
-    print_citation,
-)
-from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
+from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
+                              get_version, print_citation)
+from phold.utils.validation import (check_dependencies, instantiate_dirs,
+                                    validate_input)
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -279,6 +273,8 @@ def run(
 
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
+
+    print(gb_dict)
 
     # phold predict
     model_dir = database
@@ -898,20 +894,20 @@ def remote(
 
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
-
     # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-    
+
     for record_id, record in gb_dict.items():
         cds_dict[record_id] = {}
 
         for cds_feature in record.features:
             if cds_feature.type == "CDS":
                 if fasta_flag is False:
-                    cds_feature.qualifiers["translation"] = cds_feature.qualifiers["translation"][0]
+                    cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
+                        "translation"
+                    ][0]
                     cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
                 else:
                     cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
-
 
     ## write the CDS to file
     # FASTA -> takes the whole thing
@@ -919,13 +915,11 @@ def remote(
 
     with open(fasta_aa, "w+") as out_f:
         for contig_id, rest in cds_dict.items():
-
             aa_contig_dict = cds_dict[contig_id]
             # writes the CDS to file
             for seq_id, cds_feature in aa_contig_dict.items():
                 out_f.write(f">{contig_id}:{seq_id}\n")
                 out_f.write(f"{cds_feature.qualifiers['translation']}\n")
-
 
     ############
     # prostt5 remote
