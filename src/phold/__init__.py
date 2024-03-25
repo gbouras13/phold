@@ -274,8 +274,6 @@ def run(
     # validate input
     fasta_flag, gb_dict = validate_input(input, threads)
 
-    print(gb_dict)
-
     # phold predict
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"

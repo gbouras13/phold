@@ -65,7 +65,7 @@ def subcommand_predict(
                         cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
                             "translation"
                         ][0]
-                        
+
                         # for really long CDS IDs (over 54 chars), a space will be introduced
                         # this is because the ID will go over a second line
                         # weird bug noticed it on the Mgnify contigs annotated with Pharokka
@@ -75,9 +75,7 @@ def subcommand_predict(
                             # Remove all spaces from the string
                             cds_id = cds_id.replace(" ", "")
 
-                        cds_dict[record_id][
-                            cds_id
-                        ] = cds_feature
+                        cds_dict[record_id][cds_id] = cds_feature
 
                     else:
                         cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
