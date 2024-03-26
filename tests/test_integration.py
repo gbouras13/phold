@@ -39,6 +39,7 @@ output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
+run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
 run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
@@ -118,6 +119,13 @@ def test_run_genbank_old_pharokka(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_run_genbank_long_header(gpu_available, threads):
+    """test phold run with pharokka genbank with large header/locus tag (over 54 chars)"""
+    input_gbk: Path = f"{test_data}/long_header.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_long_header_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_run_fasta(gpu_available, threads):
     """test phold run with genbank input"""
