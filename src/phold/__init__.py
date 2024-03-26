@@ -8,24 +8,18 @@ from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
 from pycirclize.parser import Genbank
 
-
-from phold.plot.plot import create_circos_plot
-
 from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
+from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR
-from phold.utils.util import (
-    begin_phold,
-    clean_up_temporary_files,
-    end_phold,
-    get_version,
-    print_citation,
-)
-from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
+from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
+                              get_version, print_citation)
+from phold.utils.validation import (check_dependencies, instantiate_dirs,
+                                    validate_input)
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -454,7 +448,7 @@ compare command
 @click.option(
     "--filter_pdbs",
     is_flag=True,
-    help="Flag that creates a copy of the PDBs with matching record IDs found in the GenBank. Helpful if you have a directory with lots of PDBs and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options
@@ -693,8 +687,13 @@ Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with pdbs. The FASTA headers need to match names of the pdb files",
+    help="Path to directory with .pdb files. The FASTA headers need to match names of the .pdb files",
     type=click.Path(),
+)
+@click.option(
+    "--filter_pdbs",
+    is_flag=True,
+    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input. Helpful if you have a directory with lots of .pdb files and want to annotate only some.",
 )
 @common_options
 @compare_options
@@ -711,6 +710,7 @@ def proteins_compare(
     predictions_dir,
     pdb,
     pdb_dir,
+    filter_pdbs,
     keep_tmp_files,
     split,
     split_threshold,
@@ -740,6 +740,7 @@ def proteins_compare(
         "--predictions_dir": predictions_dir,
         "--pdb": pdb,
         "--pdb_dir": pdb_dir,
+        "--filter_pdbs": filter_pdbs,
         "--keep_tmp_files": keep_tmp_files,
         "--split": split,
         "--split_threshold": split_threshold,
@@ -795,7 +796,7 @@ def proteins_compare(
         pdb,
         pdb_dir,
         logdir,
-        filter_pdbs=False,
+        filter_pdbs,
         split=split,
         split_threshold=split_threshold,
         remote_flag=False,
@@ -891,20 +892,20 @@ def remote(
 
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
-
     # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-    
+
     for record_id, record in gb_dict.items():
         cds_dict[record_id] = {}
 
         for cds_feature in record.features:
             if cds_feature.type == "CDS":
                 if fasta_flag is False:
-                    cds_feature.qualifiers["translation"] = cds_feature.qualifiers["translation"][0]
+                    cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
+                        "translation"
+                    ][0]
                     cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
                 else:
                     cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
-
 
     ## write the CDS to file
     # FASTA -> takes the whole thing
@@ -912,13 +913,11 @@ def remote(
 
     with open(fasta_aa, "w+") as out_f:
         for contig_id, rest in cds_dict.items():
-
             aa_contig_dict = cds_dict[contig_id]
             # writes the CDS to file
             for seq_id, cds_feature in aa_contig_dict.items():
                 out_f.write(f">{contig_id}:{seq_id}\n")
                 out_f.write(f"{cds_feature.qualifiers['translation']}\n")
-
 
     ############
     # prostt5 remote

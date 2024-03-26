@@ -1,16 +1,16 @@
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
-from loguru import logger
-from pycirclize import Circos
-from pycirclize.parser import Genbank
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 import numpy as np
 from Bio import SeqUtils
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature
+from loguru import logger
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from pycirclize import Circos
+from pycirclize.parser import Genbank
 
 
 def create_circos_plot(

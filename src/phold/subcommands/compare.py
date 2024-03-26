@@ -10,14 +10,13 @@ from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di,
-    generate_foldseek_db_from_pdbs,
-)
+    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.features.split_3Di import split_3di_fasta_by_prob
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
-from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
+from phold.results.topfunction import (calculate_topfunctions_results,
+                                       get_topfunctions)
 
 
 def subcommand_compare(
@@ -90,7 +89,7 @@ def subcommand_compare(
                 if fasta_flag is False:
                     if cds_feature.type == "CDS":
                         # update DNA, RNA and nucleotide metabolism from pharokka as it is broken as of 1.6.1
-                        if "DNA" in cds_feature.qualifiers["function"][0] :
+                        if "DNA" in cds_feature.qualifiers["function"][0]:
                             cds_feature.qualifiers["function"][
                                 0
                             ] = "DNA, RNA and nucleotide metabolism"
@@ -98,7 +97,7 @@ def subcommand_compare(
                                 cds_feature.qualifiers["function"][0]
                             ]  # Keep only the first element
                         # moron, auxiliary metabolic gene and host takeover as it is broken as of 1.6.1
-                        if "moron" in cds_feature.qualifiers["function"][0] :
+                        if "moron" in cds_feature.qualifiers["function"][0]:
                             cds_feature.qualifiers["function"][
                                 0
                             ] = "moron, auxiliary metabolic gene and host takeover"

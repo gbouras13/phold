@@ -11,7 +11,6 @@ pytest --run_remote .
 pytest --run_remote  --gpu_available .
 
 # to run with 8 threads 
-
 pytest --run_remote  --gpu_available --threads 8 .
 
 """
@@ -19,7 +18,6 @@ pytest --run_remote  --gpu_available --threads 8 .
 # import
 import os
 import shutil
-
 # import functions
 import subprocess
 import sys
@@ -40,7 +38,10 @@ pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
+run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
+run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
+run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
@@ -62,18 +63,20 @@ def remove_directory(dir_path):
     if os.path.exists(dir_path):
         shutil.rmtree(dir_path)
 
+
 @pytest.fixture(scope="session")
 def gpu_available(pytestconfig):
     return pytestconfig.getoption("gpu_available")
+
 
 @pytest.fixture(scope="session")
 def run_remote(pytestconfig):
     return pytestconfig.getoption("run_remote")
 
+
 @pytest.fixture(scope="session")
 def threads(pytestconfig):
     return pytestconfig.getoption("threads")
-
 
 
 def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
@@ -101,8 +104,25 @@ def test_install():
 
 def test_run_genbank(gpu_available, threads):
     """test phold run with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
+def test_run_genbank_old_pharokka(gpu_available, threads):
+    """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+def test_run_genbank_long_header(gpu_available, threads):
+    """test phold run with pharokka genbank with large header/locus tag (over 54 chars)"""
+    input_gbk: Path = f"{test_data}/long_header.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_long_header_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
@@ -111,6 +131,15 @@ def test_run_fasta(gpu_available, threads):
     """test phold run with genbank input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
+def test_run_efam(gpu_available, threads):
+    """test phold run with a tophit to efam"""
+    input_fasta: Path = f"{test_data}/KF623293.1_subset_efam.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_efam_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
@@ -137,6 +166,7 @@ def test_compare_pdb(threads):
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
     exec_command(cmd)
+
 
 def test_proteins_compare_pdb(threads):
     """test phold proteins-compare with pdbs input"""
@@ -184,7 +214,6 @@ def test_plot():
     exec_command(cmd)
 
 
-
 def test_remote_genbank(run_remote, threads):
     """test phold remote with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
@@ -192,11 +221,10 @@ def test_remote_genbank(run_remote, threads):
         cmd = f"phold remote -i {input_gbk} -o {remote_gbk_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 
+
 def test_remote_fasta(run_remote, threads):
     """test phold remote with fasta input"""
-    input_fasta: Path = (
-        f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
-    )
+    input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     if run_remote is True:
         cmd = f"phold remote -i {input_fasta} -o {remote_fasta_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)

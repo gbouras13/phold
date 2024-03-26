@@ -1,5 +1,12 @@
 # History
 
+0.1.4 (2024-03-26)
+------------------
+
+* Fixes #31 issue with older Pharokka genbank input (prior to v1.5.0) that lacked 'transl_table' field
+    * All Pharokka genbank input prior to v1.5.0 will be transl_table 11 (it is before pyrodigal-gv was added)
+* Fixes genbank parsing bug that would occur if the ID/locus tag of the features in the inout genbank were longer than 54 characters 
+
 0.1.3 (2024-03-19)
 ------------------
 
