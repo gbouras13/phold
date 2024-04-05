@@ -5,7 +5,7 @@ requires = ["setuptools>=61.0", "wheel>=0.37.1"]
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 name = "phold"
-version = "0.1.4" # change VERSION too
+version = "0.1.5" # change VERSION too
 description = "Phage Annotations using Protein Structures"
 readme = "README.md"
 requires-python = ">=3.8, <3.12"
@@ -47,6 +47,7 @@ dependencies = [
         "alive-progress >=3.0.1",
         "numpy >=1.20",
         "pycirclize >=0.3.1",
+        "h5py >=3.5"
     ]
 
 [project.scripts]
