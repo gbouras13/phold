@@ -43,6 +43,7 @@ run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
 run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
+save_embeddings_predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_save_embeddings_gbk"
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
 predict_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_predict_fasta"
@@ -153,6 +154,13 @@ def test_predict_genbank(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_predict_save_embeddings(gpu_available, threads):
+    """test phold predict with genbank input and save embeddings"""
+    input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+    cmd = f"phold predict -i {input_gbk} -o {save_embeddings_predict_gbk_dir} -t {threads}  -d {database_dir} -f --save_per_residue_embeddings --save_per_protein_embeddings"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_compare_genbank(threads):
     """test phold compare with genbank input"""
