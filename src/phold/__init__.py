@@ -111,6 +111,16 @@ def predict_options(func):
         click.option(
             "--finetune_path", help="Path to finetuned model weights", default=None
         ),
+        click.option(
+            "--save_per_residue_embeddings",
+            is_flag=True,
+            help="Save the ProstT5 embeddings per resuide in a h5 file ",
+        ),
+        click.option(
+            "--save_per_protein_embeddings",
+            is_flag=True,
+            help="Save the ProstT5 embeddings as means per protein in a h5 file",
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -230,6 +240,8 @@ def run(
     split_threshold,
     separate,
     max_seqs,
+    save_per_residue_embeddings,
+    save_per_protein_embeddings,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -260,6 +272,8 @@ def run(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
+        "--save_per_residue_embeddings": save_per_residue_embeddings,
+        "--save_per_protein_embeddings": save_per_protein_embeddings
     }
 
     # initial logging etc
@@ -291,6 +305,8 @@ def run(
         finetune_path,
         proteins_flag=False,
         fasta_flag=fasta_flag,
+        save_per_residue_embeddings=save_per_residue_embeddings,
+        save_per_protein_embeddings=save_per_protein_embeddings
     )
 
     # phold compare
@@ -358,6 +374,8 @@ def predict(
     omit_probs,
     finetune,
     finetune_path,
+    save_per_residue_embeddings,
+    save_per_protein_embeddings,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -380,6 +398,8 @@ def predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--save_per_residue_embeddings": save_per_residue_embeddings,
+        "--save_per_protein_embeddings":  save_per_protein_embeddings,
     }
 
     # initial logging etc
@@ -408,6 +428,8 @@ def predict(
         finetune_path,
         proteins_flag=False,
         fasta_flag=fasta_flag,
+        save_per_residue_embeddings=save_per_residue_embeddings,
+        save_per_protein_embeddings=save_per_protein_embeddings
     )
 
     # end phold
@@ -579,6 +601,8 @@ def proteins_predict(
     omit_probs,
     finetune,
     finetune_path,
+    save_per_residue_embeddings,
+    save_per_protein_embeddings,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -601,6 +625,8 @@ def proteins_predict(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
+        "--save_per_residue_embeddings": save_per_residue_embeddings,
+        "--save_per_protein_embeddings": save_per_protein_embeddings,
     }
 
     # initial logging etc
@@ -652,6 +678,8 @@ def proteins_predict(
         finetune_path,
         proteins_flag=True,
         fasta_flag=False,
+        save_per_residue_embeddings=save_per_residue_embeddings,
+        save_per_protein_embeddings=save_per_protein_embeddings
     )
 
     # end phold
@@ -659,8 +687,9 @@ def proteins_predict(
 
 
 """ 
-proteins command
-Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input
+proteins compare command
+
+Runs Foldseek vs phold DB for multiFASTA 3Di sequences (predicted with proteins-predict)
 """
 
 
