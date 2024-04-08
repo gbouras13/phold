@@ -62,13 +62,12 @@ def get_topfunctions(
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
 
-    # clean up later
-    if database_name == "all_phold_structures" or database_name == "all_phold_prostt5":
-        foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
-        # split the target column as this will have phrog:protein
-        foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
-            ":", expand=True, n=1
-        )
+    # clean up pdb and phrogs
+    foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
+    # split the target column as this will have phrog:protein
+    foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
+        ":", expand=True, n=1
+    )
 
     foldseek_df = foldseek_df.drop(columns=["target"])
     foldseek_df["phrog"] = foldseek_df["phrog"].str.replace("phrog_", "")
