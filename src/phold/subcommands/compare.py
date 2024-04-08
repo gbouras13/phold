@@ -40,6 +40,7 @@ def subcommand_compare(
     fasta_flag: bool,
     separate: bool,
     max_seqs: int,
+    cluster_search: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -65,6 +66,7 @@ def subcommand_compare(
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
+        cluster_search (bool): Whether cluster search mode is run against the clustered phold db
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -326,7 +328,13 @@ def subcommand_compare(
     # no split
     else:
         short_db_name = prefix
-        database_name = "all_phold_structures"
+
+        # clustered search
+        if cluster_search is True:
+            database_name = "all_phold_structures_clustered_searchDB"
+        else:
+            database_name = "all_phold_structures"
+        
         if short_db_name == database_name:
             logger.error(
                 f"Please choose a different {prefix} as this conflicts with the {database_name}"
@@ -354,6 +362,7 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
+            cluster_search
         )
 
         # make result tsv
