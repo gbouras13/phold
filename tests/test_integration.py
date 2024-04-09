@@ -42,6 +42,7 @@ run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
 run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
+run_fasta_depolymerase_dir: Path = f"{output_dir}/PP_depolymerase_phold_run_fasta" 
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
 save_embeddings_predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_save_embeddings_gbk"
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
@@ -141,6 +142,14 @@ def test_run_efam(gpu_available, threads):
     """test phold run with a tophit to efam"""
     input_fasta: Path = f"{test_data}/KF623293.1_subset_efam.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_efam_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+def test_run_depolymerase(gpu_available, threads):
+    """test phold run with phage contig with a depolymerase"""
+    input_fasta: Path = f"{test_data}/PP476965.1_subset_depolymerase.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_depolymerase_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)

@@ -374,6 +374,9 @@ def subcommand_compare(
 
         # make result tsv
         result_tsv: Path = Path(output) / "foldseek_results.tsv"
+        
+        # target_db is all_phold_structures regardless of the clustered search mode
+        target_db: Path = Path(database) / "all_phold_structures"
         create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
     ########

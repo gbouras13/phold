@@ -73,7 +73,9 @@ def create_result_tsv(
     Returns:
         None
     """
-    foldseek_search = ExternalTool(
+
+
+    foldseek_createtsv = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
@@ -81,4 +83,4 @@ def create_result_tsv(
         logdir=logdir,
     )
 
-    ExternalTool.run_tool(foldseek_search)
+    ExternalTool.run_tool(foldseek_createtsv)
