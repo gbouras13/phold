@@ -40,7 +40,8 @@ def subcommand_compare(
     fasta_flag: bool,
     separate: bool,
     max_seqs: int,
-    cluster_search: bool
+    cluster_search: bool,
+    ultra_sensitive: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -67,6 +68,7 @@ def subcommand_compare(
         separate (bool): Flag indicating whether to separate the analysis.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         cluster_search (bool): Whether cluster search mode is run against the clustered phold db
+        ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -278,6 +280,7 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
+            ultra_sensitive
         )
 
         # make result tsv for high prob vs structure db
@@ -447,6 +450,26 @@ def subcommand_compare(
     )
     merged_df = merged_df.reindex(columns=new_column_order)
 
+
+    # get deposcope info
+    deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
+    deposcope_df = pd.read_csv(deposcope_metadata_path, sep=",")
+    deposcope_list = deposcope_df['tophit_protein'].tolist()
+
+    merged_df['depolymerase'] = merged_df['tophit_protein'].isin(deposcope_list)
+
+    # move after tophit_protein
+
+    annotation_method_index = merged_df.columns.get_loc("annotation_method")
+
+    new_column_order = (
+        list(merged_df.columns[: annotation_method_index + 1])
+        + ["depolymerase"]
+        + list(merged_df.columns[annotation_method_index + 1 : -1])
+    )
+    merged_df = merged_df.reindex(columns=new_column_order)
+
+    # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
 
@@ -454,7 +477,6 @@ def subcommand_compare(
     sub_dbs_created = create_sub_db_outputs(merged_df, database, output)
 
     # save the function counts is not proteins
-
     if proteins_flag is False:
         contig_ids = merged_df["contig_id"].unique()
 

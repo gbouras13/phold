@@ -14,7 +14,8 @@ def run_foldseek_search(
     evalue: float,
     sensitivity: float,
     max_seqs: int,
-    cluster_search: bool
+    cluster_search: bool,
+    ultra_sensitive: bool
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -30,12 +31,16 @@ def run_foldseek_search(
         sensitivity (float): Sensitivity threshold for the search.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         cluster_search (bool): Whether cluster search mode is run against the clustered phold db
+        ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
 
     Returns:
         None
     """
 
-    cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}"
+    if ultra_sensitive:
+        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --exhaustive-search"
+    else:
+        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}"
 
     if cluster_search:
         cmd += " --cluster-search 1"
@@ -45,7 +50,7 @@ def run_foldseek_search(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}",
+        params=f"{cmd}",
         logdir=logdir,
     )
 

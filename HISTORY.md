@@ -1,5 +1,23 @@
 # History
 
+0.2.0
+------------------
+
+* Improved sensitivity and faster runtime for `phold compare`. This is achieved by clustering the Phold database at `--min-seq-id 0.3` and creating a cluster db before running with `foldseek` which dramatically improves runtime.
+    * Additionally, changed default `--max_seqs` from 1000 to 10000 to improve sensitivity
+* Adds `--ultra_sensitive` flag to `phold compare` which turns off Foldseek prefiltering for maximum annotation sensitivity. Recommended for small datasets.
+    * This passes `--exhaustive-search` to `foldseek`
+
+    * Extremely conservative high confidence [efam](https://doi.org/10.1093/bioinformatics/btab451) proteins with hits to PHROGs 
+    * 95% dereplicated diversity-generating retroelements (DGRs) from [Roux et al](https://www.nature.com/articles/s41467-021-23402-7)
+* Adds the ability to save embeddings with `--save_per_residue_embeddings` and `--save_per_protein_embeddings`
+
+
+* Fixes #31 issue with older Pharokka genbank input (prior to v1.5.0) that lacked 'transl_table' field
+    * All Pharokka genbank input prior to v1.5.0 will be transl_table 11 (it is before pyrodigal-gv was added)
+* Fixes genbank parsing bug that would occur if the ID/locus tag of the features in the inout genbank were longer than 54 characters 
+
+
 0.1.4 (2024-03-26)
 ------------------
 
