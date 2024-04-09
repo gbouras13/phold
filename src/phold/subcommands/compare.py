@@ -280,6 +280,7 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
+            cluster_search,
             ultra_sensitive
         )
 
@@ -313,6 +314,8 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
+            cluster_search,
+            ultra_sensitive
         )
 
         # make result tsv
@@ -365,7 +368,8 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
-            cluster_search
+            cluster_search,
+            ultra_sensitive
         )
 
         # make result tsv
