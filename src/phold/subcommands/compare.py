@@ -40,6 +40,7 @@ def subcommand_compare(
     fasta_flag: bool,
     separate: bool,
     max_seqs: int,
+    cluster_db: bool,
     cluster_search: bool,
     ultra_sensitive: bool
 ) -> bool:
@@ -67,6 +68,7 @@ def subcommand_compare(
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
+        cluster_db (bool): Whether to run against clustered db 
         cluster_search (bool): Whether cluster search mode is run against the clustered phold db
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
 
@@ -280,6 +282,7 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
+            cluster_db,
             cluster_search,
             ultra_sensitive
         )
@@ -314,6 +317,7 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
+            cluster_db,
             cluster_search,
             ultra_sensitive
         )
@@ -335,8 +339,8 @@ def subcommand_compare(
     else:
         short_db_name = prefix
 
-        # clustered search
-        if cluster_search is True:
+        # clustered db search
+        if cluster_db is True:
             database_name = "all_phold_structures_clustered_searchDB"
         else:
             database_name = "all_phold_structures"

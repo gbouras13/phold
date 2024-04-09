@@ -188,9 +188,14 @@ def compare_options(func):
             help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
         ),
         click.option(
-            "--cluster_search",
+            "--cluster_db",
             is_flag=True,
             help="Run phold against clustered DB",
+        ),
+        click.option(
+            "--cluster_search",
+            is_flag=True,
+            help="Turn on  --cluster-search 1 parameter with Foldseek (first find representative then align all cluster members)",
         ),
         click.option(
             "--ultra_sensitive",
@@ -253,6 +258,7 @@ def run(
     max_seqs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
+    cluster_db,
     cluster_search,
     ultra_sensitive,
     **kwargs,
@@ -287,6 +293,7 @@ def run(
         "--max_seqs": max_seqs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
+        "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
         "--ultra_sensitive": ultra_sensitive
     }
@@ -347,6 +354,7 @@ def run(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive
     )
@@ -511,6 +519,7 @@ def compare(
     card_vfdb_evalue,
     separate,
     max_seqs,
+    cluster_db,
     cluster_search,
     ultra_sensitive,
     **kwargs,
@@ -543,6 +552,7 @@ def compare(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
+        "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
         "--ultra_sensitive": ultra_sensitive
     }
@@ -580,6 +590,7 @@ def compare(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive
     )
@@ -769,6 +780,7 @@ def proteins_compare(
     card_vfdb_evalue,
     separate,
     max_seqs,
+    cluster_db,
     cluster_search,
     ultra_sensitive,
     **kwargs,
@@ -800,6 +812,7 @@ def proteins_compare(
         "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--max_seqs": max_seqs,
+        "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
         "--ultra_sensitive": ultra_sensitive
     }
@@ -860,6 +873,7 @@ def proteins_compare(
         fasta_flag=False,
         separate=False,
         max_seqs=max_seqs,
+        cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive
     )
@@ -906,6 +920,7 @@ def remote(
     card_vfdb_evalue,
     separate,
     max_seqs,
+    cluster_db,
     cluster_search,
     ultra_sensitive,
     **kwargs,
@@ -933,6 +948,7 @@ def remote(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
+        "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
         "--ultra_sensitive": ultra_sensitive
     }
@@ -1013,6 +1029,7 @@ def remote(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive
     )

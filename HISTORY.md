@@ -7,12 +7,14 @@ Big update adding
 
 * Improved sensitivity and faster runtime for the `foldseek` search. This is achieved by clustering the Phold database at `--min-seq-id 0.3` and creating a cluster db before running with `foldseek` which significantly improves runtime
     * **This means you will need to re-install the phold database updates for v0.2.0 using `phold install`**
-    * Additionally, changed default `--max_seqs` from 1000 to 10000 to improve sensitivity
+* Changed default `--max_seqs` from 1000 to 10000 to improve sensitivity
 * Phold database is expanded adding:
     * Extremely conservative high confidence [efam](https://doi.org/10.1093/bioinformatics/btab451) proteins with hits to PHROGs 
     * 95% dereplicated diversity-generating retroelements (DGRs) from [Roux et al](https://www.nature.com/articles/s41467-021-23402-7)
 * Adds `depolymerase` column in `_per_cds_predictions.tsv` output.
     * Every PHROG, ENVHOG and efam protein in the Phold database has been run through [DepoScope](https://github.com/dimiboeckaerts/DepoScope)  
+    * If the tophit protein for each query has a depolymerase according to DepoScope, then this will be TRUE
+    * Note TRUE doesn't necessarily mean that the query is a depolymerase (especially if the foldseek alignment is partial or the e-value is close to the threshold) -  it is recommended to run [DepoScope](https://github.com/dimiboeckaerts/DepoScope) as a follow follow-up again on your TRUE query proteins to make sure
 * Adds `--ultra_sensitive` flag which turns off Foldseek prefiltering for maximum annotation sensitivity. Recommended for small datasets/single phages only.
     * This passes the `--exhaustive-search` parameter to `foldseek search`
 * Adds the ability to save ProstT5 embeddings with `--save_per_residue_embeddings` and `--save_per_protein_embeddings`
