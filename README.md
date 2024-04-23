@@ -1,4 +1,4 @@
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb)
 
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/phold/badges/version.svg)](https://anaconda.org/bioconda/phold)
 [![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/phold)](https://img.shields.io/conda/dn/bioconda/phold)
@@ -25,7 +25,11 @@ Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutori
 
 If you don't want to install `phold` locally, you can run it without any code using one of the following Google Colab notebooks:
 
-* To run `pharokka` + `phold` (recommended)  [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold.ipynb)
+* To run `pharokka` + `phold` + `phynteny` (recommended)  [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb)
+    * [phynteny](https://github.com/susiegriggo/Phynteny) uses a long-short term memory model trained on phage synteny (the conserved gene order across phages) to assign hypothetical phage proteins to a PHROG category - it might help you add extra PHROG category annotations to hypothetical genes remaining after you run `phold`. 
+    * Note: Phynteny will work only if your phage has fewer than 120 predicted proteins
+    * You can still use this notebook to run `phold` if your phage(s) are too big - just don't run the Phynteny step!
+  
 * To run only `phold` [https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_phold.ipynb)
 
 # Table of Contents
