@@ -129,11 +129,17 @@ def subcommand_compare(
         for record_id, record in gb_dict.items():
             non_cds_dict[record_id] = {}
 
+            i = 1
             for non_cds_feature in record.features:
                 if non_cds_feature.type != "CDS":
-                    non_cds_dict[record_id][
-                        non_cds_feature.qualifiers["ID"][0]
-                    ] = non_cds_feature
+                    try:
+                        non_cds_dict[record_id][
+                            non_cds_feature.qualifiers["ID"][0]
+                        ] = non_cds_feature
+                    except:
+                        non_cds_dict[record_id][f"non_cds_feature_{i}"] = non_cds_feature
+                        i += 1
+
 
     # input predictions or structures
     if pdb is False:

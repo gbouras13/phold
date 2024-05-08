@@ -52,6 +52,10 @@ def get_topfunctions(
         result_tsv, delimiter="\t", index_col=False, names=col_list
     )
 
+    # in case the foldseek output is empty
+    if foldseek_df.empty:
+        logger.error("Foldseek found no hits whatsoever - please check whether your input is really phage-like")
+
     # gets the cds
     if pdb is False and proteins_flag is False:
         # prostt5
@@ -87,7 +91,12 @@ def get_topfunctions(
     foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
         "efam_", ""
     )
-    # no need to add it on to protein - already done
+
+    # strip off dgr
+    mask = foldseek_df["phrog"].str.startswith("dgr_")
+    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
+        "dgr_", ""
+    )
 
     foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
     # read in the mapping tsv

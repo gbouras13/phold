@@ -70,11 +70,24 @@ def subcommand_predict(
                             "translation"
                         ][0]
 
+                        # first try Pharokka (ID)
+                        try:
+                            cds_id = cds_feature.qualifiers["ID"][0] 
+                        except:
+                            # next try genbank (protein_id)
+                            try:
+                                cds_id = cds_feature.qualifiers["protein_id"][0]
+                                # add these extra fields to make it all play nice
+                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers["protein_id"][0]
+                                cds_feature.qualifiers["function"] = "unknown function"
+                                cds_feature.qualifiers["phrog"] = "No_PHROG"
+                            except:
+                                logger.error(f"Feature {cds_feature} has no 'ID' or 'protein_id' qualifier in the Genbank file. Please add one in.")
+
                         # for really long CDS IDs (over 54 chars), a space will be introduced
                         # this is because the ID will go over a second line
                         # weird bug noticed it on the Mgnify contigs annotated with Pharokka
 
-                        cds_id = cds_feature.qualifiers["ID"][0]
                         if len(cds_id) >= 54:
                             # Remove all spaces from the string
                             cds_id = cds_id.replace(" ", "")
