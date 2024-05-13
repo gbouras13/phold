@@ -3,6 +3,7 @@
 import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+import numpy as np
 
 import pandas as pd
 from Bio.SeqFeature import SeqFeature
@@ -543,6 +544,12 @@ def subcommand_compare(
 
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
+
+    # Make EAT rows empty for all foldseek analysis
+    eat_rows = merged_df[merged_df['annotation_method'] == 'EAT']
+    columns_to_empty = merged_df.columns[merged_df.columns.get_loc('transl_table')+1:]
+    merged_df.loc[eat_rows.index, columns_to_empty] = np.nan
+
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
 
     # save vfdb card acr defensefinder hits with more metadata
