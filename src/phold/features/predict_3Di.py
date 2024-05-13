@@ -162,7 +162,8 @@ def write_embeddings(
 
             for sequence_id, embedding in embeddings_contig_dict.items():
                 # noinspection PyUnboundLocalVariable
-                hf.create_dataset(sequence_id, data=embedding)
+                embeddings_name = f"{contig_id}:{sequence_id}"
+                hf.create_dataset(embeddings_name, data=embedding)
 
 
 

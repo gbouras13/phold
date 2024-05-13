@@ -12,11 +12,13 @@ from loguru import logger
 from phold.features.create_foldseek_db import (
     generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
-from phold.features.split_3Di import split_3di_fasta_by_prob
+from phold.features.split_3Di import split_3Di_embeddings_by_prob
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
 from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topfunctions)
+
+from phold.features.eat import run_eat
 
 
 def subcommand_compare(
@@ -218,19 +220,29 @@ def subcommand_compare(
             probs_3di: Path = (
                 Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
             )
-            split_3di_fasta_by_prob(
-                fasta_aa, fasta_3di, probs_3di, output, split_threshold
+
+            all_embeddings_h5: Path = (
+                Path(predictions_dir) / f"{prefix}_embeddings_per_protein.h5"
             )
+            low_prob_embeddings_h5: Path = Path(output) / "low_prob_embeddings.h5"
+
+            split_3Di_embeddings_by_prob(
+                fasta_aa,
+                fasta_3di,
+                all_embeddings_h5,
+                low_prob_embeddings_h5,
+                probs_3di,
+                output,
+                split_threshold)
+            
             logger.info(
-                f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DBs for high and low ProstT5 probability subsets."
+                f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DB for low ProstT5 probability proteins and EAT for low probability proteins."
             )
 
             high_prob_fasta_aa_out_path: Path = Path(output) / "high_prob_aa.fasta"
-            low_prob_fasta_aa_out_path: Path = Path(output) / "low_prob_aa.fasta"
             high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
-            low_prob_fasta_3di_out_path: Path = Path(output) / "low_prob_3di.fasta"
 
-            # high
+            # high - foldseek DB
             if "high_prostt5_prob" == prefix:
                 logger.error(f"Please choose a different {prefix}. ")
 
@@ -242,21 +254,78 @@ def subcommand_compare(
                 "high_prostt5_prob",
             )
 
-            # low
-            if "low_prostt5_prob" == prefix:
-                logger.error(f"Please choose a different {prefix}.t ")
-            generate_foldseek_db_from_aa_3di(
-                low_prob_fasta_aa_out_path,
-                low_prob_fasta_3di_out_path,
-                foldseek_query_db_path,
-                logdir,
-                "low_prostt5_prob",
-            )
+            # low -> EAT
+
+            run_eat(
+                output,
+                prefix,
+                database,
+                low_prob_embeddings_h5,
+                proteins_flag,
+                num_NN = 1, 
+                eat_threshold = 1.00
+
+)
+
+
+
+            
+        # in case revert to splitting into ProstT5 only ever
+        #      split_3di_fasta_by_prob(
+        #           fasta_aa, fasta_3di, probs_3di, output, split_threshold
+        #     )
+        #     logger.info(
+        #         f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DBs for high and low ProstT5 probability subsets."
+        #     )
+
+        #     high_prob_fasta_aa_out_path: Path = Path(output) / "high_prob_aa.fasta"
+        #     low_prob_fasta_aa_out_path: Path = Path(output) / "low_prob_aa.fasta"
+        #     high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
+        #     low_prob_fasta_3di_out_path: Path = Path(output) / "low_prob_3di.fasta"
+
+        #     # high
+        #     if "high_prostt5_prob" == prefix:
+        #         logger.error(f"Please choose a different {prefix}. ")
+
+        #     generate_foldseek_db_from_aa_3di(
+        #         high_prob_fasta_aa_out_path,
+        #         high_prob_fasta_3di_out_path,
+        #         foldseek_query_db_path,
+        #         logdir,
+        #         "high_prostt5_prob",
+        #     )
+
+        #     # low
+        #     if "low_prostt5_prob" == prefix:
+        #         logger.error(f"Please choose a different {prefix}.t ")
+        #     generate_foldseek_db_from_aa_3di(
+        #         low_prob_fasta_aa_out_path,
+        #         low_prob_fasta_3di_out_path,
+        #         foldseek_query_db_path,
+        #         logdir,
+        #         "low_prostt5_prob",
+        #     )
+
+
         # default (just prostt5)
         else:
             generate_foldseek_db_from_aa_3di(
                 fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
             )
+
+    
+    short_db_name = prefix
+
+    # clustered db search
+    if cluster_db is True:
+        database_name = "all_phold_structures_clustered_searchDB"
+    else:
+        database_name = "all_phold_structures"
+    
+    if short_db_name == database_name:
+        logger.error(
+            f"Please choose a different {prefix} as this conflicts with the {database_name}"
+        )
 
     #####
     # foldseek search
@@ -267,7 +336,7 @@ def subcommand_compare(
         # high - vs structures
         #############
         query_db: Path = Path(foldseek_query_db_path) / "high_prostt5_prob"
-        target_db: Path = Path(database) / "all_phold_structures"
+        target_db: Path = Path(database) / database_name
 
         # make result and temp dirs
         result_db_base: Path = Path(output) / "result_db"
@@ -288,7 +357,6 @@ def subcommand_compare(
             evalue,
             sensitivity,
             max_seqs,
-            cluster_db,
             cluster_search,
             ultra_sensitive
         )
@@ -297,44 +365,41 @@ def subcommand_compare(
         result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
         create_result_tsv(query_db, target_db, result_db, result_high_tsv, logdir)
 
-        #############
-        # low - vs prostt5 db
-        ############
+        # error handling if the high or low df is empty
+        col_list = [
+            "query",
+            "target",
+            "bitscore",
+            "fident",
+            "evalue",
+            "qStart",
+            "qEnd",
+            "qLen",
+            "tStart",
+            "tEnd",
+            "tLen",
+        ]
 
-        query_db: Path = Path(foldseek_query_db_path) / "low_prostt5_prob"
-        target_db: Path = Path(database) / "all_phold_prostt5"
-
-        # make result and temp dirs
-        result_db_base: Path = Path(output) / "result_db"
-        result_db_base.mkdir(parents=True, exist_ok=True)
-        result_db: Path = Path(result_db_base) / "result_db_low"
-
-        temp_db: Path = Path(output) / "temp_db"
-        temp_db.mkdir(parents=True, exist_ok=True)
-
-        # run foldseek search
-        run_foldseek_search(
-            query_db,
-            target_db,
-            result_db,
-            temp_db,
-            threads,
-            logdir,
-            evalue,
-            sensitivity,
-            max_seqs,
-            cluster_db,
-            cluster_search,
-            ultra_sensitive
-        )
-
-        # make result tsv
-        result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
-        create_result_tsv(query_db, target_db, result_db, result_low_tsv, logdir)
 
         # create combined tsv
-        high_df = pd.read_csv(result_high_tsv, sep="\t", header=None)
-        low_df = pd.read_csv(result_low_tsv, sep="\t", header=None)
+        try:
+            high_df = pd.read_csv(result_high_tsv, sep="\t", header=None)
+            high_df.columns = col_list
+            high_df["annotation_source"] = "foldseek"
+        except pd.errors.EmptyDataError:
+            logger.info("No Foldseek hits found for high confidence ProstT5 proteins.")
+            high_df = pd.DataFrame(columns=col_list)
+
+        result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
+
+        try:
+            low_df = pd.read_csv(result_low_tsv, sep="\t", header=None)
+            low_df.columns = col_list
+            low_df["annotation_source"] = "EAT"
+        except pd.errors.EmptyDataError:
+            logger.info("No EAT hits found for high confidence ProstT5 proteins.")
+            low_df = pd.DataFrame(columns=col_list)
+
 
         # combined
         combined_df = pd.concat([high_df, low_df])
@@ -343,18 +408,6 @@ def subcommand_compare(
 
     # no split
     else:
-        short_db_name = prefix
-
-        # clustered db search
-        if cluster_db is True:
-            database_name = "all_phold_structures_clustered_searchDB"
-        else:
-            database_name = "all_phold_structures"
-        
-        if short_db_name == database_name:
-            logger.error(
-                f"Please choose a different {prefix} as this conflicts with the {database_name}"
-            )
 
         query_db: Path = Path(foldseek_query_db_path) / short_db_name
         target_db: Path = Path(database) / database_name
@@ -399,7 +452,7 @@ def subcommand_compare(
     # also calculate the weighted bitscore df
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
-        result_tsv, database, database_name, pdb, card_vfdb_evalue, proteins_flag
+        result_tsv, database, database_name, pdb, card_vfdb_evalue, proteins_flag, split
     )
 
     # update the CDS dictionary with the tophits
@@ -448,15 +501,18 @@ def subcommand_compare(
     def determine_annotation_source(row):
         if row["phrog"] == "No_PHROG":
             return "none"
-        elif pd.isnull(row["bitscore"]):
-            return "pharokka"
-        else:
+        elif row["annotation_source"] == "foldseek":
             return "foldseek"
+        elif row["annotation_source"] == "EAT":
+            return "EAT"
+        else:
+            return "pharokka"
 
-    # Create a new column order with 'annotation_method' moved after 'product'
+    # Create a new column order with 'annotation_method' moved after 'product' - drop annotation source (carries original output)
     merged_df["annotation_method"] = merged_df.apply(
         determine_annotation_source, axis=1
     )
+    merged_df = merged_df.drop(columns=['annotation_source'])
 
     product_index = merged_df.columns.get_loc("product")
 
@@ -476,7 +532,6 @@ def subcommand_compare(
     merged_df['depolymerase'] = merged_df['tophit_protein'].isin(deposcope_list)
 
     # move after tophit_protein
-
     annotation_method_index = merged_df.columns.get_loc("annotation_method")
 
     new_column_order = (
