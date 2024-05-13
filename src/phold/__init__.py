@@ -202,6 +202,13 @@ def compare_options(func):
             is_flag=True,
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
         ),
+        click.option(
+            "--eat_threshold",
+            default=1,
+            help="EAT Euclidean distance threshold",
+            type=float,
+            show_default=True,
+        ),
 
     ]
     for option in reversed(options):
@@ -261,6 +268,7 @@ def run(
     cluster_db,
     cluster_search,
     ultra_sensitive,
+    eat_threshold,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -288,6 +296,7 @@ def run(
         "--finetune_path": finetune_path,
         "--split": split,
         "--split_threshold": split_threshold,
+        "--eat_threshold": eat_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
@@ -295,7 +304,8 @@ def run(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
+        
     }
 
     # initial logging etc
@@ -356,7 +366,8 @@ def run(
         max_seqs=max_seqs,
         cluster_db=cluster_db,
         cluster_search=cluster_search,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        eat_threshold=eat_threshold
     )
 
     # cleanup the temp files
@@ -522,6 +533,7 @@ def compare(
     cluster_db,
     cluster_search,
     ultra_sensitive,
+    eat_threshold,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -549,6 +561,7 @@ def compare(
         "--keep_tmp_files": keep_tmp_files,
         "--split": split,
         "--split_threshold": split_threshold,
+        "--eat_threshold": eat_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
@@ -592,7 +605,8 @@ def compare(
         max_seqs=max_seqs,
         cluster_db=cluster_db,
         cluster_search=cluster_search,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        eat_threshold=eat_threshold
     )
 
     # cleanup the temp files
@@ -783,6 +797,7 @@ def proteins_compare(
     cluster_db,
     cluster_search,
     ultra_sensitive,
+    eat_threshold,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -810,6 +825,7 @@ def proteins_compare(
         "--keep_tmp_files": keep_tmp_files,
         "--split": split,
         "--split_threshold": split_threshold,
+        "--eat_threshold": eat_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--max_seqs": max_seqs,
         "--cluster_db": cluster_db,
@@ -875,7 +891,8 @@ def proteins_compare(
         max_seqs=max_seqs,
         cluster_db=cluster_db,
         cluster_search=cluster_search,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        eat_threshold=eat_threshold
     )
 
     # cleanup the temp files

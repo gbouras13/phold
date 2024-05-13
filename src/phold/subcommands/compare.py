@@ -45,7 +45,8 @@ def subcommand_compare(
     max_seqs: int,
     cluster_db: bool,
     cluster_search: bool,
-    ultra_sensitive: bool
+    ultra_sensitive: bool,
+    eat_threshold: float
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -74,6 +75,7 @@ def subcommand_compare(
         cluster_db (bool): Whether to run against clustered db 
         cluster_search (bool): Whether cluster search mode is run against the clustered phold db
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
+        eat_threshold (float): EAT Euclidean Distance Threshold
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -264,7 +266,7 @@ def subcommand_compare(
                 low_prob_embeddings_h5,
                 proteins_flag,
                 num_NN = 1, 
-                eat_threshold = 1.00
+                eat_threshold = eat_threshold
 
 )
 
