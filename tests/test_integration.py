@@ -18,6 +18,7 @@ pytest --run_remote  --gpu_available --threads 8 .
 # import
 import os
 import shutil
+
 # import functions
 import subprocess
 import sys
@@ -42,9 +43,11 @@ run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
 run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
-run_fasta_depolymerase_dir: Path = f"{output_dir}/PP_depolymerase_phold_run_fasta" 
+run_fasta_depolymerase_dir: Path = f"{output_dir}/PP_depolymerase_phold_run_fasta"
 predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_gbk"
-save_embeddings_predict_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_predict_save_embeddings_gbk"
+save_embeddings_predict_gbk_dir: Path = (
+    f"{output_dir}/combined_truncated_phold_predict_save_embeddings_gbk"
+)
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
 predict_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_predict_fasta"
@@ -121,6 +124,7 @@ def test_run_genbank_old_pharokka(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+
 def test_run_genbank_long_header(gpu_available, threads):
     """test phold run with pharokka genbank with large header/locus tag (over 54 chars)"""
     input_gbk: Path = f"{test_data}/long_header.gbk"
@@ -128,6 +132,7 @@ def test_run_genbank_long_header(gpu_available, threads):
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+
 
 def test_run_fasta(gpu_available, threads):
     """test phold run with genbank input"""
@@ -146,6 +151,7 @@ def test_run_efam(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+
 def test_run_depolymerase(gpu_available, threads):
     """test phold run with phage contig with a depolymerase"""
     input_fasta: Path = f"{test_data}/PP476965.1_subset_depolymerase.fasta"
@@ -163,6 +169,7 @@ def test_predict_genbank(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+
 def test_predict_save_embeddings(gpu_available, threads):
     """test phold predict with genbank input and save embeddings"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
@@ -170,6 +177,7 @@ def test_predict_save_embeddings(gpu_available, threads):
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+
 
 def test_compare_genbank(threads):
     """test phold compare with genbank input"""

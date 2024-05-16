@@ -15,7 +15,7 @@ def run_foldseek_search(
     sensitivity: float,
     max_seqs: int,
     cluster_search: bool,
-    ultra_sensitive: bool
+    ultra_sensitive: bool,
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -45,7 +45,6 @@ def run_foldseek_search(
     if cluster_search:
         cmd += " --cluster-search 1"
 
-
     foldseek_search = ExternalTool(
         tool="foldseek",
         input=f"",
@@ -73,7 +72,6 @@ def create_result_tsv(
     Returns:
         None
     """
-
 
     foldseek_createtsv = ExternalTool(
         tool="foldseek",

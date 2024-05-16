@@ -140,10 +140,10 @@ def get_T5_model(
 
     return model, vocab
 
+
 def write_embeddings(
     embeddings: Dict[str, Dict[str, Tuple[List[str], Any, Any]]],
     out_path: Path,
-
 ) -> None:
     """
     Write embeddings to an output file.
@@ -155,16 +155,18 @@ def write_embeddings(
     Returns:
         None
     """
-    
+
     with h5py.File(str(out_path), "w") as hf:
         for contig_id, rest in embeddings.items():
             embeddings_contig_dict = embeddings[contig_id]
 
             for sequence_id, embedding in embeddings_contig_dict.items():
-                # noinspection PyUnboundLocalVariable
-                embeddings_name = f"{contig_id}:{sequence_id}"
+                # if proteins, don't make another dict
+                if contig_id == "proteins":
+                    embeddings_name = sequence_id
+                else:
+                    embeddings_name = f"{contig_id}:{sequence_id}"
                 hf.create_dataset(embeddings_name, data=embedding)
-
 
 
 def write_predictions(
@@ -357,7 +359,7 @@ def get_embeddings(
     output_probs: bool = True,
     proteins_flag: bool = False,
     save_per_residue_embeddings: bool = False,
-    save_per_protein_embeddings: bool = False
+    save_per_protein_embeddings: bool = False,
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -388,7 +390,7 @@ def get_embeddings(
 
     predictions = {}
 
-    if save_per_residue_embeddings: 
+    if save_per_residue_embeddings:
         embeddings_per_residue = {}
     if save_per_protein_embeddings:
         embeddings_per_protein = {}
@@ -416,11 +418,10 @@ def get_embeddings(
         predictions[record_id] = {}
 
         # embeddings
-        if save_per_residue_embeddings: 
+        if save_per_residue_embeddings:
             embeddings_per_residue[record_id] = {}
         if save_per_protein_embeddings:
             embeddings_per_protein[record_id] = {}
-
 
         seq_record_dict = cds_dict[record_id]
         seq_dict = {}
@@ -519,19 +520,24 @@ def get_embeddings(
                             try:
 
                                 # account for prefix in offset
-                                emb = embedding_repr.last_hidden_state[batch_idx,1:s_len+1]
-                                
+                                emb = embedding_repr.last_hidden_state[
+                                    batch_idx, 1 : s_len + 1
+                                ]
+
                                 if save_per_residue_embeddings:
-                                    embeddings_per_residue[record_id][identifier] = emb.detach().cpu().numpy().squeeze()
+                                    embeddings_per_residue[record_id][identifier] = (
+                                        emb.detach().cpu().numpy().squeeze()
+                                    )
 
                                 if save_per_protein_embeddings:
-                                    embeddings_per_protein[record_id][identifier] = emb.mean(dim=0).detach().cpu().numpy().squeeze()
+                                    embeddings_per_protein[record_id][identifier] = (
+                                        emb.mean(dim=0).detach().cpu().numpy().squeeze()
+                                    )
 
                             except:
                                 logger.warning(
                                     f"Saving embeddings failed for {identifier}"
                                 )
-                                
 
                         # slice off padding and special token appended to the end of the sequence
                         pred = prediction[batch_idx, :, 0:s_len].squeeze()
@@ -592,7 +598,6 @@ def get_embeddings(
 
     if save_per_protein_embeddings:
         write_embeddings(embeddings_per_protein, output_h5_per_protein)
-                          
 
     mean_probs_out_path: Path = (
         Path(out_path) / f"{prefix}_prostT5_3di_mean_probabilities.csv"

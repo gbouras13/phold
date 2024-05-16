@@ -16,10 +16,14 @@ from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR
-from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
-                              get_version, print_citation)
-from phold.utils.validation import (check_dependencies, instantiate_dirs,
-                                    validate_input)
+from phold.utils.util import (
+    begin_phold,
+    clean_up_temporary_files,
+    end_phold,
+    get_version,
+    print_citation,
+)
+from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -209,7 +213,6 @@ def compare_options(func):
             type=float,
             show_default=True,
         ),
-
     ]
     for option in reversed(options):
         func = option(func)
@@ -305,7 +308,6 @@ def run(
         "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
         "--ultra_sensitive": ultra_sensitive,
-        
     }
 
     # initial logging etc
@@ -338,7 +340,7 @@ def run(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings
+        save_per_protein_embeddings=save_per_protein_embeddings,
     )
 
     # phold compare
@@ -367,7 +369,7 @@ def run(
         cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive,
-        eat_threshold=eat_threshold
+        eat_threshold=eat_threshold,
     )
 
     # cleanup the temp files
@@ -435,7 +437,7 @@ def predict(
         "--finetune": finetune,
         "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
-        "--save_per_protein_embeddings":  save_per_protein_embeddings,
+        "--save_per_protein_embeddings": save_per_protein_embeddings,
     }
 
     # initial logging etc
@@ -465,7 +467,7 @@ def predict(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings
+        save_per_protein_embeddings=save_per_protein_embeddings,
     )
 
     # end phold
@@ -567,7 +569,7 @@ def compare(
         "--max_seqs": max_seqs,
         "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -606,7 +608,7 @@ def compare(
         cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive,
-        eat_threshold=eat_threshold
+        eat_threshold=eat_threshold,
     )
 
     # cleanup the temp files
@@ -727,7 +729,7 @@ def proteins_predict(
         proteins_flag=True,
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings
+        save_per_protein_embeddings=save_per_protein_embeddings,
     )
 
     # end phold
@@ -830,7 +832,7 @@ def proteins_compare(
         "--max_seqs": max_seqs,
         "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -892,7 +894,7 @@ def proteins_compare(
         cluster_db=cluster_db,
         cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive,
-        eat_threshold=eat_threshold
+        eat_threshold=eat_threshold,
     )
 
     # cleanup the temp files
@@ -967,7 +969,7 @@ def remote(
         "--max_seqs": max_seqs,
         "--cluster_db": cluster_db,
         "--cluster_search": cluster_search,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -1048,7 +1050,7 @@ def remote(
         max_seqs=max_seqs,
         cluster_db=cluster_db,
         cluster_search=cluster_search,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
     )
 
     # cleanup the temp files

@@ -31,8 +31,6 @@ def split_3Di_embeddings_by_prob(
         None
     """
 
-    
-
     probs_3di_df = pd.read_csv(
         probs_3di, header=None, names=["cds_id", "prostt5_prob"], sep=","
     )
@@ -48,7 +46,6 @@ def split_3Di_embeddings_by_prob(
     # write the high pro 3dis out
     high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
 
-
     # Open output files for writing
     high_prob_3di_out_file = open(high_prob_fasta_3di_out_path, "w")
 
@@ -61,7 +58,6 @@ def split_3Di_embeddings_by_prob(
             # Write the record to the appropriate output file based on the cds_id
             if cds_id in high_prob_set:
                 SeqIO.write(record, high_prob_3di_out_file, "fasta")
-
 
     # Close the output files
     high_prob_3di_out_file.close()
@@ -90,7 +86,6 @@ def split_3Di_embeddings_by_prob(
     high_prob_aa_out_file.close()
     low_prob_aa_out_file.close()
 
-
     # embeddings now
 
     # Open the HDF5 file for reading
@@ -104,7 +99,6 @@ def split_3Di_embeddings_by_prob(
                 if cds_id in low_prob_set:
                     dataset = hfr[embeddings_id]
                     hfw.create_dataset(embeddings_id, data=dataset)
-
 
 
 # def split_3di_fasta_by_prob(
@@ -127,7 +121,6 @@ def split_3Di_embeddings_by_prob(
 #     Returns:
 #         None
 #     """
-
 
 
 #     probs_3di_df = pd.read_csv(

@@ -50,7 +50,7 @@ def get_topfunctions(
             "tStart",
             "tEnd",
             "tLen",
-            "annotation_source"
+            "annotation_source",
         ]
     else:
 
@@ -65,9 +65,8 @@ def get_topfunctions(
             "qLen",
             "tStart",
             "tEnd",
-            "tLen"
+            "tLen",
         ]
-
 
     foldseek_df = pd.read_csv(
         result_tsv, delimiter="\t", index_col=False, names=col_list
@@ -75,7 +74,9 @@ def get_topfunctions(
 
     # in case the foldseek output is empty
     if foldseek_df.empty:
-        logger.error("Foldseek found no hits whatsoever - please check whether your input is really phage-like")
+        logger.error(
+            "Foldseek found no hits whatsoever - please check whether your input is really phage-like"
+        )
 
     if split is False:
         foldseek_df["annotation_source"] = "foldseek"
@@ -389,33 +390,45 @@ def calculate_topfunctions_results(
                 if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                            0
-                        ] = result_dict[record_id][cds_id]["phrog"]
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                            0
-                        ] = result_dict[record_id][cds_id]["product"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
+                            result_dict[record_id][cds_id]["phrog"]
+                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                            result_dict[record_id][cds_id]["product"]
+                        )
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
 
-                    # pharokka has a phrog
+                    # pharokka has a phrog (or genbank doesn't exist)
                     else:
                         # if the foldseek result is not unknown function then update
                         if (
                             result_dict[record_id][cds_id]["function"]
                             != "unknown function"
                         ):
-                            # update
-                            updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                                0
-                            ] = result_dict[record_id][cds_id]["phrog"]
-                            updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                                0
-                            ] = result_dict[record_id][cds_id]["product"]
-                            updated_cds_dict[record_id][cds_id].qualifiers["function"][
-                                0
-                            ] = result_dict[record_id][cds_id]["function"]
+                            # if from pharokka input gbk
+                            try:
+                                # update
+                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["phrog"]
+                                updated_cds_dict[record_id][cds_id].qualifiers["product"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers["function"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["function"]
+                            except: # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
+
+                                
+                                print(updated_cds_dict[record_id][cds_id])
+                                print(result_dict[record_id][cds_id])
+
+                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = result_dict[record_id][cds_id]["phrog"]
+                                updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers["function"][0] = result_dict[record_id][cds_id]["function"]
+
                         # if foldseek result has unknown function
                         else:
                             # if pharokka has known function

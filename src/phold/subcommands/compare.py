@@ -11,13 +11,14 @@ from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs)
+    generate_foldseek_db_from_aa_3di,
+    generate_foldseek_db_from_pdbs,
+)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.features.split_3Di import split_3Di_embeddings_by_prob
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
-from phold.results.topfunction import (calculate_topfunctions_results,
-                                       get_topfunctions)
+from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
 
 from phold.features.eat import run_eat
 
@@ -46,7 +47,7 @@ def subcommand_compare(
     cluster_db: bool,
     cluster_search: bool,
     ultra_sensitive: bool,
-    eat_threshold: float
+    eat_threshold: float,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -72,7 +73,7 @@ def subcommand_compare(
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
-        cluster_db (bool): Whether to run against clustered db 
+        cluster_db (bool): Whether to run against clustered db
         cluster_search (bool): Whether cluster search mode is run against the clustered phold db
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
         eat_threshold (float): EAT Euclidean Distance Threshold
@@ -96,33 +97,57 @@ def subcommand_compare(
             cds_dict[record_id] = {}
 
             for cds_feature in record.features:
+
                 # for all pharokka genbanks, correct the bad phrog cats
                 if fasta_flag is False:
                     if cds_feature.type == "CDS":
-                        # update DNA, RNA and nucleotide metabolism from pharokka as it is broken as of 1.6.1
-                        if "DNA" in cds_feature.qualifiers["function"][0]:
-                            cds_feature.qualifiers["function"][
-                                0
-                            ] = "DNA, RNA and nucleotide metabolism"
-                            cds_feature.qualifiers["function"] = [
-                                cds_feature.qualifiers["function"][0]
-                            ]  # Keep only the first element
-                        # moron, auxiliary metabolic gene and host takeover as it is broken as of 1.6.1
-                        if "moron" in cds_feature.qualifiers["function"][0]:
-                            cds_feature.qualifiers["function"][
-                                0
-                            ] = "moron, auxiliary metabolic gene and host takeover"
-                            cds_feature.qualifiers["function"] = [
-                                cds_feature.qualifiers["function"][0]
-                            ]  # Keep only the first element
 
-                        # update No_PHROGs_HMM to No_PHROGs - if input is from pharokka --fast
-                        if cds_feature.qualifiers["phrog"][0] == "No_PHROGs_HMM":
-                            cds_feature.qualifiers["phrog"][0] = "No_PHROG"
+                        # first try Pharokka (ID) - do the updating
+                        try:
+                            # cds_id = cds_feature.qualifiers["ID"][0]
+                            # update DNA, RNA and nucleotide metabolism from pharokka as it is broken as of 1.6.1
+                            if "DNA" in cds_feature.qualifiers["function"][0]:
+                                cds_feature.qualifiers["function"][
+                                    0
+                                ] = "DNA, RNA and nucleotide metabolism"
+                                cds_feature.qualifiers["function"] = [
+                                    cds_feature.qualifiers["function"][0]
+                                ]  # Keep only the first element
+                            # moron, auxiliary metabolic gene and host takeover as it is broken as of 1.6.1
+                            if "moron" in cds_feature.qualifiers["function"][0]:
+                                cds_feature.qualifiers["function"][
+                                    0
+                                ] = "moron, auxiliary metabolic gene and host takeover"
+                                cds_feature.qualifiers["function"] = [
+                                    cds_feature.qualifiers["function"][0]
+                                ]  # Keep only the first element
 
-                        cds_dict[record_id][
-                            cds_feature.qualifiers["ID"][0]
-                        ] = cds_feature
+                            # update No_PHROGs_HMM to No_PHROGs - if input is from pharokka --fast
+                            if cds_feature.qualifiers["phrog"][0] == "No_PHROGs_HMM":
+                                cds_feature.qualifiers["phrog"][0] = "No_PHROG"
+
+                            cds_dict[record_id][
+                                cds_feature.qualifiers["ID"][0]
+                            ] = cds_feature
+
+                        # not pharokka - must be from genbank (supported only)
+                        except:
+                            try:
+                                # add these extra fields to make it all play nice
+                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers["protein_id"]
+                                cds_feature.qualifiers["function"] = [] 
+                                cds_feature.qualifiers["function"].append("unknown function")
+                                cds_feature.qualifiers["phrog"] = []
+                                cds_feature.qualifiers["phrog"].append("No_PHROG")
+
+                                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
+
+
+                            except:
+                                logger.error(
+                                    f"Feature {cds_feature} has no 'ID' or 'protein_id' qualifier in the Genbank file. Please add one in."
+                                )
+
                 # for fasta, will be fine to just add
                 else:
                     cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
@@ -142,9 +167,10 @@ def subcommand_compare(
                             non_cds_feature.qualifiers["ID"][0]
                         ] = non_cds_feature
                     except:
-                        non_cds_dict[record_id][f"non_cds_feature_{i}"] = non_cds_feature
+                        non_cds_dict[record_id][
+                            f"non_cds_feature_{i}"
+                        ] = non_cds_feature
                         i += 1
-
 
     # input predictions or structures
     if pdb is False:
@@ -236,8 +262,9 @@ def subcommand_compare(
                 low_prob_embeddings_h5,
                 probs_3di,
                 output,
-                split_threshold)
-            
+                split_threshold,
+            )
+
             logger.info(
                 f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DB for low ProstT5 probability proteins and EAT for low probability proteins."
             )
@@ -265,14 +292,10 @@ def subcommand_compare(
                 database,
                 low_prob_embeddings_h5,
                 proteins_flag,
-                num_NN = 1, 
-                eat_threshold = eat_threshold
+                num_NN=1,
+                eat_threshold=eat_threshold,
+            )
 
-)
-
-
-
-            
         # in case revert to splitting into ProstT5 only ever
         #      split_3di_fasta_by_prob(
         #           fasta_aa, fasta_3di, probs_3di, output, split_threshold
@@ -309,14 +332,12 @@ def subcommand_compare(
         #         "low_prostt5_prob",
         #     )
 
-
         # default (just prostt5)
         else:
             generate_foldseek_db_from_aa_3di(
                 fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
             )
 
-    
     short_db_name = prefix
 
     # clustered db search
@@ -324,7 +345,7 @@ def subcommand_compare(
         database_name = "all_phold_structures_clustered_searchDB"
     else:
         database_name = "all_phold_structures"
-    
+
     if short_db_name == database_name:
         logger.error(
             f"Please choose a different {prefix} as this conflicts with the {database_name}"
@@ -361,7 +382,7 @@ def subcommand_compare(
             sensitivity,
             max_seqs,
             cluster_search,
-            ultra_sensitive
+            ultra_sensitive,
         )
 
         # make result tsv for high prob vs structure db
@@ -383,7 +404,6 @@ def subcommand_compare(
             "tLen",
         ]
 
-
         # create combined tsv
         try:
             high_df = pd.read_csv(result_high_tsv, sep="\t", header=None)
@@ -400,9 +420,8 @@ def subcommand_compare(
             low_df.columns = col_list
             low_df["annotation_source"] = "EAT"
         except pd.errors.EmptyDataError:
-            logger.info("No EAT hits found for high confidence ProstT5 proteins.")
+            logger.info("No EAT hits found for low confidence ProstT5 proteins.")
             low_df = pd.DataFrame(columns=col_list)
-
 
         # combined
         combined_df = pd.concat([high_df, low_df])
@@ -435,12 +454,12 @@ def subcommand_compare(
             sensitivity,
             max_seqs,
             cluster_search,
-            ultra_sensitive
+            ultra_sensitive,
         )
 
         # make result tsv
         result_tsv: Path = Path(output) / "foldseek_results.tsv"
-        
+
         # target_db is all_phold_structures regardless of the clustered search mode
         target_db: Path = Path(database) / "all_phold_structures"
         create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
@@ -515,7 +534,7 @@ def subcommand_compare(
     merged_df["annotation_method"] = merged_df.apply(
         determine_annotation_source, axis=1
     )
-    merged_df = merged_df.drop(columns=['annotation_source'])
+    merged_df = merged_df.drop(columns=["annotation_source"])
 
     product_index = merged_df.columns.get_loc("product")
 
@@ -526,13 +545,12 @@ def subcommand_compare(
     )
     merged_df = merged_df.reindex(columns=new_column_order)
 
-
     # get deposcope info
     deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
     deposcope_df = pd.read_csv(deposcope_metadata_path, sep=",")
-    deposcope_list = deposcope_df['tophit_protein'].tolist()
+    deposcope_list = deposcope_df["tophit_protein"].tolist()
 
-    merged_df['depolymerase'] = merged_df['tophit_protein'].isin(deposcope_list)
+    merged_df["depolymerase"] = merged_df["tophit_protein"].isin(deposcope_list)
 
     # move after tophit_protein
     annotation_method_index = merged_df.columns.get_loc("annotation_method")
@@ -548,8 +566,10 @@ def subcommand_compare(
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
 
     # Make EAT rows empty for all foldseek analysis
-    eat_rows = merged_df[merged_df['annotation_method'] == 'EAT']
-    columns_to_empty = merged_df.columns[merged_df.columns.get_loc('transl_table')+1:]
+    eat_rows = merged_df[merged_df["annotation_method"] == "EAT"]
+    columns_to_empty = merged_df.columns[
+        merged_df.columns.get_loc("transl_table") + 1 :
+    ]
     merged_df.loc[eat_rows.index, columns_to_empty] = np.nan
 
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
