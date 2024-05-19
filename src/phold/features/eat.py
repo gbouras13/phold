@@ -127,7 +127,7 @@ class EAT:
         if use_double:
             lookup = lookup.double()
             queries = queries.double()
-            
+
         torch.cuda.empty_cache()
 
         try:  # try to batch-compute pairwise-distance on GPU
@@ -136,18 +136,39 @@ class EAT:
             logger.warning("Encountered RuntimeError: {}".format(e))
             logger.warning("Trying single query inference on GPU.")
             try:  # if OOM for batch-GPU, re-try single query pdist computation on GPU
-                pdist = (
-                    torch.stack(
-                        [
-                            torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
-                                dim=0
-                            )
-                            for q_idx in range(queries.shape[1])
-                        ]
-                    )
-                    .squeeze(dim=-1)
-                    .T
-                )
+                # pdist = (
+                #     torch.stack(
+                #         [
+                #             torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
+                #                 dim=0
+                #             )
+                #             for q_idx in range(queries.shape[1])
+                #         ]
+                #     )
+                #     .squeeze(dim=-1)
+                #     .T
+                # )
+
+                # to avoid OOM -> memory build-up
+
+                # Initialize an empty list to store the results
+                results = []
+
+                for q_idx in range(queries.shape[1]):
+                    with torch.no_grad():
+                        # Compute the distance for the current query
+                        dist = torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(dim=0)
+                        # Append the result to the list
+                        results.append(dist.cpu())  # Move to CPU to free up GPU memory
+
+                    # Clear CUDA cache to free up memory
+                    torch.cuda.empty_cache()
+
+                # Stack the results and perform necessary squeezing and transposing
+                pdist = torch.stack(results).squeeze(dim=-1).T
+
+                # Move the final result back to GPU if necessary
+                pdist = pdist.cuda()
 
             except (
                 RuntimeError
