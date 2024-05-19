@@ -130,14 +130,17 @@ class EAT:
 
         torch.cuda.empty_cache()
 
-        try:  # try to batch-compute pairwise-distance on GPU
+        try:  # try to batch-compute all pairwise-distance on GPU
             pdist = torch.cdist(lookup, queries, p=norm).squeeze(dim=0)
         except RuntimeError as e:
             logger.warning("Encountered RuntimeError: {}".format(e))
-
+            # next try computing in batches of batch_size
             try:
                 batch_size = 100
                 logger.warning(f"Trying batched inference on GPU with batchsize {batch_size}.")
+
+                results = []
+                
                 for start_idx in range(0, queries.shape[1], batch_size):
                     end_idx = min(start_idx + batch_size, queries.shape[1])
 
@@ -183,7 +186,6 @@ class EAT:
 
                     # to avoid OOM -> memory build-up
 
-                    # Initialize an empty list to store the results
                     results = []
 
                     for q_idx in range(queries.shape[1]):
