@@ -134,38 +134,26 @@ class EAT:
             pdist = torch.cdist(lookup, queries, p=norm).squeeze(dim=0)
         except RuntimeError as e:
             logger.warning("Encountered RuntimeError: {}".format(e))
-            logger.warning("Trying single query inference on GPU.")
-            try:  # if OOM for batch-GPU, re-try single query pdist computation on GPU
-                # pdist = (
-                #     torch.stack(
-                #         [
-                #             torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
-                #                 dim=0
-                #             )
-                #             for q_idx in range(queries.shape[1])
-                #         ]
-                #     )
-                #     .squeeze(dim=-1)
-                #     .T
-                # )
 
-                # to avoid OOM -> memory build-up
+            try:
+                batch_size = 100
+                logger.warning(f"Trying batched inference on GPU with batchsize {batch_size}.")
+                for start_idx in range(0, queries.shape[1], batch_size):
+                    end_idx = min(start_idx + batch_size, queries.shape[1])
 
-                # Initialize an empty list to store the results
-                results = []
-
-                for q_idx in range(queries.shape[1]):
+                    logger.info(f"Running {start_idx} to {end_idx}")
+                
                     with torch.no_grad():
-                        # Compute the distance for the current query
-                        logger.info(f"Running {q_idx}")
-                        dist = torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(dim=0)
-                        # Append the result to the list
-                        results.append(dist.cpu())  # Move to CPU to free up GPU memory
-
+                        # Process a batch of queries
+                        query_batch = queries[0:1, start_idx:end_idx]
+                        # Compute the distance for the current batch
+                        dist_batch = torch.cdist(lookup, query_batch, p=norm).squeeze(dim=0)
+                        results.append(dist_batch.cpu())  # Move to CPU to free up GPU memory
+                
                     # Clear CUDA cache to free up memory
                     torch.cuda.empty_cache()
 
-                # Stack the results and perform necessary squeezing and transposing
+                # Stack all the results
                 pdist = torch.stack(results).squeeze(dim=-1).T
 
                 # Move the final result back to GPU if necessary
@@ -173,23 +161,67 @@ class EAT:
 
             except (
                 RuntimeError
-            ) as e:  # if OOM for single GPU, re-try single query on CPU
+            ) as e:
                 logger.warning("Encountered RuntimeError: {}".format(e))
-                logger.warning("Trying to move single query computation to CPU.")
-                lookup = lookup.to("cpu")
-                queries = queries.to("cpu")
-                pdist = (
-                    torch.stack(
-                        [
-                            torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
-                                dim=0
-                            )
-                            for q_idx in range(queries.shape[1])
-                        ]
+                logger.warning("Trying single query inference on GPU.")
+                try:  
+                    # michael's original code -> causes memory leakage
+                    # therefore need to loop over and free GPU mem
+                    # if OOM for batch-GPU, re-try single query pdist computation on GPU
+                    # pdist = (
+                    #     torch.stack(
+                    #         [
+                    #             torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
+                    #                 dim=0
+                    #             )
+                    #             for q_idx in range(queries.shape[1])
+                    #         ]
+                    #     )
+                    #     .squeeze(dim=-1)
+                    #     .T
+                    # )
+
+                    # to avoid OOM -> memory build-up
+
+                    # Initialize an empty list to store the results
+                    results = []
+
+                    for q_idx in range(queries.shape[1]):
+                        with torch.no_grad():
+                            # Compute the distance for the current query
+                            logger.info(f"Running {q_idx}")
+                            dist = torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(dim=0)
+                            # Append the result to the list
+                            results.append(dist.cpu())  # Move to CPU to free up GPU memory
+
+                        # Clear CUDA cache to free up memory
+                        torch.cuda.empty_cache()
+
+                    # Stack the results and perform necessary squeezing and transposing
+                    pdist = torch.stack(results).squeeze(dim=-1).T
+
+                    # Move the final result back to GPU if necessary
+                    pdist = pdist.cuda()
+
+                except (
+                    RuntimeError
+                ) as e:  # if OOM for single GPU, re-try single query on CPU
+                    logger.warning("Encountered RuntimeError: {}".format(e))
+                    logger.warning("Trying to move single query computation to CPU.")
+                    lookup = lookup.to("cpu")
+                    queries = queries.to("cpu")
+                    pdist = (
+                        torch.stack(
+                            [
+                                torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
+                                    dim=0
+                                )
+                                for q_idx in range(queries.shape[1])
+                            ]
+                        )
+                        .squeeze(dim=-1)
+                        .T
                     )
-                    .squeeze(dim=-1)
-                    .T
-                )
 
         return pdist
 
