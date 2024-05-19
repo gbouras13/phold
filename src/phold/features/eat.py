@@ -92,7 +92,7 @@ class EAT:
         dataset = {pdb_id: np.array(embd) for pdb_id, embd in h5_f.items()}
 
         if len(dataset.items()) == 0:
-            logger.error(f"No proteins had ProstT5 confidence under --split_threshold {split_threshold}. Please check this or do not use --split")
+            logger.error(f"No proteins had ProstT5 confidence under --split_threshold {split_threshold}. Please check this or do not use --split.")
         keys, embeddings = zip(*dataset.items())
         # if keys[0].startswith("cath"):
         #     keys = [key.split("|")[2].split("_")[0] for key in keys ]
@@ -127,31 +127,11 @@ class EAT:
         if use_double:
             lookup = lookup.double()
             queries = queries.double()
-
+            
         torch.cuda.empty_cache()
 
-        # try:  # try to batch-compute pairwise-distance on GPU
-        #     pdist = torch.cdist(lookup, queries, p=norm).squeeze(dim=0)
-
-        # except RuntimeError as e:
-        #logger.warning("Encountered RuntimeError: {}".format(e))
-        batch_size = 1000
-        logger.warning(f"Trying batched inference on GPU with batch size of of {batch_size}.")
-
-        torch.cuda.empty_cache()
-        
-        num_queries = queries.shape[1]
-        pdist_batches = []
-        
-        try:
-            for start_idx in range(0, num_queries, batch_size):
-                end_idx = min(start_idx + batch_size, num_queries)
-                query_batch = queries[:, start_idx:end_idx]
-                pdist_batch = torch.cdist(lookup, query_batch, p=norm).squeeze(dim=0)
-                pdist_batches.append(pdist_batch)
-                
-            pdist = torch.cat(pdist_batches, dim=0)
-
+        try:  # try to batch-compute pairwise-distance on GPU
+            pdist = torch.cdist(lookup, queries, p=norm).squeeze(dim=0)
         except RuntimeError as e:
             logger.warning("Encountered RuntimeError: {}".format(e))
             logger.warning("Trying single query inference on GPU.")
