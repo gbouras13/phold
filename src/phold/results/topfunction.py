@@ -363,8 +363,12 @@ def calculate_topfunctions_results(
         "connector": "connector",
     }
 
+    # source dict 
+    source_dict = {}
+
     # iterates over the records
     for record_id, record in updated_cds_dict.items():
+        source_dict[record_id] = {}
         # iterates over the features
         for cds_id, cds_feature in updated_cds_dict[record_id].items():
             # proteins/FASTA input -> no pharokka input -> fake input to make the updating work
@@ -373,10 +377,6 @@ def calculate_topfunctions_results(
                 cds_feature.qualifiers["phrog"] = ["No_PHROG"]
                 cds_feature.qualifiers["product"] = ["hypothetical protein"]
 
-            # original pharokka phrog categories
-            pharokka_phrog_function_category = phrog_function_mapping.get(
-                cds_feature.qualifiers["function"][0], None
-            )
 
             # if the result_dict is not empty
             # this is a foldseek hit
@@ -384,6 +384,9 @@ def calculate_topfunctions_results(
                 # get the foldseek function
                 # function will be None if there is no foldseek hit - shouldn't happen here but error handling
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
+
+                # add annotation source 
+                source_dict[record_id][cds_id] = filtered_tophits_df.loc[(filtered_tophits_df['contig_id'] == record_id) & (filtered_tophits_df['cds_id'] == cds_id), 'annotation_source'].values[0]
 
                 # same phrog as pharokka do nothing
                 # different phrog as pharokka
@@ -413,28 +416,27 @@ def calculate_topfunctions_results(
                                 updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
                                     0
                                 ] = result_dict[record_id][cds_id]["phrog"]
-                                updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                                    0
-                                ] = result_dict[record_id][cds_id]["product"]
-                                updated_cds_dict[record_id][cds_id].qualifiers["function"][
-                                    0
-                                ] = result_dict[record_id][cds_id]["function"]
-                            except: # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "product"
+                                ][0] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "function"
+                                ][0] = result_dict[record_id][cds_id]["function"]
+                            except:  # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
 
-                                
-                                print(updated_cds_dict[record_id][cds_id])
-                                print(result_dict[record_id][cds_id])
-
-                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = result_dict[record_id][cds_id]["phrog"]
-                                updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = result_dict[record_id][cds_id]["product"]
-                                updated_cds_dict[record_id][cds_id].qualifiers["function"][0] = result_dict[record_id][cds_id]["function"]
+                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["phrog"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "product"
+                                ][0] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "function"
+                                ][0] = result_dict[record_id][cds_id]["function"]
 
                         # if foldseek result has unknown function
                         else:
-                            # if pharokka has known function
-                            # keep the pharokka phrogs - aka do nothing
-                            #
-                            # if the pharokka has unknown function, update with foldseek hit
+                            # if the pharokka has unknown function, update with foldseek hit anyway
                             if (
                                 cds_feature.qualifiers["function"][0]
                                 == "unknown function"
@@ -449,11 +451,24 @@ def calculate_topfunctions_results(
                                     "function"
                                 ][0] = result_dict[record_id][cds_id]["function"]
 
-            # no foldseek hits - empty dict
-            # will be empty in results dict
-            # therefore just leave whatever pharokka has
+                            else: 
+                                # this will be when pharokka does have a known function 
+                                # keep the pharokka annotation - aka do nothing to the dictionary
+                                # but need to update annotation source dict to pharokka
+                                source_dict[record_id][cds_id] = "pharokka"
 
-    return updated_cds_dict, filtered_tophits_df
+
+            else:
+                # no foldseek hits - empty results dict for the record and cds id
+                # so the copy from before will be fine
+                # therefore just leave whatever pharokka has (no change to the result_dict)
+                # need to add to source dict
+                if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
+                    source_dict[record_id][cds_id] = "none"
+                else:
+                    source_dict[record_id][cds_id] = "pharokka"
+
+    return updated_cds_dict, filtered_tophits_df, source_dict
 
 
 def initialize_function_counts_dict(

@@ -72,20 +72,28 @@ def subcommand_predict(
 
                         # first try Pharokka (ID)
                         try:
-                            cds_id = cds_feature.qualifiers["ID"][0] # if this breaks, will mean not Pharokka input
+                            cds_id = cds_feature.qualifiers["ID"][
+                                0
+                            ]  # if this breaks, will mean not Pharokka input
                         except:
                             # next try genbank (protein_id)
                             try:
                                 # add these extra fields to make it all play nice
-                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers["protein_id"]
-                                cds_feature.qualifiers["function"] = [] 
-                                cds_feature.qualifiers["function"].append("unknown function")
+                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
+                                    "protein_id"
+                                ]
+                                cds_feature.qualifiers["function"] = []
+                                cds_feature.qualifiers["function"].append(
+                                    "unknown function"
+                                )
                                 cds_feature.qualifiers["phrog"] = []
                                 cds_feature.qualifiers["phrog"].append("No_PHROG")
 
                                 cds_id = cds_feature.qualifiers["ID"][0]
 
-                                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
+                                cds_dict[record_id][
+                                    cds_feature.qualifiers["ID"][0]
+                                ] = cds_feature
                             except:
                                 logger.error(
                                     f"Feature {cds_feature} has no 'ID' or 'protein_id' qualifier in the Genbank file. Please add one in."

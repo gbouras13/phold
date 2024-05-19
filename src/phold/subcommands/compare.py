@@ -134,14 +134,19 @@ def subcommand_compare(
                         except:
                             try:
                                 # add these extra fields to make it all play nice
-                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers["protein_id"]
-                                cds_feature.qualifiers["function"] = [] 
-                                cds_feature.qualifiers["function"].append("unknown function")
+                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
+                                    "protein_id"
+                                ]
+                                cds_feature.qualifiers["function"] = []
+                                cds_feature.qualifiers["function"].append(
+                                    "unknown function"
+                                )
                                 cds_feature.qualifiers["phrog"] = []
                                 cds_feature.qualifiers["phrog"].append("No_PHROG")
 
-                                cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
-
+                                cds_dict[record_id][
+                                    cds_feature.qualifiers["ID"][0]
+                                ] = cds_feature
 
                             except:
                                 logger.error(
@@ -294,6 +299,7 @@ def subcommand_compare(
                 proteins_flag,
                 num_NN=1,
                 eat_threshold=eat_threshold,
+                split_threshold=split_threshold
             )
 
         # in case revert to splitting into ProstT5 only ever
@@ -478,7 +484,7 @@ def subcommand_compare(
     )
 
     # update the CDS dictionary with the tophits
-    updated_cds_dict, filtered_tophits_df = calculate_topfunctions_results(
+    updated_cds_dict, filtered_tophits_df, source_dict = calculate_topfunctions_results(
         filtered_topfunctions_df, cds_dict, output, pdb, proteins_flag, fasta_flag
     )
 
@@ -486,6 +492,7 @@ def subcommand_compare(
     per_cds_df = write_genbank(
         updated_cds_dict,
         non_cds_dict,
+        source_dict,
         prefix,
         gb_dict,
         output,
@@ -520,30 +527,34 @@ def subcommand_compare(
     ########
 
     # Define a function to apply to each row to determine the annotation source
-    def determine_annotation_source(row):
-        if row["phrog"] == "No_PHROG":
-            return "none"
-        elif row["annotation_source"] == "foldseek":
-            return "foldseek"
-        elif row["annotation_source"] == "EAT":
-            return "EAT"
-        else:
-            return "pharokka"
+    # def determine_annotation_source(row):
+    #     if row["phrog"] == "No_PHROG":
+    #         return "none"
+    #     else:  # will be accounted for otherwise
+    #         return row["annotation_source"]
+        # elif row["annotation_source"] == "foldseek":
+        #     return "foldseek"
+        # elif row["annotation_source"] == "EAT":
+        #     return "EAT"
+        # else:
+        #     return "pharokka"
 
     # Create a new column order with 'annotation_method' moved after 'product' - drop annotation source (carries original output)
-    merged_df["annotation_method"] = merged_df.apply(
-        determine_annotation_source, axis=1
-    )
-    merged_df = merged_df.drop(columns=["annotation_source"])
+    # merged_df["annotation_method"] = merged_df.apply(
+    #     determine_annotation_source, axis=1
+    # )
+    # merged_df = merged_df.drop(columns=["annotation_source"])
 
     product_index = merged_df.columns.get_loc("product")
 
+
     new_column_order = (
-        list(merged_df.columns[: product_index + 1])
+        list([col for col in merged_df.columns[: product_index + 1] if col != "annotation_method"]  )
         + ["annotation_method"]
-        + list(merged_df.columns[product_index + 1 : -1])
+        + list([col for col in merged_df.columns[product_index + 1:] if col != "annotation_method"] )
     )
     merged_df = merged_df.reindex(columns=new_column_order)
+
 
     # get deposcope info
     deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
@@ -556,9 +567,9 @@ def subcommand_compare(
     annotation_method_index = merged_df.columns.get_loc("annotation_method")
 
     new_column_order = (
-        list(merged_df.columns[: annotation_method_index + 1])
+        list([col for col in merged_df.columns[: annotation_method_index + 1] if col != "depolymerase"]  )
         + ["depolymerase"]
-        + list(merged_df.columns[annotation_method_index + 1 : -1])
+        + list([col for col in merged_df.columns[annotation_method_index + 1:] if col != "depolymerase"] )
     )
     merged_df = merged_df.reindex(columns=new_column_order)
 

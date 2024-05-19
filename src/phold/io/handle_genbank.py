@@ -175,6 +175,7 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
 def write_genbank(
     updated_cds_dict: Dict[str, Dict[str, SeqFeature]],
     non_cds_dict: Dict[str, Dict[str, SeqFeature]],
+    source_dict: Dict[str, Dict[str, SeqFeature]],
     prefix: str,
     gb_dict: Dict[str, SeqRecord],
     output: Path,
@@ -188,6 +189,7 @@ def write_genbank(
     Args:
         updated_cds_dict (Dict[str, Dict[str, SeqFeature]]): Dictionary containing updated CDS features.
         non_cds_dict (Dict[str, Dict[str, SeqFeature]]): Dictionary containing non-CDS features.
+        source_dict (Dict[str, Dict[str, SeqFeature]]): Dictionary containing CDS source assignments.
         prefix (str): Prefix for the output GenBank file.
         gb_dict (Dict[str, SeqRecord]): Dictionary containing SeqRecords.
         output (Union[str, Path]): Path to the output directory.
@@ -279,6 +281,7 @@ def write_genbank(
                         "phrog": cds_feature.qualifiers["phrog"][0],
                         "function": cds_feature.qualifiers["function"][0],
                         "product": cds_feature.qualifiers["product"][0],
+                        "annotation_method": source_dict[record_id][cds_id],
                         "transl_table": transl_table,
                     }
 

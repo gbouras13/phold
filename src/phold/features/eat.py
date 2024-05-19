@@ -25,14 +25,13 @@ import torch.nn.functional as F
 from loguru import logger
 
 
-
 # EAT: Embedding-based Annotation Transfer
 class EAT:
     """
     Taken from https://github.com/Rostlab/EAT/eat.py with modifications
     """
 
-    def __init__(self, lookup_path, query_path, output_dir, num_NN, cpu):
+    def __init__(self, lookup_path, query_path, output_dir, num_NN, cpu, split_threshold):
 
         global device
 
@@ -60,13 +59,12 @@ class EAT:
 
         self.output_dir = output_dir
 
-        self.query_ids, self.query_embs = self.read_inputs(query_path)
+        self.query_ids, self.query_embs = self.read_inputs(query_path, split_threshold)
         logger.info("Queries read")
-        self.lookup_ids, self.lookup_embs = self.read_inputs(lookup_path)
+        self.lookup_ids, self.lookup_embs = self.read_inputs(lookup_path, split_threshold)
         logger.info("Phold DB Embeddings read")
 
-
-    def read_inputs(self, lookup_path):
+    def read_inputs(self, lookup_path, split_threshold):
         """
         has to be a .h5 file
         """
@@ -78,20 +76,23 @@ class EAT:
             raise FileNotFoundError
 
         if lookup_path.name.endswith(".h5"):  # if the embedding file already exists
-            return self.read_embeddings(lookup_path)
+            return self.read_embeddings(lookup_path, split_threshold)
         else:
             logger.error(
                 "The file you passed neither ended with .fasta nor .h5. Only those file formats are currently supported."
             )
             raise NotImplementedError
 
-    def read_embeddings(self, emb_path):
+    def read_embeddings(self, emb_path, split_threshold):
 
         # read in the embeddings
         h5_f = h5py.File(emb_path, "r")
         # get dataset
 
         dataset = {pdb_id: np.array(embd) for pdb_id, embd in h5_f.items()}
+
+        if len(dataset.items()) == 0:
+            logger.error(f"No proteins had ProstT5 confidence under --split_threshold {split_threshold}. Please check this or do not use --split")
         keys, embeddings = zip(*dataset.items())
         # if keys[0].startswith("cath"):
         #     keys = [key.split("|")[2].split("_")[0] for key in keys ]
@@ -245,6 +246,7 @@ def run_eat(
     proteins_flag: bool = False,
     num_NN: int = 1,
     eat_threshold: float = 1.00,
+    split_threshold: float = 60
 ) -> bool:
     """
     Run EAT against on embeddings using euclidean distance
@@ -257,6 +259,7 @@ def run_eat(
         proteins_flag (bool, optional): Whether the sequences are proteins. Defaults to False.
         num_NN (int): Number of nearest neighbours to search for. Defaults to 1
         eat_threshold (float): Threshold of euclidean distance to search for EAT.
+        split_threshold (float): Threshold for splitting EAT vs Foldseek --split_threshold
 
 
     Returns:
@@ -275,7 +278,7 @@ def run_eat(
         "Only positive number of nearest neighbors can be retrieved."
     )
 
-    eater = EAT(lookup_p, query_p, output_d, num_NN, cpu)
+    eater = EAT(lookup_p, query_p, output_d, num_NN, cpu, split_threshold)
     predictions = eater.get_NNs(threshold=eat_threshold)
     eater.write_predictions(predictions, prefix)
 
