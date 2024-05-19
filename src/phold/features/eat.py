@@ -140,7 +140,7 @@ class EAT:
                 logger.warning(f"Trying batched inference on GPU with batchsize {batch_size}.")
 
                 results = []
-                
+
                 for start_idx in range(0, queries.shape[1], batch_size):
                     end_idx = min(start_idx + batch_size, queries.shape[1])
 
@@ -157,7 +157,7 @@ class EAT:
                     torch.cuda.empty_cache()
 
                 # Stack all the results
-                pdist = torch.stack(results).squeeze(dim=-1).T
+                pdist = torch.cat(results, dim=1)
 
                 # Move the final result back to GPU if necessary
                 pdist = pdist.cuda()
