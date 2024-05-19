@@ -159,9 +159,6 @@ class EAT:
                 # Stack all the results
                 pdist = torch.cat(results, dim=1)
 
-                # Move the final result back to GPU if necessary
-                pdist = pdist.cuda()
-
             except (
                 RuntimeError
             ) as e:
@@ -201,9 +198,6 @@ class EAT:
 
                     # Stack the results and perform necessary squeezing and transposing
                     pdist = torch.stack(results).squeeze(dim=-1).T
-
-                    # Move the final result back to GPU if necessary
-                    pdist = pdist.cuda()
 
                 except (
                     RuntimeError
