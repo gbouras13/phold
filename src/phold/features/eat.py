@@ -157,6 +157,7 @@ class EAT:
                 for q_idx in range(queries.shape[1]):
                     with torch.no_grad():
                         # Compute the distance for the current query
+                        logger.info(f"Running {q_idx}")
                         dist = torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(dim=0)
                         # Append the result to the list
                         results.append(dist.cpu())  # Move to CPU to free up GPU memory
