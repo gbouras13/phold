@@ -130,64 +130,64 @@ class EAT:
 
         torch.cuda.empty_cache()
 
-        try:  # try to batch-compute pairwise-distance on GPU
-            pdist = torch.cdist(lookup, queries, p=norm).squeeze(dim=0)
+        # try:  # try to batch-compute pairwise-distance on GPU
+        #     pdist = torch.cdist(lookup, queries, p=norm).squeeze(dim=0)
+
+        # except RuntimeError as e:
+        #logger.warning("Encountered RuntimeError: {}".format(e))
+        batch_size = 1000
+        logger.warning(f"Trying batched inference on GPU with batch size of of {batch_size}.")
+
+        torch.cuda.empty_cache()
+        
+        num_queries = queries.shape[1]
+        pdist_batches = []
+        
+        try:
+            for start_idx in range(0, num_queries, batch_size):
+                end_idx = min(start_idx + batch_size, num_queries)
+                query_batch = queries[:, start_idx:end_idx]
+                pdist_batch = torch.cdist(lookup, query_batch, p=norm).squeeze(dim=0)
+                pdist_batches.append(pdist_batch)
+                
+            pdist = torch.cat(pdist_batches, dim=0)
 
         except RuntimeError as e:
             logger.warning("Encountered RuntimeError: {}".format(e))
-            batch_size = 1000
-            logger.warning(f"Trying batched inference on GPU with batch size of of {batch_size}.")
+            logger.warning("Trying single query inference on GPU.")
+            try:  # if OOM for batch-GPU, re-try single query pdist computation on GPU
+                pdist = (
+                    torch.stack(
+                        [
+                            torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
+                                dim=0
+                            )
+                            for q_idx in range(queries.shape[1])
+                        ]
+                    )
+                    .squeeze(dim=-1)
+                    .T
+                )
 
-            torch.cuda.empty_cache()
-            
-            num_queries = queries.shape[1]
-            pdist_batches = []
-            
-            try:
-                for start_idx in range(0, num_queries, batch_size):
-                    end_idx = min(start_idx + batch_size, num_queries)
-                    query_batch = queries[:, start_idx:end_idx]
-                    pdist_batch = torch.cdist(lookup, query_batch, p=norm).squeeze(dim=0)
-                    pdist_batches.append(pdist_batch)
-                    
-                pdist = torch.cat(pdist_batches, dim=0)
-
-            except RuntimeError as e:
+            except (
+                RuntimeError
+            ) as e:  # if OOM for single GPU, re-try single query on CPU
                 logger.warning("Encountered RuntimeError: {}".format(e))
-                logger.warning("Trying single query inference on GPU.")
-                try:  # if OOM for batch-GPU, re-try single query pdist computation on GPU
-                    pdist = (
-                        torch.stack(
-                            [
-                                torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
-                                    dim=0
-                                )
-                                for q_idx in range(queries.shape[1])
-                            ]
-                        )
-                        .squeeze(dim=-1)
-                        .T
+                logger.warning("Trying to move single query computation to CPU.")
+                lookup = lookup.to("cpu")
+                queries = queries.to("cpu")
+                pdist = (
+                    torch.stack(
+                        [
+                            torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
+                                dim=0
+                            )
+                            for q_idx in range(queries.shape[1])
+                        ]
                     )
-
-                except (
-                    RuntimeError
-                ) as e:  # if OOM for single GPU, re-try single query on CPU
-                    logger.warning("Encountered RuntimeError: {}".format(e))
-                    logger.warning("Trying to move single query computation to CPU.")
-                    lookup = lookup.to("cpu")
-                    queries = queries.to("cpu")
-                    pdist = (
-                        torch.stack(
-                            [
-                                torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
-                                    dim=0
-                                )
-                                for q_idx in range(queries.shape[1])
-                            ]
-                        )
-                        .squeeze(dim=-1)
-                        .T
-                    )
+                    .squeeze(dim=-1)
+                    .T
+                )
 
         return pdist
 
