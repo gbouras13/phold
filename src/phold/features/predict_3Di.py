@@ -22,6 +22,8 @@ from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
 from phold.utils.constants import CNN_DIR
+from phold.databases.db import download_zenodo_prostT5
+
 
 
 # Convolutional neural network (two convolutional layers)
@@ -76,7 +78,7 @@ class CNN(nn.Module):
 def get_T5_model(
     model_dir: Path,
     model_name: str,
-    cpu: bool,
+    cpu: bool
 ) -> (T5EncoderModel, T5Tokenizer):
     """
     Loads a T5 model and tokenizer.
@@ -127,9 +129,23 @@ def get_T5_model(
     # load
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
     logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
-    model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
-        device
-    )
+
+    download_zenodo_prostT5(model_dir)
+
+    try:
+        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
+            device
+        )
+    except:
+        logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
+
+        download_zenodo_prostT5(model_dir)
+        
+        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
+            device
+        )
+    
+    logger.info("Download complete")
 
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(

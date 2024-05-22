@@ -60,9 +60,9 @@ class EAT:
         self.output_dir = output_dir
 
         self.query_ids, self.query_embs = self.read_inputs(query_path, split_threshold)
-        logger.info("Queries read")
+        logger.info("Query embeddings read")
         self.lookup_ids, self.lookup_embs = self.read_inputs(lookup_path, split_threshold)
-        logger.info("Phold DB Embeddings read")
+        logger.info("Phold DB embeddings read")
 
     def read_inputs(self, lookup_path, split_threshold):
         """
@@ -136,15 +136,13 @@ class EAT:
             logger.warning("Encountered RuntimeError: {}".format(e))
             # next try computing in batches of batch_size
             try:
-                batch_size = 100
+                batch_size = 200
                 logger.warning(f"Trying batched inference on GPU with batchsize {batch_size}.")
 
                 results = []
 
                 for start_idx in range(0, queries.shape[1], batch_size):
                     end_idx = min(start_idx + batch_size, queries.shape[1])
-
-                    logger.info(f"Running {start_idx} to {end_idx}")
                 
                     with torch.no_grad():
                         # Process a batch of queries
@@ -163,7 +161,7 @@ class EAT:
                 RuntimeError
             ) as e:
                 logger.warning("Encountered RuntimeError: {}".format(e))
-                logger.warning("Trying single query inference on GPU.")
+                logger.warning("Trying single query inference on GPU. This may take a while.")
                 try:  
                     # michael's original code -> causes memory leakage
                     # therefore need to loop over and free GPU mem
@@ -188,7 +186,6 @@ class EAT:
                     for q_idx in range(queries.shape[1]):
                         with torch.no_grad():
                             # Compute the distance for the current query
-                            logger.info(f"Running {q_idx}")
                             dist = torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(dim=0)
                             # Append the result to the list
                             results.append(dist.cpu())  # Move to CPU to free up GPU memory
@@ -245,7 +242,7 @@ class EAT:
                 # lookup_label = self.lookupLabels[lookup_id]
                 # query_label = self.queryLabels[query_id]
                 predictions.append((query_id, lookup_id, nn_d, nn_iter))
-        logger.info("Computing NN finished.")
+        logger.info("Computing embedding nearest neighbours finished")
         return predictions
 
     def write_predictions(self, predictions, prefix):
@@ -331,6 +328,7 @@ def run_eat(
     )
 
     eater = EAT(lookup_p, query_p, output_d, num_NN, cpu, split_threshold)
+    logger.info("Computing embeddings nearest neighbours")
     predictions = eater.get_NNs(threshold=eat_threshold)
     eater.write_predictions(predictions, prefix)
 

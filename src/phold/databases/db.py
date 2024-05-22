@@ -30,6 +30,9 @@ VERSION_DICTIONARY = {
         "db_url": "https://zenodo.org/records/10675285/files/phold_structure_foldseek_db.tar.gz",
         "dir_name": "phold_structure_foldseek_db",
         "tarball": "phold_structure_foldseek_db.tar.gz",
+        "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0"
     }
 }
 
@@ -140,6 +143,50 @@ def download(db_url: str, tarball_path: Path) -> None:
             f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
         )
 
+def download_zenodo_prostT5(model_dir):
+    """
+    Download the ProstT5 model from Zenodo 
+
+    Args:
+        db_url (str): The URL of the database.
+        tarball_path (Path): The path where the downloaded tarball should be saved.
+    """
+
+    db_url = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_url"]
+    requiredmd5 = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_md5"]
+
+    logger.info(f"Downloading ProstT5 model backup from {db_url}")
+
+    tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
+    tarball_path = Path(f"{model_dir}/{tarball}")
+
+    download(db_url, tarball_path)
+    md5_sum = calc_md5_sum(tarball_path)
+
+    if md5_sum == requiredmd5:
+        logger.info(f"ProstT5 model backup file download OK: {md5_sum}")
+    else:
+        logger.error(
+            f"Error: corrupt file! MD5 should be '{requiredmd5}' but is '{md5_sum}'"
+        )
+
+    logger.info(
+        f"Extracting ProstT5 model backup tarball: file={tarball_path}, output={model_dir}"
+    )
+
+    try:
+        with tarball_path.open("rb") as fh_in, tarfile.open(
+            fileobj=fh_in, mode="r:gz"
+        ) as tar_file:
+            tar_file.extractall(path=str(model_dir))
+
+    except OSError:
+        logger.warning("Encountered OSError: {}".format(OSError))
+        logger.error(f"Could not extract {tarball_path} to {model_dir}")
+
+
+    tarball_path.unlink()
+
 
 def calc_md5_sum(tarball_path: Path, buffer_size: int = 1024 * 1024) -> str:
     """
@@ -189,6 +236,7 @@ def untar(tarball_path: Path, output_path: Path) -> None:
         remove_directory(tarpath)
 
     except OSError:
+        logger.warning("Encountered OSError: {}".format(OSError))
         logger.error(f"Could not extract {tarball_path} to {output_path}")
 
 
