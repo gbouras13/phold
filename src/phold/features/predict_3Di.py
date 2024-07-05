@@ -130,8 +130,6 @@ def get_T5_model(
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
     logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
 
-    download_zenodo_prostT5(model_dir)
-
     try:
         model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
             device
