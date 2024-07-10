@@ -128,8 +128,8 @@ def check_dependencies() -> None:
     )
 
     if foldseek_major_version != 9:
-        logger.error("Foldseek is the wrong version. Please install v8.ef4e960")
+        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
     if foldseek_minor_version != "427df8a":
-        logger.error("Foldseek is the wrong version. Please install v8.ef4e960")
+        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
 
     logger.info("Foldseek version is ok")

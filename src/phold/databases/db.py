@@ -38,7 +38,6 @@ VERSION_DICTIONARY = {
 
 CURRENT_VERSION = "0.1.0"
 
-
 PHOLD_DB_NAMES = [
     "all_phold_prostt5",
     "all_phold_prostt5.index",
@@ -69,6 +68,21 @@ PHOLD_DB_NAMES = [
     "acrs_plddt_over_70_metadata.tsv",
     "defensefinder_plddt_over_70_metadata.tsv",
 ]
+
+
+PROSTT5_MD5_DICTIONARY = {
+    "refs": {
+        "main": "962133e8e2bff04ec1768fa58dd788f3"
+    },
+     "blobs": {
+        "2c19eb6e3b583f52d34b903b5978d3d30b6b7682": "8fd03e945174de0818746ecbde1aad8e",
+        "60fe6bb247c90b8545d7b73820cd796ce6dcbd59": "ce32377619690072ced051ec7fc6c5f0",
+        "6fc7be92c58e238f20a6cdea5a87b123a4ad35e2": "1deb27443d0d9b90b8e5704e752373e2",
+        "74da7b4afcde53faa570114b530c726135bdfcdb813dec3abfb27f9d44db7324": "6ad28d9980aaec37d3935072d204e520",
+        "b1a9ffcef73280cc57f090ad6446b4116b574b6c75d83ccc32778282f7f00855": "45f066fc3b0d87fb9f98bb0ddb97a3dc",
+        "e9322396e6e75ecf8da41a9527e24dfa4eeea505": "b1cdd31ea50a37bf84cc0d7ef11820c8"
+    }
+}
 
 
 def install_database(db_dir: Path) -> None:
@@ -186,6 +200,38 @@ def download_zenodo_prostT5(model_dir):
 
 
     tarball_path.unlink()
+
+def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
+    """
+     Args:
+        model_dir (Path): Directory where the model and tokenizer is be stored.
+        model_name (str): Name of the pre-trained T5 model.
+    Returns:
+        bool: bool to tell Phold whether to download ProstT5
+    """
+
+    # assumes already has been downloaded
+    download = False
+
+    for key in PROSTT5_MD5_DICTIONARY:
+        for nested_key in PROSTT5_MD5_DICTIONARY[key]:
+
+            file_path = Path(f"{model_dir}/models--Rostlab--ProstT5_fp16/{key}/{nested_key}")
+
+            # check file exists
+            if file_path.exists():
+                md5_sum = calc_md5_sum(file_path)
+                if md5_sum != PROSTT5_MD5_DICTIONARY[key][nested_key]:
+                    logger.warning(f"Corrupt model file {file_path}! MD5 should be '{PROSTT5_MD5_DICTIONARY[key][nested_key]}' but is '{md5_sum}'"
+            )
+                    download = True
+            else:
+                logger.warning(f"Model file {file_path} does not exist.")
+                download = True
+
+    return download
+
+
 
 
 def calc_md5_sum(tarball_path: Path, buffer_size: int = 1024 * 1024) -> str:

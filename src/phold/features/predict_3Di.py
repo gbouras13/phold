@@ -22,7 +22,7 @@ from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
 from phold.utils.constants import CNN_DIR
-from phold.databases.db import download_zenodo_prostT5
+from phold.databases.db import download_zenodo_prostT5, check_prostT5_download
 
 
 
@@ -130,8 +130,18 @@ def get_T5_model(
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
     logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
 
+    # check ProstT5 is downloaded
+    # flag assumes transformers takes from local file (see #44)
+    localfile = True
+    download = False
+
+    download = check_prostT5_download(model_dir, model_name)
+    if download is True:
+        localfile = False
+        logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
+
     try:
-        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
+        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/", force_download=download, local_files_only=localfile).to(
             device
         )
     except:
@@ -139,11 +149,10 @@ def get_T5_model(
 
         download_zenodo_prostT5(model_dir)
         
-        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
+        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/", force_download=False, local_files_only=True).to(
             device
         )
-    
-    logger.info("Download complete")
+        
 
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
