@@ -10,6 +10,8 @@ If you have a local workstation without a GPU, please use `phold run` with `--cp
 
 If you have trouble running ProstT5, please use `phold remote`.
 
+If you are having troubing runing `phold` offline after installation (e.g. on a HPC), please add `'TRANSFORMERS_OFFLINE=True` to your environment. 
+
 ## Input 
 
 Most subcommands of `phold` takes as their input an entry Genbank formatted file that contains the output of [`pharokka`](https://github.com/gbouras13/pharokka) for your phage or phage contigs. This will be called `pharokka.gbk` by default in your pharokka output.

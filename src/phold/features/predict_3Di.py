@@ -235,6 +235,10 @@ def write_predictions(
         for contig_id, rest in predictions.items():
             prediction_contig_dict = predictions[contig_id]
 
+            # Filter out entries where the length of the value is 0
+            # Issue #47
+            prediction_contig_dict = {k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0}
+
             if proteins_flag is True:
                 # no contig_id
                 out_f.write(
