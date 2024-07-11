@@ -15,12 +15,9 @@ from phold.features.create_foldseek_db import (
     generate_foldseek_db_from_pdbs,
 )
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
-from phold.features.split_3Di import split_3Di_embeddings_by_prob
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
 from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
-
-from phold.features.eat import run_eat
 
 
 def subcommand_compare(
@@ -37,17 +34,13 @@ def subcommand_compare(
     pdb_dir: Optional[Path],
     logdir: Path,
     filter_pdbs: bool,
-    split: bool,
-    split_threshold: float,
     remote_flag: bool,
     proteins_flag: bool,
     fasta_flag: bool,
     separate: bool,
     max_seqs: int,
-    cluster_db: bool,
-    cluster_search: bool,
-    ultra_sensitive: bool,
-    eat_threshold: float,
+    only_representatives: bool,
+    ultra_sensitive: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -66,17 +59,13 @@ def subcommand_compare(
         pdb_dir (Optional[Path]): Path to the directory containing PDB files.
         logdir (Path): Path to the directory for log files.
         filter_pdbs (bool): Flag indicating whether to filter PDB files.
-        split (bool): Flag indicating whether to split the DBs and run foldseek twice.
-        split_threshold (float): Threshold for splitting the DBs  and run foldseek twice.
         remote_flag (bool): Flag indicating whether the analysis is remote.
         proteins_flag (bool): Flag indicating whether proteins are used.
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
-        cluster_db (bool): Whether to run against clustered db
-        cluster_search (bool): Whether cluster search mode is run against the clustered phold db
+        only_representatives (bool): Whether to search against representatives only (turn off --cluster-search 1)
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
-        eat_threshold (float): EAT Euclidean Distance Threshold
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -249,108 +238,20 @@ def subcommand_compare(
             filter_pdbs,
         )
     else:
-        # split
-        if split is True:
-            probs_3di: Path = (
-                Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
-            )
-
-            all_embeddings_h5: Path = (
-                Path(predictions_dir) / f"{prefix}_embeddings_per_protein.h5"
-            )
-            low_prob_embeddings_h5: Path = Path(output) / "low_prob_embeddings.h5"
-
-            split_3Di_embeddings_by_prob(
-                fasta_aa,
-                fasta_3di,
-                all_embeddings_h5,
-                low_prob_embeddings_h5,
-                probs_3di,
-                output,
-                split_threshold,
-            )
-
-            logger.info(
-                f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DB for low ProstT5 probability proteins and EAT for low probability proteins."
-            )
-
-            high_prob_fasta_aa_out_path: Path = Path(output) / "high_prob_aa.fasta"
-            high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
-
-            # high - foldseek DB
-            if "high_prostt5_prob" == prefix:
-                logger.error(f"Please choose a different {prefix}. ")
-
-            generate_foldseek_db_from_aa_3di(
-                high_prob_fasta_aa_out_path,
-                high_prob_fasta_3di_out_path,
-                foldseek_query_db_path,
-                logdir,
-                "high_prostt5_prob",
-            )
-
-            # low -> EAT
-
-            run_eat(
-                output,
-                prefix,
-                database,
-                low_prob_embeddings_h5,
-                proteins_flag,
-                num_NN=1,
-                eat_threshold=eat_threshold,
-                split_threshold=split_threshold
-            )
-
-        # in case revert to splitting into ProstT5 only ever
-        #      split_3di_fasta_by_prob(
-        #           fasta_aa, fasta_3di, probs_3di, output, split_threshold
-        #     )
-        #     logger.info(
-        #         f"--split is {split} with threshold {split_threshold}. Generating Foldseek query DBs for high and low ProstT5 probability subsets."
-        #     )
-
-        #     high_prob_fasta_aa_out_path: Path = Path(output) / "high_prob_aa.fasta"
-        #     low_prob_fasta_aa_out_path: Path = Path(output) / "low_prob_aa.fasta"
-        #     high_prob_fasta_3di_out_path: Path = Path(output) / "high_prob_3di.fasta"
-        #     low_prob_fasta_3di_out_path: Path = Path(output) / "low_prob_3di.fasta"
-
-        #     # high
-        #     if "high_prostt5_prob" == prefix:
-        #         logger.error(f"Please choose a different {prefix}. ")
-
-        #     generate_foldseek_db_from_aa_3di(
-        #         high_prob_fasta_aa_out_path,
-        #         high_prob_fasta_3di_out_path,
-        #         foldseek_query_db_path,
-        #         logdir,
-        #         "high_prostt5_prob",
-        #     )
-
-        #     # low
-        #     if "low_prostt5_prob" == prefix:
-        #         logger.error(f"Please choose a different {prefix}.t ")
-        #     generate_foldseek_db_from_aa_3di(
-        #         low_prob_fasta_aa_out_path,
-        #         low_prob_fasta_3di_out_path,
-        #         foldseek_query_db_path,
-        #         logdir,
-        #         "low_prostt5_prob",
-        #     )
-
-        # default (just prostt5)
-        else:
-            generate_foldseek_db_from_aa_3di(
-                fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
-            )
+        generate_foldseek_db_from_aa_3di(
+            fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+        )
 
     short_db_name = prefix
 
-    # clustered db search
-    if cluster_db is True:
-        database_name = "all_phold_structures_clustered_searchDB"
-    else:
-        database_name = "all_phold_structures"
+    # # clustered db search
+    # if cluster_db is True:
+    #     database_name = "all_phold_structures_clustered_searchDB"
+    # else:
+    #     database_name = "all_phold_structures"
+
+    # clustered DB
+    database_name = "all_phold_structures_clustered_searchDB"
 
     if short_db_name == database_name:
         logger.error(
@@ -361,114 +262,38 @@ def subcommand_compare(
     # foldseek search
     #####
 
-    if split is True:
-        #############
-        # high - vs structures
-        #############
-        query_db: Path = Path(foldseek_query_db_path) / "high_prostt5_prob"
-        target_db: Path = Path(database) / database_name
+    query_db: Path = Path(foldseek_query_db_path) / short_db_name
+    target_db: Path = Path(database) / database_name
 
-        # make result and temp dirs
-        result_db_base: Path = Path(output) / "result_db"
-        result_db_base.mkdir(parents=True, exist_ok=True)
-        result_db: Path = Path(result_db_base) / "result_db_high"
+    # make result and temp dirs
+    result_db_base: Path = Path(output) / "result_db"
+    result_db_base.mkdir(parents=True, exist_ok=True)
+    result_db: Path = Path(result_db_base) / "result_db"
 
-        temp_db: Path = Path(output) / "temp_db"
-        temp_db.mkdir(parents=True, exist_ok=True)
+    temp_db: Path = Path(output) / "temp_db"
+    temp_db.mkdir(parents=True, exist_ok=True)
 
-        # run foldseek search
-        run_foldseek_search(
-            query_db,
-            target_db,
-            result_db,
-            temp_db,
-            threads,
-            logdir,
-            evalue,
-            sensitivity,
-            max_seqs,
-            cluster_search,
-            ultra_sensitive,
-        )
+    # run foldseek search
+    run_foldseek_search(
+        query_db,
+        target_db,
+        result_db,
+        temp_db,
+        threads,
+        logdir,
+        evalue,
+        sensitivity,
+        max_seqs,
+        only_representatives,
+        ultra_sensitive,
+    )
 
-        # make result tsv for high prob vs structure db
-        result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
-        create_result_tsv(query_db, target_db, result_db, result_high_tsv, logdir)
+    # make result tsv
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
 
-        # error handling if the high or low df is empty
-        col_list = [
-            "query",
-            "target",
-            "bitscore",
-            "fident",
-            "evalue",
-            "qStart",
-            "qEnd",
-            "qLen",
-            "tStart",
-            "tEnd",
-            "tLen",
-        ]
-
-        # create combined tsv
-        try:
-            high_df = pd.read_csv(result_high_tsv, sep="\t", header=None)
-            high_df.columns = col_list
-            high_df["annotation_source"] = "foldseek"
-        except pd.errors.EmptyDataError:
-            logger.info("No Foldseek hits found for high confidence ProstT5 proteins.")
-            high_df = pd.DataFrame(columns=col_list)
-
-        result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
-
-        try:
-            low_df = pd.read_csv(result_low_tsv, sep="\t", header=None)
-            low_df.columns = col_list
-            low_df["annotation_source"] = "EAT"
-        except pd.errors.EmptyDataError:
-            logger.info("No EAT hits found for low confidence ProstT5 proteins.")
-            low_df = pd.DataFrame(columns=col_list)
-
-        # combined
-        combined_df = pd.concat([high_df, low_df])
-        result_tsv: Path = Path(output) / "foldseek_results.tsv"
-        combined_df.to_csv(result_tsv, sep="\t", header=False, index=False)
-
-    # no split
-    else:
-
-        query_db: Path = Path(foldseek_query_db_path) / short_db_name
-        target_db: Path = Path(database) / database_name
-
-        # make result and temp dirs
-        result_db_base: Path = Path(output) / "result_db"
-        result_db_base.mkdir(parents=True, exist_ok=True)
-        result_db: Path = Path(result_db_base) / "result_db"
-
-        temp_db: Path = Path(output) / "temp_db"
-        temp_db.mkdir(parents=True, exist_ok=True)
-
-        # run foldseek search
-        run_foldseek_search(
-            query_db,
-            target_db,
-            result_db,
-            temp_db,
-            threads,
-            logdir,
-            evalue,
-            sensitivity,
-            max_seqs,
-            cluster_search,
-            ultra_sensitive,
-        )
-
-        # make result tsv
-        result_tsv: Path = Path(output) / "foldseek_results.tsv"
-
-        # target_db is all_phold_structures regardless of the clustered search mode
-        target_db: Path = Path(database) / "all_phold_structures"
-        create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
+    # target_db is all_phold_structures regardless of the clustered search mode
+    target_db: Path = Path(database) / "all_phold_structures"
+    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
     ########
     # get topfunction
@@ -480,7 +305,7 @@ def subcommand_compare(
     # also calculate the weighted bitscore df
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
-        result_tsv, database, database_name, pdb, card_vfdb_evalue, proteins_flag, split
+        result_tsv, database, database_name, pdb, card_vfdb_evalue, proteins_flag
     )
 
     # update the CDS dictionary with the tophits
@@ -556,22 +381,24 @@ def subcommand_compare(
     merged_df = merged_df.reindex(columns=new_column_order)
 
 
-    # get deposcope info
-    deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
-    deposcope_df = pd.read_csv(deposcope_metadata_path, sep=",")
-    deposcope_list = deposcope_df["tophit_protein"].tolist()
+    # depolymerase prediction for next version - needs more time for analysis than v0.2.0
 
-    merged_df["depolymerase"] = merged_df["tophit_protein"].isin(deposcope_list)
+    # # get deposcope info
+    # deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
+    # deposcope_df = pd.read_csv(deposcope_metadata_path, sep=",")
+    # deposcope_list = deposcope_df["tophit_protein"].tolist()
 
-    # move after tophit_protein
-    annotation_method_index = merged_df.columns.get_loc("annotation_method")
+    # merged_df["depolymerase"] = merged_df["tophit_protein"].isin(deposcope_list)
 
-    new_column_order = (
-        list([col for col in merged_df.columns[: annotation_method_index + 1] if col != "depolymerase"]  )
-        + ["depolymerase"]
-        + list([col for col in merged_df.columns[annotation_method_index + 1:] if col != "depolymerase"] )
-    )
-    merged_df = merged_df.reindex(columns=new_column_order)
+    # # move after tophit_protein
+    # annotation_method_index = merged_df.columns.get_loc("annotation_method")
+
+    # new_column_order = (
+    #     list([col for col in merged_df.columns[: annotation_method_index + 1] if col != "depolymerase"]  )
+    #     + ["depolymerase"]
+    #     + list([col for col in merged_df.columns[annotation_method_index + 1:] if col != "depolymerase"] )
+    # )
+    # merged_df = merged_df.reindex(columns=new_column_order)
 
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"

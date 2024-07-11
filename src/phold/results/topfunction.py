@@ -13,8 +13,7 @@ def get_topfunctions(
     database_name: str,
     pdb: bool,
     card_vfdb_evalue: float,
-    proteins_flag: bool,
-    split: bool,
+    proteins_flag: bool
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Process Foldseek output to extract top functions and weighted bitscores.
@@ -26,7 +25,6 @@ def get_topfunctions(
         pdb (bool): Flag indicating whether the PDB format structures have been added.
         card_vfdb_evalue (float): E-value threshold for card and vfdb hits.
         proteins_flag (bool): Flag indicating whether proteins are used.
-        split (bool): whether --split is turned on or not
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames:
@@ -36,37 +34,19 @@ def get_topfunctions(
 
     logger.info("Processing Foldseek output")
 
-    if split is True:
-
-        col_list = [
-            "query",
-            "target",
-            "bitscore",
-            "fident",
-            "evalue",
-            "qStart",
-            "qEnd",
-            "qLen",
-            "tStart",
-            "tEnd",
-            "tLen",
-            "annotation_source",
-        ]
-    else:
-
-        col_list = [
-            "query",
-            "target",
-            "bitscore",
-            "fident",
-            "evalue",
-            "qStart",
-            "qEnd",
-            "qLen",
-            "tStart",
-            "tEnd",
-            "tLen",
-        ]
+    col_list = [
+        "query",
+        "target",
+        "bitscore",
+        "fident",
+        "evalue",
+        "qStart",
+        "qEnd",
+        "qLen",
+        "tStart",
+        "tEnd",
+        "tLen",
+    ]
 
     foldseek_df = pd.read_csv(
         result_tsv, delimiter="\t", index_col=False, names=col_list
@@ -78,8 +58,7 @@ def get_topfunctions(
             "Foldseek found no hits whatsoever - please check whether your input is really phage-like"
         )
 
-    if split is False:
-        foldseek_df["annotation_source"] = "foldseek"
+    foldseek_df["annotation_source"] = "foldseek"
 
     # gets the cds
     if pdb is False and proteins_flag is False:
@@ -162,7 +141,7 @@ def get_topfunctions(
         .reset_index(drop=True)
     )
 
-    topfunction_dict = dict(zip(topfunction_df["query"], topfunction_df["function"]))
+    # topfunction_dict = dict(zip(topfunction_df["query"], topfunction_df["function"]))
 
     # Remove the original 'query' column
     topfunction_df = topfunction_df.drop(columns=["query"])

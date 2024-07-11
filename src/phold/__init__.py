@@ -161,18 +161,6 @@ def compare_options(func):
             help="Keep temporary intermediate files, particularly the large foldseek_results.tsv of all Foldseek hits",
         ),
         click.option(
-            "--split",
-            is_flag=True,
-            help="Split the Foldseek runs by ProstT5 probability",
-        ),
-        click.option(
-            "--split_threshold",
-            default=60,
-            help="ProstT5 Probability to split by",
-            type=float,
-            show_default=True,
-        ),
-        click.option(
             "--card_vfdb_evalue",
             default="1e-10",
             type=float,
@@ -187,32 +175,20 @@ def compare_options(func):
         click.option(
             "--max_seqs",
             type=int,
-            default=1000,
+            default=10000,
             show_default=True,
             help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
         ),
         click.option(
-            "--cluster_db",
+            "--only_representatives",
             is_flag=True,
-            help="Run phold against clustered DB",
-        ),
-        click.option(
-            "--cluster_search",
-            is_flag=True,
-            help="Turn on  --cluster-search 1 parameter with Foldseek (first find representative then align all cluster members)",
+            help="Foldseek search only against the cluster representatives (i.e. turn off --cluster-search 1 Foldseek parameter)",
         ),
         click.option(
             "--ultra_sensitive",
             is_flag=True,
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
-        ),
-        click.option(
-            "--eat_threshold",
-            default=1,
-            help="EAT Euclidean distance threshold",
-            type=float,
-            show_default=True,
-        ),
+        )
     ]
     for option in reversed(options):
         func = option(func)
@@ -262,16 +238,12 @@ def run(
     finetune,
     finetune_path,
     card_vfdb_evalue,
-    split,
-    split_threshold,
     separate,
     max_seqs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
-    cluster_db,
-    cluster_search,
+    only_representatives,
     ultra_sensitive,
-    eat_threshold,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -297,16 +269,12 @@ def run(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--split": split,
-        "--split_threshold": split_threshold,
-        "--eat_threshold": eat_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--cluster_db": cluster_db,
-        "--cluster_search": cluster_search,
+        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
     }
 
@@ -359,17 +327,13 @@ def run(
         pdb_dir=output,
         logdir=logdir,
         filter_pdbs=False,
-        split=split,
-        split_threshold=split_threshold,
         remote_flag=True,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        cluster_db=cluster_db,
-        cluster_search=cluster_search,
+        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
-        eat_threshold=eat_threshold,
     )
 
     # cleanup the temp files
@@ -527,15 +491,11 @@ def compare(
     pdb_dir,
     filter_pdbs,
     keep_tmp_files,
-    split,
-    split_threshold,
     card_vfdb_evalue,
     separate,
     max_seqs,
-    cluster_db,
-    cluster_search,
+    only_representatives,
     ultra_sensitive,
-    eat_threshold,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -561,14 +521,10 @@ def compare(
         "--pdb_dir": pdb_dir,
         "--filter_pdbs": filter_pdbs,
         "--keep_tmp_files": keep_tmp_files,
-        "--split": split,
-        "--split_threshold": split_threshold,
-        "--eat_threshold": eat_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
-        "--cluster_db": cluster_db,
-        "--cluster_search": cluster_search,
+        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
     }
 
@@ -598,17 +554,12 @@ def compare(
         pdb_dir,
         logdir,
         filter_pdbs,
-        split,
-        split_threshold,
         remote_flag=False,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        cluster_db=cluster_db,
-        cluster_search=cluster_search,
         ultra_sensitive=ultra_sensitive,
-        eat_threshold=eat_threshold,
     )
 
     # cleanup the temp files
@@ -791,15 +742,11 @@ def proteins_compare(
     pdb_dir,
     filter_pdbs,
     keep_tmp_files,
-    split,
-    split_threshold,
     card_vfdb_evalue,
     separate,
     max_seqs,
-    cluster_db,
-    cluster_search,
+    only_representatives,
     ultra_sensitive,
-    eat_threshold,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -825,13 +772,9 @@ def proteins_compare(
         "--pdb_dir": pdb_dir,
         "--filter_pdbs": filter_pdbs,
         "--keep_tmp_files": keep_tmp_files,
-        "--split": split,
-        "--split_threshold": split_threshold,
-        "--eat_threshold": eat_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--max_seqs": max_seqs,
-        "--cluster_db": cluster_db,
-        "--cluster_search": cluster_search,
+        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
     }
 
@@ -884,17 +827,13 @@ def proteins_compare(
         pdb_dir,
         logdir,
         filter_pdbs,
-        split=split,
-        split_threshold=split_threshold,
         remote_flag=False,
         proteins_flag=True,
         fasta_flag=False,
         separate=False,
         max_seqs=max_seqs,
-        cluster_db=cluster_db,
-        cluster_search=cluster_search,
+        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
-        eat_threshold=eat_threshold,
     )
 
     # cleanup the temp files
@@ -934,13 +873,10 @@ def remote(
     database,
     sensitivity,
     keep_tmp_files,
-    split,
-    split_threshold,
     card_vfdb_evalue,
     separate,
     max_seqs,
-    cluster_db,
-    cluster_search,
+    only_representatives,
     ultra_sensitive,
     **kwargs,
 ):
@@ -962,13 +898,10 @@ def remote(
         "--database": database,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
-        "--split": split,
-        "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
-        "--cluster_db": cluster_db,
-        "--cluster_search": cluster_search,
+        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
     }
 
@@ -1041,15 +974,12 @@ def remote(
         pdb_dir=output,
         logdir=logdir,
         filter_pdbs=False,
-        split=split,
-        split_threshold=split_threshold,
         remote_flag=True,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        cluster_db=cluster_db,
-        cluster_search=cluster_search,
+        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
     )
 
