@@ -11,7 +11,7 @@ def get_topfunctions(
     result_tsv: Path,
     database: Path,
     database_name: str,
-    pdb: bool,
+    structures: bool,
     card_vfdb_evalue: float,
     proteins_flag: bool,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -22,7 +22,7 @@ def get_topfunctions(
         result_tsv (Path): Path to the Foldseek result TSV file.
         database (Path): Path to the database directory.
         database_name (str): Name of the database.
-        pdb (bool): Flag indicating whether the PDB format structures have been added.
+        structures (bool): Flag indicating whether structures have been added.
         card_vfdb_evalue (float): E-value threshold for card and vfdb hits.
         proteins_flag (bool): Flag indicating whether proteins are used.
 
@@ -61,14 +61,15 @@ def get_topfunctions(
     foldseek_df["annotation_source"] = "foldseek"
 
     # gets the cds
-    if pdb is False and proteins_flag is False:
+    if structures is False and proteins_flag is False:
         # prostt5
         foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
             ":", expand=True, n=1
         )
-    # pdb or proteins_flag or both
+    # structures or proteins_flag or both
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
+        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".cif", "")
 
     # clean up pdb and phrogs
     foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
@@ -238,6 +239,9 @@ def get_topfunctions(
     weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
         ".pdb", ""
     )
+    weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
+        ".cif", ""
+    )
     weighted_bitscore_df = weighted_bitscore_df.drop(columns=["level_1"])
 
     return topfunction_df, weighted_bitscore_df
@@ -247,7 +251,7 @@ def calculate_topfunctions_results(
     filtered_tophits_df: pd.DataFrame,
     cds_dict: Dict[str, Dict[str, dict]],
     output: Path,
-    pdb: bool,
+    structures: bool,
     proteins_flag: bool,
     fasta_flag: bool,
 ) -> Union[Dict[str, Dict[str, dict]], pd.DataFrame]:
@@ -258,7 +262,7 @@ def calculate_topfunctions_results(
         filtered_tophits_df (pd.DataFrame): DataFrame containing filtered top hits.
         cds_dict (Dict[str, Dict[str, dict]]): Dictionary containing CDS information.
         output (Path): Output path.
-        pdb (bool): Indicates whether the input is in PDB format.
+        structures (bool): Indicates whether the input is is in .pdb or .cif format.
         proteins_flag (bool): Indicates whether the input is proteins.
         fasta_flag (bool): Indicates whether the input is in FASTA format.
 
@@ -279,7 +283,7 @@ def calculate_topfunctions_results(
             cds_record_dict[cds_id] = record_id
 
     # Get record_id for every cds_id and merge into the df
-    if pdb is True:
+    if structures is True:
         cds_record_df = pd.DataFrame(
             list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
         )

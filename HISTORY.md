@@ -3,22 +3,28 @@
 0.2.0
 ------------------
 
-Big update adding
+**You will need to re-install the updated phold database updates for v0.2.0 using `phold install`**
 
-* Improved sensitivity and faster runtime for the `foldseek` search. This is achieved by clustering the Phold database at `--min-seq-id 0.3` and creating a cluster db before running with `foldseek` which significantly improves runtime
-    * **This means you will need to re-install the phold database updates for v0.2.0 using `phold install`**
-* Changed default `--max_seqs` from 1000 to 10000 to improve sensitivity
+Large update adding
+
+* Improved sensitivity and faster runtime for the `foldseek` search. This is achieved by clustering the Phold database at `--min-seq-id 0.3 -c 0.8` and creating a cluster db before running with `foldseek` which significantly improves runtime
+    * Overall, just over 1.1M structures are clustered into around 372k clusters 
+* `--cluster-search 1` parameter is added to `foldseek search` to search against the cluster representatives first and then within each cluster, which increases sensitivity and reduces resource usage compared to `phold v0.1.4`
+* Changed default `--max_seqs` from 1000 to 10000 to improve sensitivity at little resource usage cost
 * Phold database is expanded adding:
-    * Extremely conservative high confidence [efam](https://doi.org/10.1093/bioinformatics/btab451) proteins with hits to PHROGs 
-    * 95% dereplicated diversity-generating retroelements (DGRs) from [Roux et al](https://www.nature.com/articles/s41467-021-23402-7)
-* Adds `depolymerase` column in `_per_cds_predictions.tsv` output.
-    * Every PHROG, ENVHOG and efam protein in the Phold database has been run through [DepoScope](https://github.com/dimiboeckaerts/DepoScope)  
-    * If the tophit protein for each query has a depolymerase according to DepoScope, then this will be TRUE
-    * Note TRUE doesn't necessarily mean that the query is a depolymerase (especially if the foldseek alignment is partial or the e-value is close to the threshold) -  it is recommended to run [DepoScope](https://github.com/dimiboeckaerts/DepoScope) as a follow follow-up again on your TRUE query proteins to make sure
-* Adds `--ultra_sensitive` flag which turns off Foldseek prefiltering for maximum annotation sensitivity. Recommended for small datasets/single phages only.
+    * Extremely conservative high confidence [efam](https://doi.org/10.1093/bioinformatics/btab451) proteins with hits to PHROGs.
+    * 95% dereplicated diversity-generating retroelements (DGRs) from [Roux et al](https://www.nature.com/articles/s41467-021-23402-7).
+    * 7153 netflax toxin-antitoxin systems from [Ernits et al](https://doi.org/10.1073/pnas.2305393120).
+* Adds `--ultra_sensitive` flag which turns off Foldseek prefiltering for maximum sensitivity. Recommended for small datasets/single phages only.
     * This passes the `--exhaustive-search` parameter to `foldseek search`
 * Adds the ability to save ProstT5 embeddings with `--save_per_residue_embeddings` and `--save_per_protein_embeddings`
+* Adds `.cif` support (e.g. from Alphafold3 server) for structures, not just `.pdb` file format
 
+Breaking CLI changes
+
+* `--pdb` has changed to `--structures`
+* `--pdb_dir` has changed to `--structure_dir`
+* `--filter_pdbs` has changed to `--filter_structures`
 
 0.1.4 (2024-03-26)
 ------------------

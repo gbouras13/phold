@@ -11,7 +11,7 @@ from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs)
+    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_structures)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
@@ -29,10 +29,10 @@ def subcommand_compare(
     database: Path,
     prefix: str,
     predictions_dir: Optional[Path],
-    pdb: bool,
-    pdb_dir: Optional[Path],
+    structures: bool,
+    structure_dir: Optional[Path],
     logdir: Path,
-    filter_pdbs: bool,
+    filter_structures: bool,
     remote_flag: bool,
     proteins_flag: bool,
     fasta_flag: bool,
@@ -54,10 +54,10 @@ def subcommand_compare(
         database (Path): Path to the reference database.
         prefix (str): Prefix for output files.
         predictions_dir (Optional[Path]): Path to the directory containing predictions.
-        pdb (bool): Flag indicating whether PDB files are used.
-        pdb_dir (Optional[Path]): Path to the directory containing PDB files.
+        structures (bool): Flag indicating whether structures files are used.
+        structure_dir (Optional[Path]): Path to the directory containing structures (.pdb or .cif) files.
         logdir (Path): Path to the directory for log files.
-        filter_pdbs (bool): Flag indicating whether to filter PDB files.
+        filter_structuress (bool): Flag indicating whether to filter structure files.
         remote_flag (bool): Flag indicating whether the analysis is remote.
         proteins_flag (bool): Flag indicating whether proteins are used.
         fasta_flag (bool): Flag indicating whether FASTA files are used.
@@ -70,8 +70,8 @@ def subcommand_compare(
         bool: True if sub-databases are created successfully, False otherwise.
     """
 
-    if predictions_dir is None and pdb is False:
-        logger.error(f"You did not specify --predictions_dir or --pdb. Please check ")
+    if predictions_dir is None and structures is False:
+        logger.error(f"You did not specify --structure_dir or --structures. Please check ")
 
     if proteins_flag is True:
         cds_dict = gb_dict
@@ -166,7 +166,7 @@ def subcommand_compare(
                         i += 1
 
     # input predictions or structures
-    if pdb is False:
+    if structures is False:
         # prostT5
         fasta_aa_input: Path = Path(predictions_dir) / f"{prefix}_aa.fasta"
         fasta_3di_input: Path = Path(predictions_dir) / f"{prefix}_3di.fasta"
@@ -174,8 +174,8 @@ def subcommand_compare(
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
     fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
-    ## copy the AA and 3Di from predictions directory if pdb is false and phold compare is the command
-    if pdb is False:
+    ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
+    if structures is False:
         # if remote, these will not exist
         if remote_flag is False:
             if fasta_3di_input.exists():
@@ -197,7 +197,7 @@ def subcommand_compare(
                 logger.error(
                     f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
                 )
-    ## write the AAs to file if pdb is true
+    ## write the AAs to file if structures is true
     else:
         ## write the CDS to file
         logger.info(f"Writing the AAs to file {fasta_aa}.")
@@ -217,24 +217,24 @@ def subcommand_compare(
     foldseek_query_db_path: Path = Path(output) / "foldseek_db"
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    if pdb is True:
+    if structures is True:
         logger.info("Creating a foldseek query database from structures.")
 
-        filtered_pdbs_path: Path = Path(output) / "filtered_pdbs"
-        if filter_pdbs is True:
+        filtered_structures_path: Path = Path(output) / "filtered_pdbs"
+        if filter_structures is True:
             logger.info(
-                f"--filter_pdbs is {filter_pdbs}. Therefore only the .pdb structure files with matching CDS ids will be copied and compared."
+                f"--filter_structures is {filter_structures}. Therefore only the .pdb or .cif structure files with matching CDS ids will be copied and compared."
             )
-            filtered_pdbs_path.mkdir(parents=True, exist_ok=True)
+            filtered_structures_path.mkdir(parents=True, exist_ok=True)
 
-        generate_foldseek_db_from_pdbs(
+        generate_foldseek_db_from_structures(
             fasta_aa,
             foldseek_query_db_path,
-            pdb_dir,
-            filtered_pdbs_path,
+            structure_dir,
+            filtered_structures_path,
             logdir,
             prefix,
-            filter_pdbs,
+            filter_structures,
         )
     else:
         generate_foldseek_db_from_aa_3di(
@@ -307,12 +307,12 @@ def subcommand_compare(
     # also calculate the weighted bitscore df
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
-        result_tsv, database, database_name, pdb, card_vfdb_evalue, proteins_flag
+        result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag
     )
 
     # update the CDS dictionary with the tophits
     updated_cds_dict, filtered_tophits_df, source_dict = calculate_topfunctions_results(
-        filtered_topfunctions_df, cds_dict, output, pdb, proteins_flag, fasta_flag
+        filtered_topfunctions_df, cds_dict, output, structures, proteins_flag, fasta_flag
     )
 
     # generate per CDS foldseek information df and write to genbank
@@ -329,13 +329,13 @@ def subcommand_compare(
     )
 
     # if prostt5, query will repeat contig_id in query - convert to cds_id
-    if pdb is False and proteins_flag is False:
+    if structures is False and proteins_flag is False:
         weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
             "query"
         ].str.split(":", expand=True, n=1)
         weighted_bitscore_df = weighted_bitscore_df.drop(columns=["query", "contig_id"])
 
-    # otherwise for pdb or proteins query will just be the cds_id so rename
+    # otherwise for structures or proteins query will just be the cds_id so rename
     else:
         weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
 
