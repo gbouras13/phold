@@ -77,8 +77,6 @@ PHOLD_DB_NAMES = [
     "all_phold_structures_clustered_searchDB_h.index",
     "all_phold_structures_clustered_searchDB_h.dbtype",
     "all_phold_structures_clustered_searchDB_ca",
-    "all_phold_structures_ca.index",
-    "all_phold_structures_ca.dbtype",
     "phold_annots.tsv",
     "card_plddt_over_70_metadata.tsv",
     "vfdb_description_output.csv",
