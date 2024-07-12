@@ -19,6 +19,7 @@ Large update adding
     * This passes the `--exhaustive-search` parameter to `foldseek search`
 * Adds the ability to save ProstT5 embeddings with `--save_per_residue_embeddings` and `--save_per_protein_embeddings`
 * Adds `.cif` support (e.g. from Alphafold3 server) for structures, not just `.pdb` file format
+* Removes some experimental parameters from v0.1.4 (`--split` etc)
 
 Breaking CLI changes
 

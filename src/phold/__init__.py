@@ -458,7 +458,7 @@ compare command
 @click.option(
     "--structures",
     is_flag=True,
-    help="Use if you have .pdb or .cif file structures for the input proteins (e.g. with AF2/Colabfold) in a directory that you specify with --structure_dir",
+    help="Use if you have .pdb or .cif file structures for the input proteins (e.g. with AF2/Colabfold .pdb or AF3 for .cif) in a directory that you specify with --structure_dir",
 )
 @click.option(
     "--structure_dir",
