@@ -470,6 +470,8 @@ def subcommand_compare(
 
             defensefinder_count = len(contig_df[contig_df["phrog"] == "defensefinder"])
 
+            netflax_count = len(contig_df[contig_df["phrog"] == "netflax"])
+
             # create count list  for the dataframe
             count_list = [
                 cds_count,
@@ -554,7 +556,7 @@ def subcommand_compare(
             netflax_row = pd.DataFrame(
                 {
                     "Description": ["Netflax"],
-                    "Count": [netflax_row],
+                    "Count": [netflax_count],
                     "Contig": [contig],
                 }
             )
