@@ -1,7 +1,11 @@
 """
 to tar DBs
 
+# v0.1.0
 GZIP=-9 tar cvzf phold_structure_foldseek_db.tar.gz phold_structure_foldseek_db
+
+# v0.2.0
+GZIP=-9 tar cvzf phold_db_v_0_2_0.tar.gz phold_db_v_0_2_0
 
 """
 
@@ -38,49 +42,63 @@ VERSION_DICTIONARY = {
 
 VERSION_DICTIONARY = {
     "0.2.0": {
-        "md5": "353a1a6763e1261c5c44e1e2da9d8736",
+        "md5": "99ed8b4bcc41ca6e05e8690ba7e85197",
         "major": 0,
         "minor": 2,
         "minorest": 0,
-        "db_url": "https://zenodo.org/records/10675285/files/phold_structure_foldseek_db.tar.gz",
-        "dir_name": "phold_structure_foldseek_db",
-        "tarball": "phold_structure_foldseek_db.tar.gz",
+        "db_url": "https://zenodo.org/records/12735568/files/phold_db_v_0_2_0.tar.gz",
+        "dir_name": "phold_db_v_0_2_0",
+        "tarball": "phold_db_v_0_2_0.tar.gz",
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     }
 }
 
-CURRENT_VERSION = "0.1.0"
+CURRENT_VERSION = "0.2.0"
 
 PHOLD_DB_NAMES = [
+    "acrs_plddt_over_70_metadata.tsv",
     "all_phold_structures",
-    "all_phold_structures.index",
-    "all_phold_structures.dbtype",
-    "all_phold_structures.source",
-    "all_phold_structures.lookup",
-    "all_phold_structures_h",
-    "all_phold_structures_h.index",
-    "all_phold_structures_h.dbtype",
     "all_phold_structures_clustered_searchDB",
-    "all_phold_structures_clustered_searchDB_ss",
-    "all_phold_structures_clustered_searchDB_ss.dbtype",
-    "all_phold_structures_clustered_searchDB_ss.index",
-    "all_phold_structures_clustered_searchDB.index",
+    "all_phold_structures_clustered_searchDB_ca",
+    "all_phold_structures_clustered_searchDB_ca.dbtype",
+    "all_phold_structures_clustered_searchDB_ca.index",
+    "all_phold_structures_clustered_searchDB_clu",
+    "all_phold_structures_clustered_searchDB_clu.dbtype",
+    "all_phold_structures_clustered_searchDB_clu.index",
     "all_phold_structures_clustered_searchDB.dbtype",
-    "all_phold_structures_clustered_searchDB.source",
-    "all_phold_structures_clustered_searchDB.lookup",
-    "all_phold_structures_clustered_searchDB_ss",
-    "all_phold_structures_clustered_searchDB_ss.index",
-    "all_phold_structures_clustered_searchDB_ss.dbtype",
     "all_phold_structures_clustered_searchDB_h",
     "all_phold_structures_clustered_searchDB_h.index",
     "all_phold_structures_clustered_searchDB_h.dbtype",
-    "all_phold_structures_clustered_searchDB_ca",
-    "phold_annots.tsv",
+    "all_phold_structures_clustered_searchDB.index",
+    "all_phold_structures_clustered_searchDB.lookup",
+    "all_phold_structures_clustered_searchDB.seq.1",
+    "all_phold_structures_clustered_searchDB.seq_ca.1",
+    "all_phold_structures_clustered_searchDB.seq_ca.dbtype",
+    "all_phold_structures_clustered_searchDB.seq_ca.index",
+    "all_phold_structures_clustered_searchDB.seq_h.1",
+    "all_phold_structures_clustered_searchDB.seq_h.dbtype",
+    "all_phold_structures_clustered_searchDB.seq_h.index",
+    "all_phold_structures_clustered_searchDB.seq.index",
+    "all_phold_structures_clustered_searchDB.seq_ss.1",
+    "all_phold_structures_clustered_searchDB.seq_ss.dbtype",
+    "all_phold_structures_clustered_searchDB.seq_ss.index",
+     "all_phold_structures_clustered_searchDB.source",
+    "all_phold_structures_clustered_searchDB_ss",
+    "all_phold_structures_clustered_searchDB_ss.dbtype",
+    "all_phold_structures_clustered_searchDB_ss.index",
+    "all_phold_structures.dbtype",
+    "all_phold_structures_h",
+    "all_phold_structures_h.index",
+    "all_phold_structures_h.dbtype",
+    "all_phold_structures.index",
+    "all_phold_structures.lookup",
+    "all_phold_structures.source",
     "card_plddt_over_70_metadata.tsv",
     "vfdb_description_output.csv",
-    "acrs_plddt_over_70_metadata.tsv",
+    "netflax_annotation_table.tsv",
+    "phold_annots.tsv",
     "defensefinder_plddt_over_70_metadata.tsv",
 ]
 
