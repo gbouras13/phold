@@ -109,11 +109,10 @@ def create_sub_db_outputs(
 
     else:
         touch_file(card_merged_output_path)
-    
+
     # netflax df
     netflax_df = merged_df[(merged_df["phrog"] == "netflax")]
     netflax_df = netflax_df.rename(columns={"tophit_protein": "protein"})
-    
 
     netflax_metadata_path: Path = Path(database) / "netflax_annotation_table.tsv"
     netflax_metadata_df = pd.read_csv(netflax_metadata_path, sep="\t")

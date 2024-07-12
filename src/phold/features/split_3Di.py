@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
 
+import h5py
 import pandas as pd
 from Bio import SeqIO
-import h5py
 
 
 def split_3Di_embeddings_by_prob(

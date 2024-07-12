@@ -13,7 +13,7 @@ def get_topfunctions(
     database_name: str,
     pdb: bool,
     card_vfdb_evalue: float,
-    proteins_flag: bool
+    proteins_flag: bool,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Process Foldseek output to extract top functions and weighted bitscores.
@@ -342,7 +342,7 @@ def calculate_topfunctions_results(
         "connector": "connector",
     }
 
-    # source dict 
+    # source dict
     source_dict = {}
 
     # iterates over the records
@@ -356,7 +356,6 @@ def calculate_topfunctions_results(
                 cds_feature.qualifiers["phrog"] = ["No_PHROG"]
                 cds_feature.qualifiers["product"] = ["hypothetical protein"]
 
-
             # if the result_dict is not empty
             # this is a foldseek hit
             if result_dict[record_id][cds_id] != {}:
@@ -364,8 +363,12 @@ def calculate_topfunctions_results(
                 # function will be None if there is no foldseek hit - shouldn't happen here but error handling
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
 
-                # add annotation source 
-                source_dict[record_id][cds_id] = filtered_tophits_df.loc[(filtered_tophits_df['contig_id'] == record_id) & (filtered_tophits_df['cds_id'] == cds_id), 'annotation_source'].values[0]
+                # add annotation source
+                source_dict[record_id][cds_id] = filtered_tophits_df.loc[
+                    (filtered_tophits_df["contig_id"] == record_id)
+                    & (filtered_tophits_df["cds_id"] == cds_id),
+                    "annotation_source",
+                ].values[0]
 
                 # same phrog as pharokka do nothing
                 # different phrog as pharokka
@@ -430,12 +433,11 @@ def calculate_topfunctions_results(
                                     "function"
                                 ][0] = result_dict[record_id][cds_id]["function"]
 
-                            else: 
-                                # this will be when pharokka does have a known function 
+                            else:
+                                # this will be when pharokka does have a known function
                                 # keep the pharokka annotation - aka do nothing to the dictionary
                                 # but need to update annotation source dict to pharokka
                                 source_dict[record_id][cds_id] = "pharokka"
-
 
             else:
                 # no foldseek hits - empty results dict for the record and cds id

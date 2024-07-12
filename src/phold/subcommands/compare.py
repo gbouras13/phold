@@ -3,21 +3,20 @@
 import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
-import numpy as np
 
+import numpy as np
 import pandas as pd
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di,
-    generate_foldseek_db_from_pdbs,
-)
+    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_pdbs)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
-from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
+from phold.results.topfunction import (calculate_topfunctions_results,
+                                       get_topfunctions)
 
 
 def subcommand_compare(
@@ -40,7 +39,7 @@ def subcommand_compare(
     separate: bool,
     max_seqs: int,
     only_representatives: bool,
-    ultra_sensitive: bool
+    ultra_sensitive: bool,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -292,6 +291,9 @@ def subcommand_compare(
     result_tsv: Path = Path(output) / "foldseek_results.tsv"
 
     # target_db is all_phold_structures regardless of the clustered search mode
+    # needs all_phold_structures and all_phold_structures_h
+    # delete the rest to save some space
+
     target_db: Path = Path(database) / "all_phold_structures"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
@@ -357,12 +359,12 @@ def subcommand_compare(
     #         return "none"
     #     else:  # will be accounted for otherwise
     #         return row["annotation_source"]
-        # elif row["annotation_source"] == "foldseek":
-        #     return "foldseek"
-        # elif row["annotation_source"] == "EAT":
-        #     return "EAT"
-        # else:
-        #     return "pharokka"
+    # elif row["annotation_source"] == "foldseek":
+    #     return "foldseek"
+    # elif row["annotation_source"] == "EAT":
+    #     return "EAT"
+    # else:
+    #     return "pharokka"
 
     # Create a new column order with 'annotation_method' moved after 'product' - drop annotation source (carries original output)
     # merged_df["annotation_method"] = merged_df.apply(
@@ -372,14 +374,24 @@ def subcommand_compare(
 
     product_index = merged_df.columns.get_loc("product")
 
-
     new_column_order = (
-        list([col for col in merged_df.columns[: product_index + 1] if col != "annotation_method"]  )
+        list(
+            [
+                col
+                for col in merged_df.columns[: product_index + 1]
+                if col != "annotation_method"
+            ]
+        )
         + ["annotation_method"]
-        + list([col for col in merged_df.columns[product_index + 1:] if col != "annotation_method"] )
+        + list(
+            [
+                col
+                for col in merged_df.columns[product_index + 1 :]
+                if col != "annotation_method"
+            ]
+        )
     )
     merged_df = merged_df.reindex(columns=new_column_order)
-
 
     # depolymerase prediction for next version - needs more time for analysis than v0.2.0
 
@@ -539,12 +551,21 @@ def subcommand_compare(
                 }
             )
 
+            netflax_row = pd.DataFrame(
+                {
+                    "Description": ["netflax"],
+                    "Count": [defensefinder_count],
+                    "Contig": [contig],
+                }
+            )
+
             # eappend it all to functions_list
             functions_list.append(cds_df)
             functions_list.append(vfdb_row)
             functions_list.append(card_row)
             functions_list.append(acr_row)
             functions_list.append(defensefinder_row)
+            functions_list.append(netflax_row)
 
         # combine all contigs into one final df
         description_total_df = pd.concat(functions_list)

@@ -8,12 +8,12 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 """
 
-import h5py
 import csv
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import h5py
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -21,9 +21,8 @@ from loguru import logger
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
+from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
 from phold.utils.constants import CNN_DIR
-from phold.databases.db import download_zenodo_prostT5, check_prostT5_download
-
 
 
 # Convolutional neural network (two convolutional layers)
@@ -76,9 +75,7 @@ class CNN(nn.Module):
 
 
 def get_T5_model(
-    model_dir: Path,
-    model_name: str,
-    cpu: bool
+    model_dir: Path, model_name: str, cpu: bool
 ) -> (T5EncoderModel, T5Tokenizer):
     """
     Loads a T5 model and tokenizer.
@@ -141,18 +138,23 @@ def get_T5_model(
         logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
 
     try:
-        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/", force_download=download, local_files_only=localfile).to(
-            device
-        )
+        model = T5EncoderModel.from_pretrained(
+            model_name,
+            cache_dir=f"{model_dir}/",
+            force_download=download,
+            local_files_only=localfile,
+        ).to(device)
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
 
         download_zenodo_prostT5(model_dir)
-        
-        model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/", force_download=False, local_files_only=True).to(
-            device
-        )
-        
+
+        model = T5EncoderModel.from_pretrained(
+            model_name,
+            cache_dir=f"{model_dir}/",
+            force_download=False,
+            local_files_only=True,
+        ).to(device)
 
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
@@ -237,7 +239,9 @@ def write_predictions(
 
             # Filter out entries where the length of the value is 0
             # Issue #47
-            prediction_contig_dict = {k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0}
+            prediction_contig_dict = {
+                k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
+            }
 
             if proteins_flag is True:
                 # no contig_id

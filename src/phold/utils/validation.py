@@ -113,11 +113,11 @@ def check_dependencies() -> None:
     foldseek_version = foldseek_out.strip()
 
     # conda install
-    if '.' in foldseek_version:
+    if "." in foldseek_version:
         foldseek_major_version = int(foldseek_version.split(".")[0])
         foldseek_minor_version = str(foldseek_version.split(".")[1])
     # brew install (issue #39)
-    elif '-' in foldseek_version:
+    elif "-" in foldseek_version:
         foldseek_major_version = int(foldseek_version.split("-")[0])
         foldseek_minor_version = str(foldseek_version.split("-")[1])
     else:

@@ -16,14 +16,10 @@ from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR
-from phold.utils.util import (
-    begin_phold,
-    clean_up_temporary_files,
-    end_phold,
-    get_version,
-    print_citation,
-)
-from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
+from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
+                              get_version, print_citation)
+from phold.utils.validation import (check_dependencies, instantiate_dirs,
+                                    validate_input)
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -188,7 +184,7 @@ def compare_options(func):
             "--ultra_sensitive",
             is_flag=True,
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
-        )
+        ),
     ]
     for option in reversed(options):
         func = option(func)

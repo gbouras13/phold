@@ -12,13 +12,12 @@ This provides class and functions to use ProstT5 embeddings to do EAT for low co
 
 """
 
-import h5py
 import csv
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from loguru import logger
 
+import h5py
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -31,7 +30,9 @@ class EAT:
     Taken from https://github.com/Rostlab/EAT/eat.py with modifications
     """
 
-    def __init__(self, lookup_path, query_path, output_dir, num_NN, cpu, split_threshold):
+    def __init__(
+        self, lookup_path, query_path, output_dir, num_NN, cpu, split_threshold
+    ):
 
         global device
 
@@ -61,7 +62,9 @@ class EAT:
 
         self.query_ids, self.query_embs = self.read_inputs(query_path, split_threshold)
         logger.info("Query embeddings read")
-        self.lookup_ids, self.lookup_embs = self.read_inputs(lookup_path, split_threshold)
+        self.lookup_ids, self.lookup_embs = self.read_inputs(
+            lookup_path, split_threshold
+        )
         logger.info("Phold DB embeddings read")
 
     def read_inputs(self, lookup_path, split_threshold):
@@ -92,7 +95,9 @@ class EAT:
         dataset = {pdb_id: np.array(embd) for pdb_id, embd in h5_f.items()}
 
         if len(dataset.items()) == 0:
-            logger.error(f"No proteins had ProstT5 confidence under --split_threshold {split_threshold}. Please check this or do not use --split.")
+            logger.error(
+                f"No proteins had ProstT5 confidence under --split_threshold {split_threshold}. Please check this or do not use --split."
+            )
         keys, embeddings = zip(*dataset.items())
         # if keys[0].startswith("cath"):
         #     keys = [key.split("|")[2].split("_")[0] for key in keys ]
@@ -137,32 +142,38 @@ class EAT:
             # next try computing in batches of batch_size
             try:
                 batch_size = 200
-                logger.warning(f"Trying batched inference on GPU with batchsize {batch_size}.")
+                logger.warning(
+                    f"Trying batched inference on GPU with batchsize {batch_size}."
+                )
 
                 results = []
 
                 for start_idx in range(0, queries.shape[1], batch_size):
                     end_idx = min(start_idx + batch_size, queries.shape[1])
-                
+
                     with torch.no_grad():
                         # Process a batch of queries
                         query_batch = queries[0:1, start_idx:end_idx]
                         # Compute the distance for the current batch
-                        dist_batch = torch.cdist(lookup, query_batch, p=norm).squeeze(dim=0)
-                        results.append(dist_batch.cpu())  # Move to CPU to free up GPU memory
-                
+                        dist_batch = torch.cdist(lookup, query_batch, p=norm).squeeze(
+                            dim=0
+                        )
+                        results.append(
+                            dist_batch.cpu()
+                        )  # Move to CPU to free up GPU memory
+
                     # Clear CUDA cache to free up memory
                     torch.cuda.empty_cache()
 
                 # Stack all the results
                 pdist = torch.cat(results, dim=1)
 
-            except (
-                RuntimeError
-            ) as e:
+            except RuntimeError as e:
                 logger.warning("Encountered RuntimeError: {}".format(e))
-                logger.warning("Trying single query inference on GPU. This may take a while.")
-                try:  
+                logger.warning(
+                    "Trying single query inference on GPU. This may take a while."
+                )
+                try:
                     # michael's original code -> causes memory leakage
                     # therefore need to loop over and free GPU mem
                     # if OOM for batch-GPU, re-try single query pdist computation on GPU
@@ -186,9 +197,13 @@ class EAT:
                     for q_idx in range(queries.shape[1]):
                         with torch.no_grad():
                             # Compute the distance for the current query
-                            dist = torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(dim=0)
+                            dist = torch.cdist(
+                                lookup, queries[0:1, q_idx], p=norm
+                            ).squeeze(dim=0)
                             # Append the result to the list
-                            results.append(dist.cpu())  # Move to CPU to free up GPU memory
+                            results.append(
+                                dist.cpu()
+                            )  # Move to CPU to free up GPU memory
 
                         # Clear CUDA cache to free up memory
                         torch.cuda.empty_cache()
@@ -206,9 +221,9 @@ class EAT:
                     pdist = (
                         torch.stack(
                             [
-                                torch.cdist(lookup, queries[0:1, q_idx], p=norm).squeeze(
-                                    dim=0
-                                )
+                                torch.cdist(
+                                    lookup, queries[0:1, q_idx], p=norm
+                                ).squeeze(dim=0)
                                 for q_idx in range(queries.shape[1])
                             ]
                         )
@@ -295,7 +310,7 @@ def run_eat(
     proteins_flag: bool = False,
     num_NN: int = 1,
     eat_threshold: float = 1.00,
-    split_threshold: float = 60
+    split_threshold: float = 60,
 ) -> bool:
     """
     Run EAT against on embeddings using euclidean distance

@@ -32,34 +32,51 @@ VERSION_DICTIONARY = {
         "tarball": "phold_structure_foldseek_db.tar.gz",
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
-        "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0"
+        "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
+    }
+}
+
+VERSION_DICTIONARY = {
+    "0.2.0": {
+        "md5": "353a1a6763e1261c5c44e1e2da9d8736",
+        "major": 0,
+        "minor": 2,
+        "minorest": 0,
+        "db_url": "https://zenodo.org/records/10675285/files/phold_structure_foldseek_db.tar.gz",
+        "dir_name": "phold_structure_foldseek_db",
+        "tarball": "phold_structure_foldseek_db.tar.gz",
+        "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     }
 }
 
 CURRENT_VERSION = "0.1.0"
 
 PHOLD_DB_NAMES = [
-    "all_phold_prostt5",
-    "all_phold_prostt5.index",
-    "all_phold_prostt5.dbtype",
-    "all_phold_prostt5_ss",
-    "all_phold_prostt5_ss.index",
-    "all_phold_prostt5_ss.dbtype",
-    "all_phold_prostt5_h",
-    "all_phold_prostt5_h.index",
-    "all_phold_prostt5_h.dbtype",
     "all_phold_structures",
     "all_phold_structures.index",
     "all_phold_structures.dbtype",
     "all_phold_structures.source",
     "all_phold_structures.lookup",
-    "all_phold_structures_ss",
-    "all_phold_structures_ss.index",
-    "all_phold_structures_ss.dbtype",
     "all_phold_structures_h",
     "all_phold_structures_h.index",
     "all_phold_structures_h.dbtype",
-    "all_phold_structures_ca",
+    "all_phold_structures_clustered_searchDB",
+    "all_phold_structures_clustered_searchDB_ss",
+    "all_phold_structures_clustered_searchDB_ss.dbtype",
+    "all_phold_structures_clustered_searchDB_ss.index",
+    "all_phold_structures_clustered_searchDB.index",
+    "all_phold_structures_clustered_searchDB.dbtype",
+    "all_phold_structures_clustered_searchDB.source",
+    "all_phold_structures_clustered_searchDB.lookup",
+    "all_phold_structures_clustered_searchDB_ss",
+    "all_phold_structures_clustered_searchDB_ss.index",
+    "all_phold_structures_clustered_searchDB_ss.dbtype",
+    "all_phold_structures_clustered_searchDB_h",
+    "all_phold_structures_clustered_searchDB_h.index",
+    "all_phold_structures_clustered_searchDB_h.dbtype",
+    "all_phold_structures_clustered_searchDB_ca",
     "all_phold_structures_ca.index",
     "all_phold_structures_ca.dbtype",
     "phold_annots.tsv",
@@ -71,17 +88,15 @@ PHOLD_DB_NAMES = [
 
 
 PROSTT5_MD5_DICTIONARY = {
-    "refs": {
-        "main": "962133e8e2bff04ec1768fa58dd788f3"
-    },
-     "blobs": {
+    "refs": {"main": "962133e8e2bff04ec1768fa58dd788f3"},
+    "blobs": {
         "2c19eb6e3b583f52d34b903b5978d3d30b6b7682": "8fd03e945174de0818746ecbde1aad8e",
         "60fe6bb247c90b8545d7b73820cd796ce6dcbd59": "ce32377619690072ced051ec7fc6c5f0",
         "6fc7be92c58e238f20a6cdea5a87b123a4ad35e2": "1deb27443d0d9b90b8e5704e752373e2",
         "74da7b4afcde53faa570114b530c726135bdfcdb813dec3abfb27f9d44db7324": "6ad28d9980aaec37d3935072d204e520",
         "b1a9ffcef73280cc57f090ad6446b4116b574b6c75d83ccc32778282f7f00855": "45f066fc3b0d87fb9f98bb0ddb97a3dc",
-        "e9322396e6e75ecf8da41a9527e24dfa4eeea505": "b1cdd31ea50a37bf84cc0d7ef11820c8"
-    }
+        "e9322396e6e75ecf8da41a9527e24dfa4eeea505": "b1cdd31ea50a37bf84cc0d7ef11820c8",
+    },
 }
 
 
@@ -157,9 +172,10 @@ def download(db_url: str, tarball_path: Path) -> None:
             f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
         )
 
+
 def download_zenodo_prostT5(model_dir):
     """
-    Download the ProstT5 model from Zenodo 
+    Download the ProstT5 model from Zenodo
 
     Args:
         db_url (str): The URL of the database.
@@ -198,8 +214,8 @@ def download_zenodo_prostT5(model_dir):
         logger.warning("Encountered OSError: {}".format(OSError))
         logger.error(f"Could not extract {tarball_path} to {model_dir}")
 
-
     tarball_path.unlink()
+
 
 def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
     """
@@ -216,22 +232,23 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
     for key in PROSTT5_MD5_DICTIONARY:
         for nested_key in PROSTT5_MD5_DICTIONARY[key]:
 
-            file_path = Path(f"{model_dir}/models--Rostlab--ProstT5_fp16/{key}/{nested_key}")
+            file_path = Path(
+                f"{model_dir}/models--Rostlab--ProstT5_fp16/{key}/{nested_key}"
+            )
 
             # check file exists
             if file_path.exists():
                 md5_sum = calc_md5_sum(file_path)
                 if md5_sum != PROSTT5_MD5_DICTIONARY[key][nested_key]:
-                    logger.warning(f"Corrupt model file {file_path}! MD5 should be '{PROSTT5_MD5_DICTIONARY[key][nested_key]}' but is '{md5_sum}'"
-            )
+                    logger.warning(
+                        f"Corrupt model file {file_path}! MD5 should be '{PROSTT5_MD5_DICTIONARY[key][nested_key]}' but is '{md5_sum}'"
+                    )
                     download = True
             else:
                 logger.warning(f"Model file {file_path} does not exist.")
                 download = True
 
     return download
-
-
 
 
 def calc_md5_sum(tarball_path: Path, buffer_size: int = 1024 * 1024) -> str:
