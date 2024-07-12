@@ -553,8 +553,8 @@ def subcommand_compare(
 
             netflax_row = pd.DataFrame(
                 {
-                    "Description": ["netflax"],
-                    "Count": [defensefinder_count],
+                    "Description": ["Netflax"],
+                    "Count": [netflax_row],
                     "Contig": [contig],
                 }
             )
