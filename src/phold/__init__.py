@@ -458,17 +458,17 @@ compare command
 @click.option(
     "--pdb",
     is_flag=True,
-    help="Use if you have pdbs for the input proteins (e.g. with AF2/Colabfold) that you specify with --pdb_dir",
+    help="Use if you have .pdb or .cif structure files for the input proteins (e.g. with AF2/Colabfold) in a directory that you specify with --pdb_dir",
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with pdbs. The CDS IDs need to be in the name of the file",
+    help="Path to directory with .pdb or .cif structure files. The CDS IDs need to be in the name of the file",
     type=click.Path(),
 )
 @click.option(
     "--filter_pdbs",
     is_flag=True,
-    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the .pdb or .cif files with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options
@@ -710,11 +710,11 @@ Runs Foldseek vs phold DB for multiFASTA 3Di sequences (predicted with proteins-
 @click.option(
     "--pdb",
     is_flag=True,
-    help="Use if you have pdbs for the input proteins (e.g. with AF2/Colabfold) specified with --pdb_dir",
+    help="Use if you have .pdb or .cif structure files for the input proteins (e.g. with AF2/Colabfold) in a directory that you specify with --pdb_dir",
 )
 @click.option(
     "--pdb_dir",
-    help="Path to directory with .pdb files. The FASTA headers need to match names of the .pdb files",
+    help="Path to directory with .pdb or .cif structure files. The CDS IDs need to be in the name of the file",
     type=click.Path(),
 )
 @click.option(
