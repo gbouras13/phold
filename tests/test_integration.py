@@ -36,6 +36,7 @@ from loguru import logger
 test_data = Path("tests/test_data")
 database_dir = Path(f"{test_data}/phold_db")
 pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
+cif_dir = Path(f"{test_data}/NC_043029_af3_cif")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
@@ -50,6 +51,7 @@ save_embeddings_predict_gbk_dir: Path = (
     f"{output_dir}/combined_truncated_phold_predict_save_embeddings_gbk"
 )
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
+compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
 predict_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_predict_fasta"
 compare_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_compare_fasta"
@@ -58,6 +60,7 @@ remote_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_remote_fasta"
 proteins_predict_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_predict"
 proteins_compare_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_compare"
 proteins_compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_pdb"
+proteins_compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif"
 plots_dir: Path = f"{output_dir}/plot_output"
 
 
@@ -198,14 +201,26 @@ def test_compare_genbank(threads):
 def test_compare_pdb(threads):
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
-    cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
+    cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} -f"
+    exec_command(cmd)
+
+def test_compare_cif(threads):
+    """test phold compare with AF3 cif input"""
+    input_gbk: Path = f"{test_data}/NC_043029.gbk"
+    cmd = f"phold compare -i {input_gbk} -o {compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} -f"
     exec_command(cmd)
 
 
 def test_proteins_compare_pdb(threads):
     """test phold proteins-compare with pdbs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
-    cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --pdb --pdb_dir {pdb_dir} -f"
+    cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
+    exec_command(cmd)
+
+def test_proteins_compare_cif(threads):
+    """test phold proteins-compare with AF3 cif input"""
+    input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
+    cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
     exec_command(cmd)
 
 
