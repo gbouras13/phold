@@ -220,7 +220,7 @@ def subcommand_compare(
     if structures is True:
         logger.info("Creating a foldseek query database from structures.")
 
-        filtered_structures_path: Path = Path(output) / "filtered_pdbs"
+        filtered_structures_path: Path = Path(output) / "filtered_structures"
         if filter_structures is True:
             logger.info(
                 f"--filter_structures is {filter_structures}. Therefore only the .pdb or .cif structure files with matching CDS ids will be copied and compared."
