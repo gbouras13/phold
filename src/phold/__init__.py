@@ -555,6 +555,7 @@ def compare(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
     )
 
