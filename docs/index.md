@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="img/phold_logo.png" alt="phold Logo" height=200>
+  <img src="phold_logo.png" alt="phold Logo" height=200>
 </p>
 
 `phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
