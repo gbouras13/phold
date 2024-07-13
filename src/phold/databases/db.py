@@ -22,7 +22,7 @@ from loguru import logger
 from phold.utils.util import remove_directory
 
 # set this if changes
-CURRENT_DB_VERSION: str = "0.1.0"
+CURRENT_DB_VERSION: str = "0.2.0"
 
 # to hold information about the different DBs
 VERSION_DICTIONARY = {
