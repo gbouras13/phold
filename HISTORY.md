@@ -1,6 +1,6 @@
 # History
 
-0.2.0
+0.2.0 (2024-07-13)
 ------------------
 
 **You will need to re-install the updated phold database for v0.2.0 using `phold install`**
