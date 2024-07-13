@@ -368,11 +368,14 @@ def calculate_topfunctions_results(
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
 
                 # add annotation source
-                source_dict[record_id][cds_id] = filtered_tophits_df.loc[
-                    (filtered_tophits_df["contig_id"] == record_id)
-                    & (filtered_tophits_df["cds_id"] == cds_id),
-                    "annotation_source",
-                ].values[0]
+                if proteins_flag: # for proteins-compare always foldseek
+                    source_dict[record_id][cds_id] = "foldseek"
+                else:
+                    source_dict[record_id][cds_id] = filtered_tophits_df.loc[
+                        (filtered_tophits_df["contig_id"] == record_id)
+                        & (filtered_tophits_df["cds_id"] == cds_id),
+                        "annotation_source",
+                    ].values[0]
 
                 # same phrog as pharokka do nothing
                 # different phrog as pharokka

@@ -353,24 +353,6 @@ def subcommand_compare(
     #### add annotation source
     ########
 
-    # Define a function to apply to each row to determine the annotation source
-    # def determine_annotation_source(row):
-    #     if row["phrog"] == "No_PHROG":
-    #         return "none"
-    #     else:  # will be accounted for otherwise
-    #         return row["annotation_source"]
-    # elif row["annotation_source"] == "foldseek":
-    #     return "foldseek"
-    # elif row["annotation_source"] == "EAT":
-    #     return "EAT"
-    # else:
-    #     return "pharokka"
-
-    # Create a new column order with 'annotation_method' moved after 'product' - drop annotation source (carries original output)
-    # merged_df["annotation_method"] = merged_df.apply(
-    #     determine_annotation_source, axis=1
-    # )
-    # merged_df = merged_df.drop(columns=["annotation_source"])
 
     product_index = merged_df.columns.get_loc("product")
 
@@ -414,13 +396,6 @@ def subcommand_compare(
 
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
-
-    # Make EAT rows empty for all foldseek analysis
-    eat_rows = merged_df[merged_df["annotation_method"] == "EAT"]
-    columns_to_empty = merged_df.columns[
-        merged_df.columns.get_loc("transl_table") + 1 :
-    ]
-    merged_df.loc[eat_rows.index, columns_to_empty] = np.nan
 
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
 

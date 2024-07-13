@@ -13,11 +13,17 @@
 
 `phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
 
-`phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of 803k protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
+`phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of over 1 million phage protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
 
 Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5.
 
-Benchmarking is ongoing but `phold` strongly outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less characterised phages such as those from metagenomic datasets.
+Benchmarking is ongoing, but `phold` strongly outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less characterised phages such as those from metagenomic datasets. A preprint will be coming soon :)
+
+The below plot shows the percentage of annotated coding sequences (CDS) for 179 metagenomic phage genomes assembled with [phables](https://github.com/Vini2/phables). Phold v0.2.0 run both in default settings (with ProstT5) settings and where predicted protein structures (with Colabfold) were compared against Pharokka v1.7.0.
+
+<p align="center">
+  <img src="img/phables_bench.jpeg" alt="phables benchmarking" height=200>
+</p>
 
 If you have already annotated your phage(s) with Pharokka, `phold` takes the Genbank output of Pharokka as an input option, so you can easily update the annotation with more functional predictions!
 
@@ -91,11 +97,11 @@ Once `phold` is installed, to download and install the database run:
 phold install
 ```
 
-* Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are 7.7GB uncompressed).
+* Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are just over 8GB uncompressed).
 
 # Quick Start
 
-* `phold` takes a GenBank format file output from [pharokka](https://github.com/gbouras13/pharokka) as its input by default. 
+* `phold` takes a GenBank format file output from [pharokka](https://github.com/gbouras13/pharokka) or from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/genbank/) as its input by default. 
 * If you are running `phold` on a local work station with GPU available, using `phold run` is recommended. It runs both `phold predict` and `phold compare`
 
 ``` bash
