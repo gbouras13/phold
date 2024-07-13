@@ -33,3 +33,7 @@ The columns of `_per_cds_predictions.tsv` include:
     * `vfdb_cds_predictions.tsv` - contains all CDS with top hits to the [VFDB database](vfdb_cds_predictions.tsv)
 *  `_prostT5_3di_mean_probabilities.csv` - contains the mean ProstT5 probability score for each CDS. These are equivalent to the probability of how similar the overall ProstT5 3Di sequence is predicted to be compared to its Alphafold2 baseline
 *  `_prostT5_3di_all_probabilities.json` - contains the ProstT5 probabilities for each residue for each CDS, in the json format
+
+## Optional Outputs
+*  `_embeddings_per_protein.h5` - contains the ProstT5 embeddings for each protein in the h5 format
+*  `_embeddings_per_residue.h5` - contains the ProstT5 embeddings for each residue in the h5 format
