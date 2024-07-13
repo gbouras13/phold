@@ -3,11 +3,11 @@
 ## Step 1 ProstT5 3Di Inference
 
 * `phold` begins by predicting the Foldseek 3Di tokens for every input protein using the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model
-* Alternatively, this step is skipped if you specify pre-computed protein structures in the .pdb format using `--pdb_dir`
+* Alternatively, this step is skipped if you run `phold compare` and specify pre-computed protein structures in the .pdb or .cif formats using the `--structures` flag along with specifying the firectory containing the structures with `--structure_dir`
 
 ## Step 2 Foldseek Structural Comparison
 
-* `phold` then creates a [Foldseek](https://github.com/steineggerlab/foldseek) database combining the AA and 3Di representations of each protein, and compared this to the `phold` database with Foldseek
+* `phold` then creates a [Foldseek](https://github.com/steineggerlab/foldseek) database combining the AA and 3Di representations of each protein, and compares this to the `phold` database with Foldseek
 
 ## Step 3 Downstream Processing
 
@@ -32,9 +32,14 @@
 
 ## `phold` database
 
-* The `phold` database contains approximately 803 thousand phage protein structures generated mostly with Colabfold v1.5.3 from the following sources:
-  * 766k [PHROG](https://phrogs.lmge.uca.fr) proteins
-  * 3.6k [anti-CRISPR](https://bcb.unl.edu/AcrDB/) proteins
-  * 455 [Defensefinder](https://defensefinder.mdmlab.fr) proteins
-  * 28k [VFDB](http://www.mgc.ac.cn/VFs/main.htm) proteins (virulence factors)
-  * 5k [CARD](https://card.mcmaster.ca) (AMR proteins)
+The `phold` databse consists of over 1 million protein structures generated mostly using [Colabfold](https://github.com/sokrypton/ColabFold) v1.5.3 (other than acrDB, Defensefinder and Netflax) from the following databases:
+
+* [PHROGs](https://phrogs.lmge.uca.fr) — 440549 de-deuplicated proteins. Proteins over 1000AA were chunked into 1000AA components.
+* [ENVHOGs](http://envhog.u-ga.fr/envhog/) — 315k representative proteins from the 2.2M ENVHOGs that have a PHROG function that is not 'unknown function'. Proteins over 1000AA were chunked into 1000AA components.
+* [EFAM](https://doi.org/10.1093/bioinformatics/btab451) - 262k efam "extra conservative" proteins. Proteins over 1000AA were chunked into 1000AA components.
+* [DGRs](https://doi.org/10.1038/s41467-021-23402-7) - 12683 extra diversity generating element proteins from [Roux et al 2021](https://doi.org/10.1038/s41467-021-23402-7).
+* [VFDB](http://www.mgc.ac.cn/VFs/main.htm) — over 28k structures of putative bacterial virulence factors from the VFDB.
+* [CARD](https://card.mcmaster.ca) — nearly 5k structures of anitbiotic resistant proteins from CARD.
+* [acrDB](https://bcb.unl.edu/AcrDB/) - nearly 3.7k anti-crispr proteins predicted in this [study](https://doi.org/10.1089/crispr.2023.0011).
+* [Defensefinder](https://defensefinder.mdmlab.fr) - 455 monomer prokaryotic defense proteins.
+* [Netflax](https://doi.org/10.1073/pnas.2305393120) - 7153 toxin-antitoxin proteins.

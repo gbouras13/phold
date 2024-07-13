@@ -134,14 +134,14 @@ def foldseek_tsv2db(
     ExternalTool.run_tool(foldseek_tsv2db)
 
 
-def generate_foldseek_db_from_pdbs(
+def generate_foldseek_db_from_structures(
     fasta_aa: Path,
     foldseek_db_path: Path,
-    pdb_dir: Path,
-    filtered_pdbs_path: Path,
+    structure_dir: Path,
+    filtered_structures_path: Path,
     logdir: Path,
     prefix: str,
-    filter_pdbs: bool,
+    filter_structures: bool,
 ) -> None:
     """
     Generate Foldseek database from PDB files.
@@ -149,11 +149,11 @@ def generate_foldseek_db_from_pdbs(
     Args:
         fasta_aa (Path): Path to the amino-acid FASTA file.
         foldseek_db_path (Path): Path to the directory where Foldseek database will be stored.
-        pdb_dir (Path): Path to the directory containing PDB files.
-        filtered_pdbs_path (Path): Path to the directory where filtered PDB files will be stored.
+        structure_dir (Path): Path to the directory containing .pdb or .cif structure files.
+        filtered_structures_path (Path): Path to the directory where filtered .pdb or .cif structure files will be stored.
         logdir (Path): Path to the directory where logs will be stored.
         prefix (str): Prefix for the Foldseek database.
-        filter_pdbs (bool): Flag indicating whether to filter PDB files or not.
+        filter_structures (bool): Flag indicating whether to filter structure files or not.
 
     Returns:
         None
@@ -165,15 +165,15 @@ def generate_foldseek_db_from_pdbs(
         sequences_aa[record.id] = str(record.seq)
 
     # lists all the pdb files
-    pdb_files = [file for file in os.listdir(pdb_dir) if file.endswith(".pdb")]
+    structure_files = [file for file in os.listdir(structure_dir) if file.endswith(".pdb") or file.endswith(".cif") ]
 
-    num_pdbs = len(pdb_files)
+    num_structures = len(structure_files)
 
-    num_pdbs = 0
+    num_structures = 0
 
     # Checks that ID is in the pdbs
 
-    no_pdb_cds_ids = []
+    no_structure_cds_ids = []
 
     for id in sequences_aa.keys():
         # in case the header has a colon in it - this will cause a bug if so
@@ -183,54 +183,55 @@ def generate_foldseek_db_from_pdbs(
         # record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
-        # enforce names as '{cds_id}.pdb'
+        # enforce names as '{cds_id}.pdb' or {cds_id}.cif'  (AF3)
 
-        matching_files = [file for file in pdb_files if f"{cds_id}.pdb" == file]
+        matching_files = [file for file in structure_files if f"{cds_id}.pdb" == file or f"{cds_id}.cif" == file]
+
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
-        # with filter_pdbs
+        # with filter_structures
         if len(matching_files) == 1:
-            if filter_pdbs is True:
-                source_path = Path(pdb_dir) / matching_files[0]
-                destination_path = Path(filtered_pdbs_path) / matching_files[0]
+            if filter_structures is True:
+                source_path = Path(structure_dir) / matching_files[0]
+                destination_path = Path(filtered_structures_path) / matching_files[0]
                 shutil.copyfile(source_path, destination_path)
-            num_pdbs += 1
+            num_structures += 1
 
         # should neve happen but in case
         if len(matching_files) > 1:
-            logger.warning(f"More than 1 pdb found for {cds_id}")
+            logger.warning(f"More than 1 structures found for {cds_id}")
             logger.warning("Taking the first one")
-            if filter_pdbs is True:
-                source_path = Path(pdb_dir) / matching_files[0]
-                destination_path = Path(filtered_pdbs_path) / matching_files[0]
+            if filter_structures is True:
+                source_path = Path(structure_dir) / matching_files[0]
+                destination_path = Path(filtered_structures_path) / matching_files[0]
                 shutil.copyfile(source_path, destination_path)
-            num_pdbs += 1
+            num_structures += 1
         elif len(matching_files) == 0:
-            logger.warning(f"No pdb found for {cds_id}")
+            logger.warning(f"No structure found for {cds_id}")
             logger.warning(f"{cds_id} will be ignored in annotation")
-            no_pdb_cds_ids.append(cds_id)
+            no_structure_cds_ids.append(cds_id)
 
-    if num_pdbs == 0:
+    if num_structures == 0:
         logger.error(
-            f"No pdbs with matching CDS ids were found at all. Check the {pdb_dir} directory"
+            f"No structures with matching CDS ids were found at all. Check the {structure_dir} directory"
         )
 
     # generate the db
     short_db_name = f"{prefix}"
-    pdb_db_name: Path = Path(foldseek_db_path) / short_db_name
+    structure_db_name: Path = Path(foldseek_db_path) / short_db_name
 
-    query_pdb_dir = pdb_dir
+    query_structure_dir = structure_dir
 
     # choose the filtered directory if true
-    if filter_pdbs is True:
-        query_pdb_dir = filtered_pdbs_path
+    if filter_structures is True:
+        query_structure_dir = filtered_structures_path
 
-    foldseek_createdb_from_pdbs = ExternalTool(
+    foldseek_createdb_from_structures = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"createdb {query_pdb_dir} {pdb_db_name} ",
+        params=f"createdb {query_structure_dir} {structure_db_name} ",
         logdir=logdir,
     )
 
-    ExternalTool.run_tool(foldseek_createdb_from_pdbs)
+    ExternalTool.run_tool(foldseek_createdb_from_structures)

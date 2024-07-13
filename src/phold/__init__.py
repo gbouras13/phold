@@ -157,18 +157,6 @@ def compare_options(func):
             help="Keep temporary intermediate files, particularly the large foldseek_results.tsv of all Foldseek hits",
         ),
         click.option(
-            "--split",
-            is_flag=True,
-            help="Split the Foldseek runs by ProstT5 probability",
-        ),
-        click.option(
-            "--split_threshold",
-            default=60,
-            help="ProstT5 Probability to split by",
-            type=float,
-            show_default=True,
-        ),
-        click.option(
             "--card_vfdb_evalue",
             default="1e-10",
             type=float,
@@ -183,9 +171,19 @@ def compare_options(func):
         click.option(
             "--max_seqs",
             type=int,
-            default=1000,
+            default=10000,
             show_default=True,
             help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
+        ),
+        click.option(
+            "--only_representatives",
+            is_flag=True,
+            help="Foldseek search only against the cluster representatives (i.e. turn off --cluster-search 1 Foldseek parameter)",
+        ),
+        click.option(
+            "--ultra_sensitive",
+            is_flag=True,
+            help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
         ),
     ]
     for option in reversed(options):
@@ -236,12 +234,12 @@ def run(
     finetune,
     finetune_path,
     card_vfdb_evalue,
-    split,
-    split_threshold,
     separate,
     max_seqs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
+    only_representatives,
+    ultra_sensitive,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -267,13 +265,13 @@ def run(
         "--omit_probs": omit_probs,
         "--finetune": finetune,
         "--finetune_path": finetune_path,
-        "--split": split,
-        "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
-        "--save_per_protein_embeddings": save_per_protein_embeddings
+        "--save_per_protein_embeddings": save_per_protein_embeddings,
+        "--only_representatives": only_representatives,
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -306,7 +304,7 @@ def run(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings
+        save_per_protein_embeddings=save_per_protein_embeddings,
     )
 
     # phold compare
@@ -321,17 +319,17 @@ def run(
         database,
         prefix,
         predictions_dir=output,
-        pdb=False,
-        pdb_dir=output,
+        structures=False,
+        structure_dir=output,
         logdir=logdir,
-        filter_pdbs=False,
-        split=split,
-        split_threshold=split_threshold,
+        filter_structures=False,
         remote_flag=True,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        only_representatives=only_representatives,
+        ultra_sensitive=ultra_sensitive,
     )
 
     # cleanup the temp files
@@ -399,7 +397,7 @@ def predict(
         "--finetune": finetune,
         "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
-        "--save_per_protein_embeddings":  save_per_protein_embeddings,
+        "--save_per_protein_embeddings": save_per_protein_embeddings,
     }
 
     # initial logging etc
@@ -429,7 +427,7 @@ def predict(
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings
+        save_per_protein_embeddings=save_per_protein_embeddings,
     )
 
     # end phold
@@ -458,19 +456,19 @@ compare command
     type=click.Path(),
 )
 @click.option(
-    "--pdb",
+    "--structures",
     is_flag=True,
-    help="Use if you have pdbs for the input proteins (e.g. with AF2/Colabfold) that you specify with --pdb_dir",
+    help="Use if you have .pdb or .cif file structures for the input proteins (e.g. with AF2/Colabfold .pdb or AF3 for .cif) in a directory that you specify with --structure_dir",
 )
 @click.option(
-    "--pdb_dir",
-    help="Path to directory with pdbs. The CDS IDs need to be in the name of the file",
+    "--structure_dir",
+    help="Path to directory with .pdb or .cif file structures. The CDS IDs need to be in the name of the file",
     type=click.Path(),
 )
 @click.option(
-    "--filter_pdbs",
+    "--filter_structures",
     is_flag=True,
-    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
+    help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options
@@ -485,15 +483,15 @@ def compare(
     database,
     sensitivity,
     predictions_dir,
-    pdb,
-    pdb_dir,
-    filter_pdbs,
+    structures,
+    structure_dir,
+    filter_structures,
     keep_tmp_files,
-    split,
-    split_threshold,
     card_vfdb_evalue,
     separate,
     max_seqs,
+    only_representatives,
+    ultra_sensitive,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -515,15 +513,15 @@ def compare(
         "--database": database,
         "--sensitivity": sensitivity,
         "--predictions_dir": predictions_dir,
-        "--pdb": pdb,
-        "--pdb_dir": pdb_dir,
-        "--filter_pdbs": filter_pdbs,
+        "--structures": structures,
+        "--structure_dir": structure_dir,
+        "--filter_structures": filter_structures,
         "--keep_tmp_files": keep_tmp_files,
-        "--split": split,
-        "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
+        "--only_representatives": only_representatives,
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -548,17 +546,17 @@ def compare(
         database,
         prefix,
         predictions_dir,
-        pdb,
-        pdb_dir,
+        structures,
+        structure_dir,
         logdir,
-        filter_pdbs,
-        split,
-        split_threshold,
+        filter_structures,
         remote_flag=False,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        only_representatives=only_representatives,
+        ultra_sensitive=ultra_sensitive,
     )
 
     # cleanup the temp files
@@ -679,7 +677,7 @@ def proteins_predict(
         proteins_flag=True,
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings
+        save_per_protein_embeddings=save_per_protein_embeddings,
     )
 
     # end phold
@@ -710,19 +708,19 @@ Runs Foldseek vs phold DB for multiFASTA 3Di sequences (predicted with proteins-
     type=click.Path(),
 )
 @click.option(
-    "--pdb",
+    "--structures",
     is_flag=True,
-    help="Use if you have pdbs for the input proteins (e.g. with AF2/Colabfold) specified with --pdb_dir",
+    help="Use if you have .pdb or .cif file structures for the input proteins (e.g. with AF2/Colabfold) in a directory that you specify with --structure_dir",
 )
 @click.option(
-    "--pdb_dir",
-    help="Path to directory with .pdb files. The FASTA headers need to match names of the .pdb files",
+    "--structure_dir",
+    help="Path to directory with .pdb or .cif file structures. The CDS IDs need to be in the name of the file",
     type=click.Path(),
 )
 @click.option(
-    "--filter_pdbs",
+    "--filter_structures",
     is_flag=True,
-    help="Flag that creates a copy of the .pdb files with matching record IDs found in the input. Helpful if you have a directory with lots of .pdb files and want to annotate only some.",
+    help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
 @common_options
 @compare_options
@@ -737,15 +735,15 @@ def proteins_compare(
     database,
     sensitivity,
     predictions_dir,
-    pdb,
-    pdb_dir,
-    filter_pdbs,
+    structures,
+    structure_dir,
+    filter_structures,
     keep_tmp_files,
-    split,
-    split_threshold,
     card_vfdb_evalue,
     separate,
     max_seqs,
+    only_representatives,
+    ultra_sensitive,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -767,14 +765,14 @@ def proteins_compare(
         "--database": database,
         "--sensitivity": sensitivity,
         "--predictions_dir": predictions_dir,
-        "--pdb": pdb,
-        "--pdb_dir": pdb_dir,
-        "--filter_pdbs": filter_pdbs,
+        "--structures": structures,
+        "--structure_dir": structure_dir,
+        "--filter_structures": filter_structures,
         "--keep_tmp_files": keep_tmp_files,
-        "--split": split,
-        "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--max_seqs": max_seqs,
+        "--only_representatives": only_representatives,
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -822,17 +820,17 @@ def proteins_compare(
         database,
         prefix,
         predictions_dir,
-        pdb,
-        pdb_dir,
+        structures,
+        structure_dir,
         logdir,
-        filter_pdbs,
-        split=split,
-        split_threshold=split_threshold,
+        filter_structures,
         remote_flag=False,
         proteins_flag=True,
         fasta_flag=False,
         separate=False,
         max_seqs=max_seqs,
+        only_representatives=only_representatives,
+        ultra_sensitive=ultra_sensitive,
     )
 
     # cleanup the temp files
@@ -872,11 +870,11 @@ def remote(
     database,
     sensitivity,
     keep_tmp_files,
-    split,
-    split_threshold,
     card_vfdb_evalue,
     separate,
     max_seqs,
+    only_representatives,
+    ultra_sensitive,
     **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
@@ -897,11 +895,11 @@ def remote(
         "--database": database,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
-        "--split": split,
-        "--split_threshold": split_threshold,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
+        "--only_representatives": only_representatives,
+        "--ultra_sensitive": ultra_sensitive,
     }
 
     # initial logging etc
@@ -969,17 +967,17 @@ def remote(
         database,
         prefix,
         predictions_dir=output,
-        pdb=False,
-        pdb_dir=output,
+        structures=False,
+        structure_dir=output,
         logdir=logdir,
-        filter_pdbs=False,
-        split=split,
-        split_threshold=split_threshold,
+        filter_structures=False,
         remote_flag=True,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
+        only_representatives=only_representatives,
+        ultra_sensitive=ultra_sensitive,
     )
 
     # cleanup the temp files

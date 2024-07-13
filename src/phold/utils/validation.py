@@ -111,16 +111,25 @@ def check_dependencies() -> None:
     foldseek_out = foldseek_out.decode()
 
     foldseek_version = foldseek_out.strip()
-    foldseek_major_version = int(foldseek_version.split(".")[0])
-    foldseek_minor_version = str(foldseek_version.split(".")[1])
+
+    # conda install
+    if "." in foldseek_version:
+        foldseek_major_version = int(foldseek_version.split(".")[0])
+        foldseek_minor_version = str(foldseek_version.split(".")[1])
+    # brew install (issue #39)
+    elif "-" in foldseek_version:
+        foldseek_major_version = int(foldseek_version.split("-")[0])
+        foldseek_minor_version = str(foldseek_version.split("-")[1])
+    else:
+        logger.error("Foldseek not found. Please reinstall phold.")
 
     logger.info(
         f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
     )
 
-    if foldseek_major_version != 8:
-        logger.error("Foldseek is the wrong version. Please install v8.ef4e960")
-    if foldseek_minor_version != "ef4e960":
-        logger.error("Foldseek is the wrong version. Please install v8.ef4e960")
+    if foldseek_major_version != 9:
+        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
+    if foldseek_minor_version != "427df8a":
+        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
 
     logger.info("Foldseek version is ok")

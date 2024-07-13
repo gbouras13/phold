@@ -14,6 +14,8 @@ def run_foldseek_search(
     evalue: float,
     sensitivity: float,
     max_seqs: int,
+    only_representatives: bool,
+    ultra_sensitive: bool,
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -28,16 +30,26 @@ def run_foldseek_search(
         evalue (float): E-value threshold for the search.
         sensitivity (float): Sensitivity threshold for the search.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
+        only_representatives (bool): turns off --cluster-search 1 parameter in foldseek
+        ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
 
     Returns:
         None
     """
 
+    if ultra_sensitive:
+        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --exhaustive-search"
+    else:
+        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}"
+
+    if only_representatives is False:
+        cmd += " --cluster-search 1"
+
     foldseek_search = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs} ",
+        params=f"{cmd}",
         logdir=logdir,
     )
 
@@ -60,7 +72,8 @@ def create_result_tsv(
     Returns:
         None
     """
-    foldseek_search = ExternalTool(
+
+    foldseek_createtsv = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
@@ -68,4 +81,4 @@ def create_result_tsv(
         logdir=logdir,
     )
 
-    ExternalTool.run_tool(foldseek_search)
+    ExternalTool.run_tool(foldseek_createtsv)

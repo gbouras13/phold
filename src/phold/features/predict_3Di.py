@@ -8,12 +8,12 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 """
 
-import h5py
 import csv
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import h5py
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -21,6 +21,7 @@ from loguru import logger
 from torch import nn
 from transformers import T5EncoderModel, T5Tokenizer
 
+from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
 from phold.utils.constants import CNN_DIR
 
 
@@ -74,9 +75,7 @@ class CNN(nn.Module):
 
 
 def get_T5_model(
-    model_dir: Path,
-    model_name: str,
-    cpu: bool,
+    model_dir: Path, model_name: str, cpu: bool
 ) -> (T5EncoderModel, T5Tokenizer):
     """
     Loads a T5 model and tokenizer.
@@ -127,9 +126,35 @@ def get_T5_model(
     # load
     logger.info(f"Loading T5 from: {model_dir}/{model_name}")
     logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
-    model = T5EncoderModel.from_pretrained(model_name, cache_dir=f"{model_dir}/").to(
-        device
-    )
+
+    # check ProstT5 is downloaded
+    # flag assumes transformers takes from local file (see #44)
+    localfile = True
+    download = False
+
+    download = check_prostT5_download(model_dir, model_name)
+    if download is True:
+        localfile = False
+        logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
+
+    try:
+        model = T5EncoderModel.from_pretrained(
+            model_name,
+            cache_dir=f"{model_dir}/",
+            force_download=download,
+            local_files_only=localfile,
+        ).to(device)
+    except:
+        logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
+
+        download_zenodo_prostT5(model_dir)
+
+        model = T5EncoderModel.from_pretrained(
+            model_name,
+            cache_dir=f"{model_dir}/",
+            force_download=False,
+            local_files_only=True,
+        ).to(device)
 
     model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
@@ -140,10 +165,10 @@ def get_T5_model(
 
     return model, vocab
 
+
 def write_embeddings(
     embeddings: Dict[str, Dict[str, Tuple[List[str], Any, Any]]],
     out_path: Path,
-
 ) -> None:
     """
     Write embeddings to an output file.
@@ -155,15 +180,18 @@ def write_embeddings(
     Returns:
         None
     """
-    
+
     with h5py.File(str(out_path), "w") as hf:
         for contig_id, rest in embeddings.items():
             embeddings_contig_dict = embeddings[contig_id]
 
             for sequence_id, embedding in embeddings_contig_dict.items():
-                # noinspection PyUnboundLocalVariable
-                hf.create_dataset(sequence_id, data=embedding)
-
+                # if proteins, don't make another dict
+                if contig_id == "proteins":
+                    embeddings_name = sequence_id
+                else:
+                    embeddings_name = f"{contig_id}:{sequence_id}"
+                hf.create_dataset(embeddings_name, data=embedding)
 
 
 def write_predictions(
@@ -208,6 +236,12 @@ def write_predictions(
     with open(out_path, "w+") as out_f:
         for contig_id, rest in predictions.items():
             prediction_contig_dict = predictions[contig_id]
+
+            # Filter out entries where the length of the value is 0
+            # Issue #47
+            prediction_contig_dict = {
+                k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
+            }
 
             if proteins_flag is True:
                 # no contig_id
@@ -356,7 +390,7 @@ def get_embeddings(
     output_probs: bool = True,
     proteins_flag: bool = False,
     save_per_residue_embeddings: bool = False,
-    save_per_protein_embeddings: bool = False
+    save_per_protein_embeddings: bool = False,
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -387,7 +421,7 @@ def get_embeddings(
 
     predictions = {}
 
-    if save_per_residue_embeddings: 
+    if save_per_residue_embeddings:
         embeddings_per_residue = {}
     if save_per_protein_embeddings:
         embeddings_per_protein = {}
@@ -415,11 +449,10 @@ def get_embeddings(
         predictions[record_id] = {}
 
         # embeddings
-        if save_per_residue_embeddings: 
+        if save_per_residue_embeddings:
             embeddings_per_residue[record_id] = {}
         if save_per_protein_embeddings:
             embeddings_per_protein[record_id] = {}
-
 
         seq_record_dict = cds_dict[record_id]
         seq_dict = {}
@@ -518,19 +551,24 @@ def get_embeddings(
                             try:
 
                                 # account for prefix in offset
-                                emb = embedding_repr.last_hidden_state[batch_idx,1:s_len+1]
-                                
+                                emb = embedding_repr.last_hidden_state[
+                                    batch_idx, 1 : s_len + 1
+                                ]
+
                                 if save_per_residue_embeddings:
-                                    embeddings_per_residue[record_id][identifier] = emb.detach().cpu().numpy().squeeze()
+                                    embeddings_per_residue[record_id][identifier] = (
+                                        emb.detach().cpu().numpy().squeeze()
+                                    )
 
                                 if save_per_protein_embeddings:
-                                    embeddings_per_protein[record_id][identifier] = emb.mean(dim=0).detach().cpu().numpy().squeeze()
+                                    embeddings_per_protein[record_id][identifier] = (
+                                        emb.mean(dim=0).detach().cpu().numpy().squeeze()
+                                    )
 
                             except:
                                 logger.warning(
                                     f"Saving embeddings failed for {identifier}"
                                 )
-                                
 
                         # slice off padding and special token appended to the end of the sequence
                         pred = prediction[batch_idx, :, 0:s_len].squeeze()
@@ -591,7 +629,6 @@ def get_embeddings(
 
     if save_per_protein_embeddings:
         write_embeddings(embeddings_per_protein, output_h5_per_protein)
-                          
 
     mean_probs_out_path: Path = (
         Path(out_path) / f"{prefix}_prostT5_3di_mean_probabilities.csv"

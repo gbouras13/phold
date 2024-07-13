@@ -1,6 +1,6 @@
 # Installation
 
-The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
+The best way to install `phold` is using [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) or [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
 
 To install `phold` using [mamba](https://github.com/conda-forge/miniforge):
 
@@ -24,7 +24,7 @@ You can also install the `phold` using pip.
 pip install phold
 ```
 
-You will need to have [Foldseek](https://github.com/steineggerlab/foldseek) installed and available in the $PATH.
+You will need to have [Foldseek](https://github.com/steineggerlab/foldseek) v9.427df8a installed and available in the $PATH.
 
 ## Source
 
@@ -49,7 +49,7 @@ mamba install pytorch::pytorch torchvision torchaudio -c pytorch
 mamba install -c conda-forge -c bioconda phold 
 ```
 
-## Torch 
+## pytorch 
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
 

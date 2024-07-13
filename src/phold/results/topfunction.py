@@ -11,7 +11,7 @@ def get_topfunctions(
     result_tsv: Path,
     database: Path,
     database_name: str,
-    pdb: bool,
+    structures: bool,
     card_vfdb_evalue: float,
     proteins_flag: bool,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -22,7 +22,7 @@ def get_topfunctions(
         result_tsv (Path): Path to the Foldseek result TSV file.
         database (Path): Path to the database directory.
         database_name (str): Name of the database.
-        pdb (bool): Flag indicating whether the PDB format structures have been added.
+        structures (bool): Flag indicating whether structures have been added.
         card_vfdb_evalue (float): E-value threshold for card and vfdb hits.
         proteins_flag (bool): Flag indicating whether proteins are used.
 
@@ -52,23 +52,31 @@ def get_topfunctions(
         result_tsv, delimiter="\t", index_col=False, names=col_list
     )
 
+    # in case the foldseek output is empty
+    if foldseek_df.empty:
+        logger.error(
+            "Foldseek found no hits whatsoever - please check whether your input is really phage-like"
+        )
+
+    foldseek_df["annotation_source"] = "foldseek"
+
     # gets the cds
-    if pdb is False and proteins_flag is False:
+    if structures is False and proteins_flag is False:
         # prostt5
         foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
             ":", expand=True, n=1
         )
-    # pdb or proteins_flag or both
+    # structures or proteins_flag or both
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
+        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".cif", "")
 
-    # clean up later
-    if database_name == "all_phold_structures" or database_name == "all_phold_prostt5":
-        foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
-        # split the target column as this will have phrog:protein
-        foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
-            ":", expand=True, n=1
-        )
+    # clean up pdb and phrogs
+    foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
+    # split the target column as this will have phrog:protein
+    foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
+        ":", expand=True, n=1
+    )
 
     foldseek_df = foldseek_df.drop(columns=["target"])
     foldseek_df["phrog"] = foldseek_df["phrog"].str.replace("phrog_", "")
@@ -88,7 +96,12 @@ def get_topfunctions(
     foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
         "efam_", ""
     )
-    # no need to add it on to protein - already done
+
+    # strip off dgr
+    mask = foldseek_df["phrog"].str.startswith("dgr_")
+    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
+        "dgr_", ""
+    )
 
     foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
     # read in the mapping tsv
@@ -129,7 +142,7 @@ def get_topfunctions(
         .reset_index(drop=True)
     )
 
-    topfunction_dict = dict(zip(topfunction_df["query"], topfunction_df["function"]))
+    # topfunction_dict = dict(zip(topfunction_df["query"], topfunction_df["function"]))
 
     # Remove the original 'query' column
     topfunction_df = topfunction_df.drop(columns=["query"])
@@ -226,6 +239,9 @@ def get_topfunctions(
     weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
         ".pdb", ""
     )
+    weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
+        ".cif", ""
+    )
     weighted_bitscore_df = weighted_bitscore_df.drop(columns=["level_1"])
 
     return topfunction_df, weighted_bitscore_df
@@ -235,7 +251,7 @@ def calculate_topfunctions_results(
     filtered_tophits_df: pd.DataFrame,
     cds_dict: Dict[str, Dict[str, dict]],
     output: Path,
-    pdb: bool,
+    structures: bool,
     proteins_flag: bool,
     fasta_flag: bool,
 ) -> Union[Dict[str, Dict[str, dict]], pd.DataFrame]:
@@ -246,7 +262,7 @@ def calculate_topfunctions_results(
         filtered_tophits_df (pd.DataFrame): DataFrame containing filtered top hits.
         cds_dict (Dict[str, Dict[str, dict]]): Dictionary containing CDS information.
         output (Path): Output path.
-        pdb (bool): Indicates whether the input is in PDB format.
+        structures (bool): Indicates whether the input is is in .pdb or .cif format.
         proteins_flag (bool): Indicates whether the input is proteins.
         fasta_flag (bool): Indicates whether the input is in FASTA format.
 
@@ -267,7 +283,7 @@ def calculate_topfunctions_results(
             cds_record_dict[cds_id] = record_id
 
     # Get record_id for every cds_id and merge into the df
-    if pdb is True:
+    if structures is True:
         cds_record_df = pd.DataFrame(
             list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
         )
@@ -330,8 +346,12 @@ def calculate_topfunctions_results(
         "connector": "connector",
     }
 
+    # source dict
+    source_dict = {}
+
     # iterates over the records
     for record_id, record in updated_cds_dict.items():
+        source_dict[record_id] = {}
         # iterates over the features
         for cds_id, cds_feature in updated_cds_dict[record_id].items():
             # proteins/FASTA input -> no pharokka input -> fake input to make the updating work
@@ -340,11 +360,6 @@ def calculate_topfunctions_results(
                 cds_feature.qualifiers["phrog"] = ["No_PHROG"]
                 cds_feature.qualifiers["product"] = ["hypothetical protein"]
 
-            # original pharokka phrog categories
-            pharokka_phrog_function_category = phrog_function_mapping.get(
-                cds_feature.qualifiers["function"][0], None
-            )
-
             # if the result_dict is not empty
             # this is a foldseek hit
             if result_dict[record_id][cds_id] != {}:
@@ -352,44 +367,65 @@ def calculate_topfunctions_results(
                 # function will be None if there is no foldseek hit - shouldn't happen here but error handling
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
 
+                # add annotation source
+                if proteins_flag: # for proteins-compare always foldseek
+                    source_dict[record_id][cds_id] = "foldseek"
+                else:
+                    source_dict[record_id][cds_id] = filtered_tophits_df.loc[
+                        (filtered_tophits_df["contig_id"] == record_id)
+                        & (filtered_tophits_df["cds_id"] == cds_id),
+                        "annotation_source",
+                    ].values[0]
+
                 # same phrog as pharokka do nothing
                 # different phrog as pharokka
                 if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                            0
-                        ] = result_dict[record_id][cds_id]["phrog"]
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                            0
-                        ] = result_dict[record_id][cds_id]["product"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
+                            result_dict[record_id][cds_id]["phrog"]
+                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                            result_dict[record_id][cds_id]["product"]
+                        )
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
 
-                    # pharokka has a phrog
+                    # pharokka has a phrog (or genbank doesn't exist)
                     else:
                         # if the foldseek result is not unknown function then update
                         if (
                             result_dict[record_id][cds_id]["function"]
                             != "unknown function"
                         ):
-                            # update
-                            updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                                0
-                            ] = result_dict[record_id][cds_id]["phrog"]
-                            updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                                0
-                            ] = result_dict[record_id][cds_id]["product"]
-                            updated_cds_dict[record_id][cds_id].qualifiers["function"][
-                                0
-                            ] = result_dict[record_id][cds_id]["function"]
+                            # if from pharokka input gbk
+                            try:
+                                # update
+                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["phrog"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "product"
+                                ][0] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "function"
+                                ][0] = result_dict[record_id][cds_id]["function"]
+                            except:  # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
+
+                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                    0
+                                ] = result_dict[record_id][cds_id]["phrog"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "product"
+                                ][0] = result_dict[record_id][cds_id]["product"]
+                                updated_cds_dict[record_id][cds_id].qualifiers[
+                                    "function"
+                                ][0] = result_dict[record_id][cds_id]["function"]
+
                         # if foldseek result has unknown function
                         else:
-                            # if pharokka has known function
-                            # keep the pharokka phrogs - aka do nothing
-                            #
-                            # if the pharokka has unknown function, update with foldseek hit
+                            # if the pharokka has unknown function, update with foldseek hit anyway
                             if (
                                 cds_feature.qualifiers["function"][0]
                                 == "unknown function"
@@ -404,11 +440,23 @@ def calculate_topfunctions_results(
                                     "function"
                                 ][0] = result_dict[record_id][cds_id]["function"]
 
-            # no foldseek hits - empty dict
-            # will be empty in results dict
-            # therefore just leave whatever pharokka has
+                            else:
+                                # this will be when pharokka does have a known function
+                                # keep the pharokka annotation - aka do nothing to the dictionary
+                                # but need to update annotation source dict to pharokka
+                                source_dict[record_id][cds_id] = "pharokka"
 
-    return updated_cds_dict, filtered_tophits_df
+            else:
+                # no foldseek hits - empty results dict for the record and cds id
+                # so the copy from before will be fine
+                # therefore just leave whatever pharokka has (no change to the result_dict)
+                # need to add to source dict
+                if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
+                    source_dict[record_id][cds_id] = "none"
+                else:
+                    source_dict[record_id][cds_id] = "pharokka"
+
+    return updated_cds_dict, filtered_tophits_df, source_dict
 
 
 def initialize_function_counts_dict(

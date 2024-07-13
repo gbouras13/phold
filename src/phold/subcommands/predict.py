@@ -22,7 +22,7 @@ def subcommand_predict(
     proteins_flag: bool,
     fasta_flag: bool,
     save_per_residue_embeddings: bool,
-    save_per_protein_embeddings: bool
+    save_per_protein_embeddings: bool,
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -40,7 +40,7 @@ def subcommand_predict(
         finetune_path (str): Path to the fine-tuned model.
         proteins_flag (bool): True if phold proteins-predict, false otherwise
         fasta_flag (bool): True if pyrodigal-gv was used to predict CDS from FASTA input. False otherwise
-        save_per_residue_embeddings (bool, optional): Whether to save per residue embeddings to h5 file. Defaults to False. 
+        save_per_residue_embeddings (bool, optional): Whether to save per residue embeddings to h5 file. Defaults to False.
         save_per_protein_embeddings (bool, optional): Whether to save mean per protein embeddings to h5 file. Defaults to False.
 
     Returns:
@@ -70,11 +70,39 @@ def subcommand_predict(
                             "translation"
                         ][0]
 
+                        # first try Pharokka (ID)
+                        try:
+                            cds_id = cds_feature.qualifiers["ID"][
+                                0
+                            ]  # if this breaks, will mean not Pharokka input
+                        except:
+                            # next try genbank (protein_id)
+                            try:
+                                # add these extra fields to make it all play nice
+                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
+                                    "protein_id"
+                                ]
+                                cds_feature.qualifiers["function"] = []
+                                cds_feature.qualifiers["function"].append(
+                                    "unknown function"
+                                )
+                                cds_feature.qualifiers["phrog"] = []
+                                cds_feature.qualifiers["phrog"].append("No_PHROG")
+
+                                cds_id = cds_feature.qualifiers["ID"][0]
+
+                                cds_dict[record_id][
+                                    cds_feature.qualifiers["ID"][0]
+                                ] = cds_feature
+                            except:
+                                logger.error(
+                                    f"Feature {cds_feature} has no 'ID' or 'protein_id' qualifier in the Genbank file. Please add one in."
+                                )
+
                         # for really long CDS IDs (over 54 chars), a space will be introduced
                         # this is because the ID will go over a second line
                         # weird bug noticed it on the Mgnify contigs annotated with Pharokka
 
-                        cds_id = cds_feature.qualifiers["ID"][0]
                         if len(cds_id) >= 54:
                             # Remove all spaces from the string
                             cds_id = cds_id.replace(" ", "")
@@ -108,7 +136,6 @@ def subcommand_predict(
     # embeddings h5 - will only be generated if flag is true
     output_h5_per_residue: Path = Path(output) / f"{prefix}_embeddings_per_residue.h5"
     output_h5_per_protein: Path = Path(output) / f"{prefix}_embeddings_per_protein.h5"
-
 
     if cpu is True:
         half_precision = False
@@ -148,7 +175,7 @@ def subcommand_predict(
             output_probs=output_probs,
             proteins_flag=proteins_flag,
             save_per_residue_embeddings=save_per_residue_embeddings,
-            save_per_protein_embeddings=save_per_protein_embeddings
+            save_per_protein_embeddings=save_per_protein_embeddings,
         )
 
     return prediction_success
