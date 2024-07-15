@@ -1,5 +1,9 @@
 # `phold` Method
 
+<p align="center">
+  <img src="img/phold_workflow.png" alt="phold method" height=250>
+</p>
+
 ## Step 1 ProstT5 3Di Inference
 
 * `phold` begins by predicting the Foldseek 3Di tokens for every input protein using the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model
@@ -8,6 +12,7 @@
 ## Step 2 Foldseek Structural Comparison
 
 * `phold` then creates a [Foldseek](https://github.com/steineggerlab/foldseek) database combining the AA and 3Di representations of each protein, and compares this to the `phold` database with Foldseek
+* Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5 with the parameter `--structures` and `--structure_dir`
 
 ## Step 3 Downstream Processing
 

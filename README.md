@@ -8,14 +8,18 @@
 # phold - Phage Annotation using Protein Structures
 
 <p align="center">
-  <img src="img/phold_logo.png" alt="phold Logo" height=200>
+  <img src="img/phold_logo.png" alt="phold Logo" height=250>
 </p>
 
 `phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
 
 `phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to rapidly translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of over 1 million phage protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
 
-Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5 with `phold compare`.
+<p align="center">
+  <img src="img/phold_workflow.png" alt="phold workflow" height=300>
+</p>
+
+Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5 using the parameters  `--structures` and `--structure_dir` with `phold compare`.
 
 Benchmarking is ongoing, but `phold` strongly outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less characterised phages such as those from metagenomic datasets.
 
