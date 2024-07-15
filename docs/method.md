@@ -1,7 +1,7 @@
 # `phold` Method
 
 <p align="center">
-  <img src="img/phold_workflow.png" alt="phold method" height=300>
+  <img src="img/phold_workflow.png" alt="phold method" height=250>
 </p>
 
 ## Step 1 ProstT5 3Di Inference
