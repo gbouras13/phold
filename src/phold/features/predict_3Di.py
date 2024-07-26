@@ -97,6 +97,8 @@ def get_T5_model(
 
     global device
 
+    torch.set_num_threads(threads)
+
     if cpu is True:
         device = torch.device("cpu")
         dev_name = "cpu"
@@ -112,7 +114,6 @@ def get_T5_model(
         else:
             device = torch.device("cpu")
             dev_name = "cpu"
-            torch.set_num_threads(threads)
             if cpu is not True:
                 logger.warning(
                     "No available GPU was found, but --cpu was not specified"
