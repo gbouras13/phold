@@ -23,6 +23,7 @@ def subcommand_predict(
     fasta_flag: bool,
     save_per_residue_embeddings: bool,
     save_per_protein_embeddings: bool,
+    threads: int
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -42,6 +43,7 @@ def subcommand_predict(
         fasta_flag (bool): True if pyrodigal-gv was used to predict CDS from FASTA input. False otherwise
         save_per_residue_embeddings (bool, optional): Whether to save per residue embeddings to h5 file. Defaults to False.
         save_per_protein_embeddings (bool, optional): Whether to save mean per protein embeddings to h5 file. Defaults to False.
+        threads (int): number of cpu threads
 
     Returns:
         bool: True if prediction succeeds, False otherwise.
@@ -176,6 +178,7 @@ def subcommand_predict(
             proteins_flag=proteins_flag,
             save_per_residue_embeddings=save_per_residue_embeddings,
             save_per_protein_embeddings=save_per_protein_embeddings,
+            threads=threads
         )
 
     return prediction_success

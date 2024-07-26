@@ -75,7 +75,7 @@ class CNN(nn.Module):
 
 
 def get_T5_model(
-    model_dir: Path, model_name: str, cpu: bool
+    model_dir: Path, model_name: str, cpu: bool, threads: int
 ) -> (T5EncoderModel, T5Tokenizer):
     """
     Loads a T5 model and tokenizer.
@@ -84,6 +84,7 @@ def get_T5_model(
         model_dir (Path): Directory where the model and tokenizer is be stored.
         model_name (str): Name of the pre-trained T5 model.
         cpu (bool): Whether to use CPU only.
+        threads (int): Number of cpu threads.
 
     Returns:
         Tuple[T5EncoderModel, T5Tokenizer]: Tuple containing the loaded T5 model and tokenizer.
@@ -111,6 +112,7 @@ def get_T5_model(
         else:
             device = torch.device("cpu")
             dev_name = "cpu"
+            torch.set_num_threads(threads)
             if cpu is not True:
                 logger.warning(
                     "No available GPU was found, but --cpu was not specified"
@@ -391,6 +393,7 @@ def get_embeddings(
     proteins_flag: bool = False,
     save_per_residue_embeddings: bool = False,
     save_per_protein_embeddings: bool = False,
+    threads: int = 1
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -413,6 +416,7 @@ def get_embeddings(
         proteins_flag (bool, optional): Whether the sequences are proteins. Defaults to False.
         save_embeddings (bool, optional): Whether to save embeddings to h5 file. Defaults to False. Will  save per residue embeddings
         per_protein_embeddings (bool, optional): Whether to save per protein mean embeddings to h5 file. Defaults to False.
+        threads (int): number of cpu threads
 
 
     Returns:
@@ -430,7 +434,7 @@ def get_embeddings(
 
     checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    model, vocab = get_T5_model(model_dir, model_name, cpu)
+    model, vocab = get_T5_model(model_dir, model_name, cpu, threads)
     predictor = load_predictor(checkpoint_path)
 
     logger.info("Beginning ProstT5 predictions")
