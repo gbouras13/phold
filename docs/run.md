@@ -4,13 +4,13 @@
 
 The reason `phold` has been split as such is to enable optimal resource usage between GPU and CPU in cluster environments.
 
-If you have a local workstation with an NVIDIA GPU, please use `phold run`, which combined both in one.
+If you have a local workstation with an NVIDIA GPU, please use `phold run`, which combines both in one.
 
 If you have a local workstation without a GPU, please use `phold run` with `--cpu`.
 
 If you have trouble running ProstT5, please use `phold remote`.
 
-If you are having troubing runing `phold` offline after installation (e.g. on a HPC), please add `'TRANSFORMERS_OFFLINE=True` to your environment. 
+If you are having troubing runing `phold` offline after installation (e.g. on a HPC), please add `TRANSFORMERS_OFFLINE=True` to your environment. 
 
 ## Input 
 
