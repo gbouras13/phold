@@ -75,6 +75,16 @@ def subcommand_compare(
             f"You did not specify --structure_dir or --structures. Please check "
         )
 
+    if structures and structure_dir is None:
+        logger.error(
+            f"You specified --structures but you did not specify --structure_dir. Please check "
+        )
+
+    if structure_dir and structures is False:
+        logger.error(
+            f"You specified --structure_dir but you did not specify --structures. Please check "
+        )
+
     if proteins_flag is True:
         cds_dict = gb_dict
         non_cds_dict = {}
