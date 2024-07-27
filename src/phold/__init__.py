@@ -305,7 +305,7 @@ def run(
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads
+        threads=threads,
     )
 
     # phold compare
@@ -429,7 +429,7 @@ def predict(
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads
+        threads=threads,
     )
 
     # end phold
@@ -680,7 +680,7 @@ def proteins_predict(
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads
+        threads=threads,
     )
 
     # end phold

@@ -33,7 +33,6 @@ class EAT:
     def __init__(
         self, lookup_path, query_path, output_dir, num_NN, cpu, split_threshold
     ):
-
         global device
 
         if cpu is True:
@@ -87,7 +86,6 @@ class EAT:
             raise NotImplementedError
 
     def read_embeddings(self, emb_path, split_threshold):
-
         # read in the embeddings
         h5_f = h5py.File(emb_path, "r")
         # get dataset

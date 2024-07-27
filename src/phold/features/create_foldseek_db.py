@@ -165,7 +165,11 @@ def generate_foldseek_db_from_structures(
         sequences_aa[record.id] = str(record.seq)
 
     # lists all the pdb files
-    structure_files = [file for file in os.listdir(structure_dir) if file.endswith(".pdb") or file.endswith(".cif") ]
+    structure_files = [
+        file
+        for file in os.listdir(structure_dir)
+        if file.endswith(".pdb") or file.endswith(".cif")
+    ]
 
     num_structures = len(structure_files)
 
@@ -184,7 +188,11 @@ def generate_foldseek_db_from_structures(
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as containing the cds_id (in case there is description etc) and ending '.pdb' or '.cif'  (AF3)
-        matching_files = [file for file in structure_files if f"{cds_id}" in file and (file.endswith(".pdb") or file.endswith(".cif"))]
+        matching_files = [
+            file
+            for file in structure_files
+            if f"{cds_id}" in file and (file.endswith(".pdb") or file.endswith(".cif"))
+        ]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
         # with filter_structures

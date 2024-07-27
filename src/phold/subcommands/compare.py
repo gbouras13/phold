@@ -71,7 +71,9 @@ def subcommand_compare(
     """
 
     if predictions_dir is None and structures is False:
-        logger.error(f"You did not specify --structure_dir or --structures. Please check ")
+        logger.error(
+            f"You did not specify --structure_dir or --structures. Please check "
+        )
 
     if proteins_flag is True:
         cds_dict = gb_dict
@@ -85,11 +87,9 @@ def subcommand_compare(
             cds_dict[record_id] = {}
 
             for cds_feature in record.features:
-
                 # for all pharokka genbanks, correct the bad phrog cats
                 if fasta_flag is False:
                     if cds_feature.type == "CDS":
-
                         # first try Pharokka (ID) - do the updating
                         try:
                             # cds_id = cds_feature.qualifiers["ID"][0]
@@ -312,7 +312,12 @@ def subcommand_compare(
 
     # update the CDS dictionary with the tophits
     updated_cds_dict, filtered_tophits_df, source_dict = calculate_topfunctions_results(
-        filtered_topfunctions_df, cds_dict, output, structures, proteins_flag, fasta_flag
+        filtered_topfunctions_df,
+        cds_dict,
+        output,
+        structures,
+        proteins_flag,
+        fasta_flag,
     )
 
     # generate per CDS foldseek information df and write to genbank
@@ -352,7 +357,6 @@ def subcommand_compare(
     ########
     #### add annotation source
     ########
-
 
     product_index = merged_df.columns.get_loc("product")
 
