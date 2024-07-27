@@ -249,19 +249,31 @@ def test_proteins_predict(gpu_available, threads):
     exec_command(cmd)
 
 
+def test_proteins_predict(gpu_available, threads):
+    """test phold proteins-predict with gzip"""
+    input_fasta: Path = f"{test_data}/phanotate.faa.gz"
+    cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
 def test_proteins_compare(threads):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
+def test_proteins_compare_gzip(threads):
+    """test phold proteins-compare"""
+    input_fasta: Path = f"{test_data}/phanotate.faa.gz"
+    cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
+    exec_command(cmd)
 
 def test_plot():
     """test phold plot"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold plot -i {input_gbk}  -o {plots_dir} -f"
     exec_command(cmd)
-
 
 def test_remote_genbank(run_remote, threads):
     """test phold remote with genbank input"""
