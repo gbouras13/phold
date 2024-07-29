@@ -394,7 +394,7 @@ def get_embeddings(
     proteins_flag: bool = False,
     save_per_residue_embeddings: bool = False,
     save_per_protein_embeddings: bool = False,
-    threads: int = 1
+    threads: int = 1,
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -554,7 +554,6 @@ def get_embeddings(
                         # save embeddings
                         if save_per_residue_embeddings or save_per_protein_embeddings:
                             try:
-
                                 # account for prefix in offset
                                 emb = embedding_repr.last_hidden_state[
                                     batch_idx, 1 : s_len + 1

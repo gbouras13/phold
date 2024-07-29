@@ -91,7 +91,6 @@ def split_3Di_embeddings_by_prob(
     # Open the HDF5 file for reading
     with h5py.File(low_prob_embeddings_h5, "w") as hfw:
         with h5py.File(embeddings_h5, "r") as hfr:
-
             for embeddings_id in hfr.keys():
                 # to get cds id - need the contig to be saved in the embeddings (for downstream processing ease)
                 cds_id = embeddings_id.split(":")[1]

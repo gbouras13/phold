@@ -368,7 +368,7 @@ def calculate_topfunctions_results(
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
 
                 # add annotation source
-                if proteins_flag: # for proteins-compare always foldseek
+                if proteins_flag:  # for proteins-compare always foldseek
                     source_dict[record_id][cds_id] = "foldseek"
                 else:
                     source_dict[record_id][cds_id] = filtered_tophits_df.loc[
@@ -382,12 +382,12 @@ def calculate_topfunctions_results(
                 if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
-                            result_dict[record_id][cds_id]["phrog"]
-                        )
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
-                            result_dict[record_id][cds_id]["product"]
-                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                            0
+                        ] = result_dict[record_id][cds_id]["phrog"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
+                            0
+                        ] = result_dict[record_id][cds_id]["product"]
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
@@ -412,7 +412,6 @@ def calculate_topfunctions_results(
                                     "function"
                                 ][0] = result_dict[record_id][cds_id]["function"]
                             except:  # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
-
                                 updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
                                     0
                                 ] = result_dict[record_id][cds_id]["phrog"]

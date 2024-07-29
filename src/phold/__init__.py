@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import click
+import gzip
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
@@ -15,6 +16,7 @@ from phold.features.query_remote_3Di import query_remote_3di
 from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
+from phold.io.handle_genbank import open_protein_fasta_file
 from phold.utils.constants import DB_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
@@ -305,7 +307,7 @@ def run(
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads
+        threads=threads,
     )
 
     # phold compare
@@ -429,7 +431,7 @@ def predict(
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads
+        threads=threads,
     )
 
     # end phold
@@ -642,21 +644,23 @@ def proteins_predict(
 
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
-    for record in SeqIO.parse(input, "fasta"):
-        prot_id = record.id
-        feature_location = FeatureLocation(0, len(record.seq))
-        # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-        seq_feature = SeqFeature(
-            feature_location,
-            type="CDS",
-            qualifiers={
-                "ID": record.id,
-                "description": record.description,
-                "translation": str(record.seq),
-            },
-        )
+    
+    with open_protein_fasta_file(input) as handle: # handles gzip too
+        for record in SeqIO.parse(handle, "fasta"):
+            prot_id = record.id
+            feature_location = FeatureLocation(0, len(record.seq))
+            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
+            seq_feature = SeqFeature(
+                feature_location,
+                type="CDS",
+                qualifiers={
+                    "ID": record.id,
+                    "description": record.description,
+                    "translation": str(record.seq),
+                },
+            )
 
-        cds_dict["proteins"][prot_id] = seq_feature
+            cds_dict["proteins"][prot_id] = seq_feature
 
     if not cds_dict:
         logger.error(f"Error: no AA protein sequences found in {input} file")
@@ -680,7 +684,7 @@ def proteins_predict(
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads
+        threads=threads,
     )
 
     # end phold
@@ -794,21 +798,22 @@ def proteins_compare(
 
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
-    for record in SeqIO.parse(input, "fasta"):
-        prot_id = record.id
-        feature_location = FeatureLocation(0, len(record.seq))
-        # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-        seq_feature = SeqFeature(
-            feature_location,
-            type="CDS",
-            qualifiers={
-                "ID": record.id,
-                "description": record.description,
-                "translation": [str(record.seq)],
-            },
-        )
+    with open_protein_fasta_file(input) as handle: # handles gzip too
+        for record in SeqIO.parse(handle, "fasta"):
+            prot_id = record.id
+            feature_location = FeatureLocation(0, len(record.seq))
+            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
+            seq_feature = SeqFeature(
+                feature_location,
+                type="CDS",
+                qualifiers={
+                    "ID": record.id,
+                    "description": record.description,
+                    "translation": str(record.seq),
+                },
+            )
 
-        cds_dict["proteins"][prot_id] = seq_feature
+            cds_dict["proteins"][prot_id] = seq_feature
 
     if not cds_dict:
         logger.error(f"Error: no AA protein sequences found in {input} file")
@@ -1139,7 +1144,7 @@ def install(
     cpu = True
 
     # load model (will be downloaded if not present)
-    model, vocab = get_T5_model(database, model_name, cpu)
+    model, vocab = get_T5_model(database, model_name, cpu, threads=1)
     del model
     del vocab
 

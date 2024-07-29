@@ -247,7 +247,6 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
 
     for key in PROSTT5_MD5_DICTIONARY:
         for nested_key in PROSTT5_MD5_DICTIONARY[key]:
-
             file_path = Path(
                 f"{model_dir}/models--Rostlab--ProstT5_fp16/{key}/{nested_key}"
             )

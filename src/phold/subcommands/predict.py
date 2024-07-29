@@ -23,7 +23,7 @@ def subcommand_predict(
     fasta_flag: bool,
     save_per_residue_embeddings: bool,
     save_per_protein_embeddings: bool,
-    threads: int
+    threads: int,
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -178,7 +178,7 @@ def subcommand_predict(
             proteins_flag=proteins_flag,
             save_per_residue_embeddings=save_per_residue_embeddings,
             save_per_protein_embeddings=save_per_protein_embeddings,
-            threads=threads
+            threads=threads,
         )
 
     return prediction_success

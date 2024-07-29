@@ -183,9 +183,11 @@ def generate_foldseek_db_from_structures(
         # record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
-        # enforce names as '{cds_id}.pdb' or {cds_id}.cif'  (AF3)
+        # enforce names as  "{cds_id}.pdb" or "{cds_id}.cif" (AF3)
 
         matching_files = [file for file in structure_files if f"{cds_id}.pdb" == file or f"{cds_id}.cif" == file]
+
+
 
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
