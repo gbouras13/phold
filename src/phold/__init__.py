@@ -1144,7 +1144,7 @@ def install(
     cpu = True
 
     # load model (will be downloaded if not present)
-    model, vocab = get_T5_model(database, model_name, cpu)
+    model, vocab = get_T5_model(database, model_name, cpu, threads=1)
     del model
     del vocab
 
