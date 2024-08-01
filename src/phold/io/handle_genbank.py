@@ -8,7 +8,7 @@ import gzip
 import multiprocessing.pool
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import IO, Dict, Union
 
 import pandas as pd
 import pyrodigal_gv
@@ -16,7 +16,6 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
-from typing import Union, IO
 from loguru import logger
 
 # imports
@@ -32,10 +31,11 @@ def open_protein_fasta_file(input_file: str) -> Union[IO[str], gzip.GzipFile]:
     Returns:
     Union[IO[str], gzip.GzipFile]: A file handle to the opened fasta file.
     """
-    if input_file.endswith('.gz'):
+    if input_file.endswith(".gz"):
         return gzip.open(input_file, "rt")
     else:
         return open(input_file, "rt")
+
 
 def is_gzip_file(f: Path) -> bool:
     """
@@ -156,9 +156,9 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
                 feature.qualifiers["function"] = "unknown function"
                 feature.qualifiers["product"] = "hypothetical protein"
                 feature.qualifiers["phrog"] = "No_PHROG"
-                feature.qualifiers[
-                    "source"
-                ] = f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
+                feature.qualifiers["source"] = (
+                    f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
+                )
                 feature.qualifiers["transl_table"] = gene.translation_table
                 # from the API
                 # translation_table (int, optional) – An alternative translation table to use to translate the gene.

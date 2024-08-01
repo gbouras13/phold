@@ -165,7 +165,11 @@ def generate_foldseek_db_from_structures(
         sequences_aa[record.id] = str(record.seq)
 
     # lists all the pdb files
-    structure_files = [file for file in os.listdir(structure_dir) if file.endswith(".pdb") or file.endswith(".cif") ]
+    structure_files = [
+        file
+        for file in os.listdir(structure_dir)
+        if file.endswith(".pdb") or file.endswith(".cif")
+    ]
 
     num_structures = len(structure_files)
 
@@ -185,10 +189,11 @@ def generate_foldseek_db_from_structures(
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as  "{cds_id}.pdb" or "{cds_id}.cif" (AF3)
 
-        matching_files = [file for file in structure_files if f"{cds_id}.pdb" == file or f"{cds_id}.cif" == file]
-
-
-
+        matching_files = [
+            file
+            for file in structure_files
+            if f"{cds_id}.pdb" == file or f"{cds_id}.cif" == file
+        ]
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
         # with filter_structures
@@ -221,10 +226,10 @@ def generate_foldseek_db_from_structures(
     # generate the db
     short_db_name = f"{prefix}"
     structure_db_name: Path = Path(foldseek_db_path) / short_db_name
-
     query_structure_dir = structure_dir
 
     # choose the filtered directory if true
+    # otherwise all pdbs in the structure_dir will be made into the foldseek DB
     if filter_structures is True:
         query_structure_dir = filtered_structures_path
 
