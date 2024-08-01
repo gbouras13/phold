@@ -18,7 +18,6 @@ pytest --run_remote  --gpu_available --threads 8 .
 # import
 import os
 import shutil
-
 # import functions
 import subprocess
 import sys
@@ -155,6 +154,7 @@ def test_run_efam(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+
 def test_run_netflax(gpu_available, threads):
     """test phold run with a tophit to netflax"""
     input_fasta: Path = f"{test_data}/WP_006719989_subset_test.fasta "
@@ -204,6 +204,7 @@ def test_compare_pdb(threads):
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} -f"
     exec_command(cmd)
 
+
 def test_compare_cif(threads):
     """test phold compare with AF3 cif input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
@@ -216,6 +217,7 @@ def test_proteins_compare_pdb(threads):
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
     exec_command(cmd)
+
 
 def test_proteins_compare_cif(threads):
     """test phold proteins-compare with AF3 cif input"""
@@ -257,11 +259,13 @@ def test_proteins_predict(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+
 def test_proteins_compare(threads):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
+
 
 def test_proteins_compare_gzip(threads):
     """test phold proteins-compare"""
@@ -269,11 +273,13 @@ def test_proteins_compare_gzip(threads):
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
     exec_command(cmd)
 
+
 def test_plot():
     """test phold plot"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold plot -i {input_gbk}  -o {plots_dir} -f"
     exec_command(cmd)
+
 
 def test_remote_genbank(run_remote, threads):
     """test phold remote with genbank input"""

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+import gzip
 from pathlib import Path
 
 import click
-import gzip
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
@@ -13,10 +13,10 @@ from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
+from phold.io.handle_genbank import open_protein_fasta_file
 from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
-from phold.io.handle_genbank import open_protein_fasta_file
 from phold.utils.constants import DB_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
@@ -644,8 +644,8 @@ def proteins_predict(
 
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
-    
-    with open_protein_fasta_file(input) as handle: # handles gzip too
+
+    with open_protein_fasta_file(input) as handle:  # handles gzip too
         for record in SeqIO.parse(handle, "fasta"):
             prot_id = record.id
             feature_location = FeatureLocation(0, len(record.seq))
@@ -798,7 +798,7 @@ def proteins_compare(
 
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
-    with open_protein_fasta_file(input) as handle: # handles gzip too
+    with open_protein_fasta_file(input) as handle:  # handles gzip too
         for record in SeqIO.parse(handle, "fasta"):
             prot_id = record.id
             feature_location = FeatureLocation(0, len(record.seq))

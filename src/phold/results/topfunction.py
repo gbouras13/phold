@@ -328,7 +328,20 @@ def calculate_topfunctions_results(
             "tEnd": row["tEnd"],
             "tLen": row["tLen"],
         }
-        result_dict[record_id][cds_id] = values_dict
+
+        # nan on record_id -> means the structure in the structure_dir has a foldseek hit but can't be matched up to a contig
+        if pd.isna(record_id):
+            if structures is True:
+                logger.warning(
+                    f"{cds_id} has a foldseek hit but no record_id was found. Please check the way you named the structure file."
+                )
+            # should never happen but you never know
+            else:
+                logger.warning(
+                    f"{cds_id} has a foldseek hit but no record_id was found. Please check your input."
+                )
+        else:
+            result_dict[record_id][cds_id] = values_dict
 
     # copy initial cds_dict
     updated_cds_dict = copy.deepcopy(cds_dict)
@@ -382,12 +395,12 @@ def calculate_topfunctions_results(
                 if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
-                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                            0
-                        ] = result_dict[record_id][cds_id]["phrog"]
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][
-                            0
-                        ] = result_dict[record_id][cds_id]["product"]
+                        updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
+                            result_dict[record_id][cds_id]["phrog"]
+                        )
+                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                            result_dict[record_id][cds_id]["product"]
+                        )
                         updated_cds_dict[record_id][cds_id].qualifiers["function"][
                             0
                         ] = result_dict[record_id][cds_id]["function"]
