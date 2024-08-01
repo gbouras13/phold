@@ -646,7 +646,13 @@ def proteins_predict(
     # 1 dummy record = proteins
 
     with open_protein_fasta_file(input) as handle:  # handles gzip too
-        for record in SeqIO.parse(handle, "fasta"):
+        records = list(SeqIO.parse(handle, "fasta"))
+        if not records:
+            logger.warning(f"No proteins were found in your input file {input}.")
+            logger.error(
+                f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
+            )
+        for record in records:
             prot_id = record.id
             feature_location = FeatureLocation(0, len(record.seq))
             # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
@@ -799,6 +805,12 @@ def proteins_compare(
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
     with open_protein_fasta_file(input) as handle:  # handles gzip too
+        records = list(SeqIO.parse(handle, "fasta"))
+        if not records:
+            logger.warning(f"No proteins were found in your input file {input}.")
+            logger.error(
+                f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
+            )
         for record in SeqIO.parse(handle, "fasta"):
             prot_id = record.id
             feature_location = FeatureLocation(0, len(record.seq))
