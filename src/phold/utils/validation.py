@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Union
 
+from Bio.SeqUtils import IUPACData
 from loguru import logger
 
 from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
