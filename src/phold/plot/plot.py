@@ -381,17 +381,16 @@ def create_circos_plot(
         annotations = 0
 
     ####### running the sparsity
-
-    quantile_length = np.quantile(length_list, annotations)
-    # Create an empty list to store the filtered indices
     filtered_indices = []
-
-    # Loop through the indices of the length_list
-    for i in range(len(length_list)):
-        # If the length at this index is greater than or equal to the median, add the index to filtered_indices
-        # captures the once in the label force list
-        if (length_list[i] < quantile_length) or (id_list[i] in label_force_list):
-            filtered_indices.append(i)
+    # basler error - contigs with no non-hyps fail here
+    if len(length_list) > 0:
+        quantile_length = np.quantile(length_list, annotations)
+        # Loop through the indices of the length_list
+        for i in range(len(length_list)):
+            # If the length at this index is greater than or equal to the median, add the index to filtered_indices
+            # captures the once in the label force list
+            if (length_list[i] < quantile_length) or (id_list[i] in label_force_list):
+                filtered_indices.append(i)
 
     # Use the filtered indices to create new lists for pos_list, labels, and length_list
     pos_list = [pos_list[i] for i in filtered_indices]
