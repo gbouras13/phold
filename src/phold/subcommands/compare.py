@@ -72,7 +72,7 @@ def subcommand_compare(
 
     if predictions_dir is None and structures is False:
         logger.error(
-            f"You did not specify --structure_dir or --structures. Please check "
+            f"You did not specify --predictions_dir or --structures. Please check "
         )
 
     if structures and structure_dir is None:
