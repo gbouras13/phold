@@ -142,6 +142,7 @@ def generate_foldseek_db_from_structures(
     logdir: Path,
     prefix: str,
     filter_structures: bool,
+    proteins_flag: bool,
 ) -> None:
     """
     Generate Foldseek database from PDB files.
@@ -154,6 +155,7 @@ def generate_foldseek_db_from_structures(
         logdir (Path): Path to the directory where logs will be stored.
         prefix (str): Prefix for the Foldseek database.
         filter_structures (bool): Flag indicating whether to filter structure files or not.
+        proteins_flag (bool): Flag - True if proteins-compare is run
 
     Returns:
         None
@@ -180,9 +182,13 @@ def generate_foldseek_db_from_structures(
     no_structure_cds_ids = []
 
     for id in sequences_aa.keys():
-        # in case the header has a colon in it - this will cause a bug if so
-        cds_id = id.split(":")[1:]
-        cds_id = ":".join(cds_id).strip()
+        if proteins_flag:
+            # will just be the CDS id if it is proteins-compare
+            cds_id = id
+        else:
+            # in case the header has a colon in it - this will cause a bug if so
+            cds_id = id.split(":")[1:]
+            cds_id = ":".join(cds_id).strip()
 
         # record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs

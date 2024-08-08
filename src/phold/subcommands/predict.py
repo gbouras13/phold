@@ -106,6 +106,9 @@ def subcommand_predict(
                         # weird bug noticed it on the Mgnify contigs annotated with Pharokka
 
                         if len(cds_id) >= 54:
+                            logger.warning(
+                                f"The CDS is {cds_id} is longer than 54 characters. It is recommended that you use short contig headers (which will therefore lead to shorter CDS ids)."
+                            )
                             # Remove all spaces from the string
                             cds_id = cds_id.replace(" ", "")
 

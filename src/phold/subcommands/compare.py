@@ -11,12 +11,13 @@ from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_structures)
+    generate_foldseek_db_from_aa_3di,
+    generate_foldseek_db_from_structures,
+)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
-from phold.results.topfunction import (calculate_topfunctions_results,
-                                       get_topfunctions)
+from phold.results.topfunction import calculate_topfunctions_results, get_topfunctions
 
 
 def subcommand_compare(
@@ -207,7 +208,7 @@ def subcommand_compare(
                 logger.error(
                     f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
                 )
-    ## write the AAs to file if structures is true
+    ## write the AAs to file if structures is true because can't just copy from prediction_dir
     else:
         ## write the CDS to file
         logger.info(f"Writing the AAs to file {fasta_aa}.")
@@ -217,8 +218,13 @@ def subcommand_compare(
 
                 # writes the CDS to file
                 for seq_id, cds_feature in aa_contig_dict.items():
-                    out_f.write(f">{record_id}:{seq_id}\n")
-                    out_f.write(f"{cds_feature.qualifiers['translation'][0]}\n")
+                    # if proteins, don't want the 'proteins:' as CDS id
+                    if proteins_flag:
+                        header = f">{seq_id}\n"
+                    else:
+                        header = f">{record_id}:{seq_id}\n"
+                    out_f.write(header)
+                    out_f.write(f"{cds_feature.qualifiers['translation']}\n")
 
     ############
     # create foldseek db
@@ -245,6 +251,7 @@ def subcommand_compare(
             logdir,
             prefix,
             filter_structures,
+            proteins_flag,
         )
     else:
         generate_foldseek_db_from_aa_3di(

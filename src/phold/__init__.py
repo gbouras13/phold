@@ -18,10 +18,14 @@ from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR
-from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
-                              get_version, print_citation)
-from phold.utils.validation import (check_dependencies, instantiate_dirs,
-                                    validate_input)
+from phold.utils.util import (
+    begin_phold,
+    clean_up_temporary_files,
+    end_phold,
+    get_version,
+    print_citation,
+)
+from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -632,7 +636,7 @@ def proteins_predict(
     }
 
     # initial logging etc
-    start_time = begin_phold(params, "protein-predict")
+    start_time = begin_phold(params, "proteins-predict")
 
     # check the database is installed
     database = validate_db(database, DB_DIR)
