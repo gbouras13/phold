@@ -811,7 +811,7 @@ def proteins_compare(
             logger.error(
                 f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
             )
-        for record in SeqIO.parse(handle, "fasta"):
+        for record in records:
             prot_id = record.id
             feature_location = FeatureLocation(0, len(record.seq))
             # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]

@@ -156,9 +156,9 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
                 feature.qualifiers["function"] = "unknown function"
                 feature.qualifiers["product"] = "hypothetical protein"
                 feature.qualifiers["phrog"] = "No_PHROG"
-                feature.qualifiers["source"] = (
-                    f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
-                )
+                feature.qualifiers[
+                    "source"
+                ] = f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
                 feature.qualifiers["transl_table"] = gene.translation_table
                 # from the API
                 # translation_table (int, optional) – An alternative translation table to use to translate the gene.
