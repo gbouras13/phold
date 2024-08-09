@@ -450,6 +450,8 @@ def subcommand_compare(
         }
 
         clinker_cm_df["colour"] = clinker_cm_df["function"].map(function_to_colour_dict)
+        # remove dupes
+        clinker_cm_df = clinker_cm_df.drop_duplicates()
         clinker_cm_df.to_csv(clinker_cm_path, index=False, sep=",", header=False)
 
     # sub dbs output
