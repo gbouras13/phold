@@ -204,7 +204,7 @@ def compare_no_proteins_options(func):
         click.option(
             "--clinker",
             is_flag=True,
-            help="Create easy output to use consistent PHROG categories and Phold plot colours for clinker.\nCreates gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options.",
+            help="Create output to use consistent PHROG categories and Phold plot colours for clinker.\nCreates gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options.",
         )
     ]
     for option in reversed(options):

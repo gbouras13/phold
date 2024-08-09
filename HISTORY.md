@@ -5,6 +5,9 @@
 
 * Fix bug with `phold predict` with `--cpu`, where ProstT5 would use all threads by default https://github.com/gbouras13/phold/issues/60 Thanks @valentynbez 
 * Fix bug with `phold compare` with `--structures`. If there were additional structures in the `--structure_dir` not found in the input CDS and `--filter_structures` was not specified, phold would crash if there was a Foldseek hit to the extra structures. Thanks Nikolas Basler
+* Add `--clinker`
+    * Create output to use consistent PHROG categories and Phold plot colours for clinker
+    * Specifically, this creates gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options
 
 0.2.0 (2024-07-13)
 ------------------
