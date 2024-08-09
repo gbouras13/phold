@@ -18,14 +18,10 @@ from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR
-from phold.utils.util import (
-    begin_phold,
-    clean_up_temporary_files,
-    end_phold,
-    get_version,
-    print_citation,
-)
-from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
+from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
+                              get_version, print_citation)
+from phold.utils.validation import (check_dependencies, instantiate_dirs,
+                                    validate_input)
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -197,6 +193,25 @@ def compare_options(func):
     return func
 
 
+"""
+compare only options used for genbank/genome FASTA input (i.e. not proteins-compare)
+"""
+
+
+def compare_no_proteins_options(func):
+    """compare command line args"""
+    options = [
+        click.option(
+            "--clinker",
+            is_flag=True,
+            help="Create easy output to use consistent PHROG categories and Phold plot colours for clinker.\nCreates gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options.",
+        )
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
+
 @click.group()
 @click.help_option("--help", "-h")
 @click.version_option(get_version(), "--version", "-V")
@@ -223,6 +238,7 @@ run command
 @common_options
 @predict_options
 @compare_options
+@compare_no_proteins_options
 def run(
     ctx,
     input,
@@ -246,6 +262,7 @@ def run(
     save_per_protein_embeddings,
     only_representatives,
     ultra_sensitive,
+    clinker,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -278,6 +295,7 @@ def run(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
+        "--clinker": clinker,
     }
 
     # initial logging etc
@@ -337,6 +355,7 @@ def run(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
+        clinker=clinker,
     )
 
     # cleanup the temp files
@@ -480,6 +499,7 @@ compare command
 )
 @common_options
 @compare_options
+@compare_no_proteins_options
 def compare(
     ctx,
     input,
@@ -500,6 +520,7 @@ def compare(
     max_seqs,
     only_representatives,
     ultra_sensitive,
+    clinker,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -530,6 +551,7 @@ def compare(
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
+        "--clinker": clinker,
     }
 
     # initial logging etc
@@ -565,6 +587,7 @@ def compare(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
+        clinker=clinker,
     )
 
     # cleanup the temp files
@@ -855,6 +878,7 @@ def proteins_compare(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
+        clinker=False,  # never create clinker output for proteins-compare as it doesnt make sense
     )
 
     # cleanup the temp files
@@ -883,6 +907,7 @@ remote command
 )
 @common_options
 @compare_options
+@compare_no_proteins_options
 def remote(
     ctx,
     input,
@@ -899,6 +924,7 @@ def remote(
     max_seqs,
     only_representatives,
     ultra_sensitive,
+    clinker,
     **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
@@ -924,6 +950,7 @@ def remote(
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
+        "--clinker": clinker,
     }
 
     # initial logging etc
@@ -1002,6 +1029,7 @@ def remote(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
+        clinker=clinker,
     )
 
     # cleanup the temp files

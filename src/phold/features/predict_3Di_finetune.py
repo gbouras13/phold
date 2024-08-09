@@ -24,10 +24,13 @@ from loguru import logger
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import DataCollatorForTokenClassification, T5EncoderModel, T5Tokenizer
+from transformers import (DataCollatorForTokenClassification, T5EncoderModel,
+                          T5Tokenizer)
 from transformers.modeling_outputs import TokenClassifierOutput
-from transformers.models.t5.modeling_t5 import T5Config, T5PreTrainedModel, T5Stack
-from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
+from transformers.models.t5.modeling_t5 import (T5Config, T5PreTrainedModel,
+                                                T5Stack)
+from transformers.utils.model_parallel_utils import (assert_device_map,
+                                                     get_device_map)
 
 from phold.features.predict_3Di import write_predictions
 from phold.utils.constants import FINETUNE_DIR
