@@ -222,10 +222,12 @@ def subcommand_compare(
                     # if proteins, don't want the 'proteins:' as CDS id
                     if proteins_flag:
                         header = f">{seq_id}\n"
-                    else:
+                        seq = f"{cds_feature.qualifiers['translation']}\n"
+                    else: # if genbank entry need to take the first seq as it is parsed as a list
                         header = f">{record_id}:{seq_id}\n"
+                        seq = f"{cds_feature.qualifiers['translation'][0]}\n"
                     out_f.write(header)
-                    out_f.write(f"{cds_feature.qualifiers['translation']}\n")
+                    out_f.write(seq)
 
     ############
     # create foldseek db
