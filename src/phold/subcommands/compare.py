@@ -223,7 +223,7 @@ def subcommand_compare(
                     if proteins_flag:
                         header = f">{seq_id}\n"
                         seq = f"{cds_feature.qualifiers['translation']}\n"
-                    else: # if genbank entry need to take the first seq as it is parsed as a list
+                    else:  # if genbank entry need to take the first seq as it is parsed as a list
                         header = f">{record_id}:{seq_id}\n"
                         seq = f"{cds_feature.qualifiers['translation'][0]}\n"
                     out_f.write(header)

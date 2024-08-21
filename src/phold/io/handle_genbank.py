@@ -93,6 +93,41 @@ def get_genbank(genbank: Path) -> dict:
     return gb_dict
 
 
+def identify_long_ids(gb_dict: dict) -> dict:
+    """
+
+    Checks all feature IDs in gb_dict. If longer than 54 chars (line break from Pharokka/biopython reading GBK files), removes the space
+
+    Args:
+        dict: A dictionary representation of the GenBank file.
+
+    Returns:
+        dict: A dictionary representation of the GenBank file.
+    """
+
+    # remove spaces in ID/locus tag
+    for record_id, record in gb_dict.items():
+        for cds_feature in record.features:
+            try:
+                # if pharokka > 54 char IDs/locus tage, phold/biopython will parse with a space
+                # no spaces in
+                # for really long CDS IDs (over 54 chars), a space will be introduced
+                # this is because the ID will go over a second line
+                # weird bug noticed it on the Mgnify contigs annotated with Pharokka
+                cds_id = cds_feature.qualifiers["ID"][0]
+                if len(cds_id) >= 54:
+                    logger.warning(
+                        f"The CDS ID is {cds_id} is longer than 54 characters. It is recommended that you use short contig headers (which will therefore lead to shorter CDS ids)."
+                    )
+                    cds_feature.qualifiers["ID"][0] = cds_feature.qualifiers["ID"][
+                        0
+                    ].replace(" ", "")
+            except:
+                # will be GenBank/NCBI formatted
+                # ID isn't a field and should be properly formatted - famous last words probably
+                continue
+
+
 def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
     """
 

@@ -18,7 +18,6 @@ pytest --run_remote  --gpu_available --threads 8 .
 # import
 import os
 import shutil
-
 # import functions
 import subprocess
 import sys
@@ -40,8 +39,10 @@ cif_dir = Path(f"{test_data}/NC_043029_af3_cif")
 output_dir = Path(f"{test_data}/outputs")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
+run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
+run_fasta_long_header_dir: Path = f"{output_dir}/long_header_fasta"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
 run_fasta_efam_dir: Path = f"{output_dir}/KF_efam_phold_run_fasta"
 run_fasta_netflax_dir: Path = f"{output_dir}/WP_netflax_phold_run_fasta"
@@ -120,6 +121,17 @@ def test_run_genbank(gpu_available, threads):
     exec_command(cmd)
 
 
+def test_run_genbank_ncbi(gpu_available, threads):
+    """test phold run with genbank input from NCBI"""
+    input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
+    cmd = (
+        f"phold run -i {input_gbk} -o {run_gbk_ncbi} -t {threads} -d {database_dir} -f"
+    )
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
 def test_run_genbank_old_pharokka(gpu_available, threads):
     """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
@@ -130,9 +142,18 @@ def test_run_genbank_old_pharokka(gpu_available, threads):
 
 
 def test_run_genbank_long_header(gpu_available, threads):
-    """test phold run with pharokka genbank with large header/locus tag (over 54 chars)"""
+    """test phold run with pharokka genbank with large ID/locus tag (over 54 chars)"""
     input_gbk: Path = f"{test_data}/long_header.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_long_header_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
+def test_run_fasta_long_header(gpu_available, threads):
+    """test phold run with FASTA with large header"""
+    input_fasta: Path = f"{test_data}/long_header.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_long_header_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)

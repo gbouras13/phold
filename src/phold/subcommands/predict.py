@@ -78,7 +78,7 @@ def subcommand_predict(
                                 0
                             ]  # if this breaks, will mean not Pharokka input
                         except:
-                            # next try genbank (protein_id)
+                            # next try GeNbank/NCBI (uses protein_id)
                             try:
                                 # add these extra fields to make it all play nice
                                 cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
@@ -100,17 +100,6 @@ def subcommand_predict(
                                 logger.error(
                                     f"Feature {cds_feature} has no 'ID' or 'protein_id' qualifier in the Genbank file. Please add one in."
                                 )
-
-                        # for really long CDS IDs (over 54 chars), a space will be introduced
-                        # this is because the ID will go over a second line
-                        # weird bug noticed it on the Mgnify contigs annotated with Pharokka
-
-                        if len(cds_id) >= 54:
-                            logger.warning(
-                                f"The CDS is {cds_id} is longer than 54 characters. It is recommended that you use short contig headers (which will therefore lead to shorter CDS ids)."
-                            )
-                            # Remove all spaces from the string
-                            cds_id = cds_id.replace(" ", "")
 
                         cds_dict[record_id][cds_id] = cds_feature
 
