@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Union
 
+from Bio import SeqIO
 from Bio.SeqUtils import IUPACData
 from loguru import logger
 
@@ -38,6 +39,15 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
         logger.warning(
             f"And then use the genbank output pharokka.gbk as --input for phold"
         )
+
+        # check the contig ids are < 54 chars
+        for record in SeqIO.parse(input, "fasta"):
+            # Check if the length of the record ID is 54 characters or more
+            if len(record.id) >= 54:
+                logger.warning(
+                    f"The contig header {record.id} is longer than 54 characters. It is recommended that you use shorter contig headers as this can create issues downstream."
+                )
+
         gb_dict = get_fasta_run_pyrodigal_gv(input, threads)
         if not gb_dict:
             logger.warning("Error: no records found in FASTA file")
