@@ -8,6 +8,7 @@
 * Add `--clinker`
     * Create output to use consistent PHROG categories and Phold plot colours for clinker
     * Specifically, this creates gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options
+* Fixes bug that would occur if the ID/locus tag of the features in the input genbank were longer than 54 characters - Phold would complete but introduce a space into CDSids and FASTA headers (#67) 
 
 0.2.0 (2024-07-13)
 ------------------

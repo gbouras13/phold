@@ -77,6 +77,7 @@ def get_genbank(genbank: Path) -> dict:
             with gzip.open(genbank.strip(), "rt") as handle:
                 gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
             handle.close()
+            gb_dict = identify_long_ids(gb_dict)
         except ValueError:
             logger.warning(f"{genbank.strip()} is not a genbank file")
             raise
@@ -86,6 +87,7 @@ def get_genbank(genbank: Path) -> dict:
             with open(genbank.strip(), "rt") as handle:
                 gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
             handle.close()
+            gb_dict = identify_long_ids(gb_dict)
         except ValueError:
             logger.warning(f"{genbank} is not a genbank file")
             raise
@@ -126,6 +128,8 @@ def identify_long_ids(gb_dict: dict) -> dict:
                 # will be GenBank/NCBI formatted
                 # ID isn't a field and should be properly formatted - famous last words probably
                 continue
+
+    return gb_dict
 
 
 def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
