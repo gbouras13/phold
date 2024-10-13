@@ -2,10 +2,9 @@
 
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 
-import numpy as np
-import pandas as pd
+import polars as pl
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 from loguru import logger
@@ -39,8 +38,7 @@ def subcommand_compare(
     separate: bool,
     max_seqs: int,
     only_representatives: bool,
-    ultra_sensitive: bool,
-    clinker: bool,
+    ultra_sensitive: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -66,7 +64,6 @@ def subcommand_compare(
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         only_representatives (bool): Whether to search against representatives only (turn off --cluster-search 1)
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
-        clinker (bool): If True, then outputs gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -323,14 +320,12 @@ def subcommand_compare(
 
     result_tsv: Path = Path(output) / "foldseek_results.tsv"
 
-    # get top hit with non-unknown function for each CDS
-    # also calculate the weighted bitscore df
-
+    # Get top hit with non-unknown function for each CDS and calculate the weighted bitscore
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
         result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag
     )
 
-    # update the CDS dictionary with the tophits
+    # Update the CDS dictionary with the top hits
     updated_cds_dict, filtered_tophits_df, source_dict = calculate_topfunctions_results(
         filtered_topfunctions_df,
         cds_dict,
@@ -340,7 +335,7 @@ def subcommand_compare(
         fasta_flag,
     )
 
-    # generate per CDS foldseek information df and write to genbank
+    # Generate per CDS foldseek information and write to GenBank
     per_cds_df = write_genbank(
         updated_cds_dict,
         non_cds_dict,
@@ -353,259 +348,97 @@ def subcommand_compare(
         fasta_flag,
     )
 
-    # if prostt5, query will repeat contig_id in query - convert to cds_id
+    # Handle query modifications based on conditions
     if structures is False and proteins_flag is False:
-        weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
-            "query"
-        ].str.split(":", expand=True, n=1)
-        weighted_bitscore_df = weighted_bitscore_df.drop(columns=["query", "contig_id"])
-
-    # otherwise for structures or proteins query will just be the cds_id so rename
+        weighted_bitscore_df = weighted_bitscore_df.with_columns(
+            pl.col("query").str.split_exact(":", 1).alias(["contig_id", "cds_id"])
+        ).drop(["query", "contig_id"])
     else:
-        weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
+        weighted_bitscore_df = weighted_bitscore_df.rename({"query": "cds_id"})
 
-    if proteins_flag is False:
-        columns_to_drop = ["contig_id", "phrog", "product", "function"]
-    else:
-        columns_to_drop = ["phrog", "product", "function"]
-    # drop dupe columns
+    # Drop columns based on conditions
+    columns_to_drop = ["contig_id", "phrog", "product", "function"] if not proteins_flag else ["phrog", "product", "function"]
     filtered_tophits_df = filtered_tophits_df.drop(columns=columns_to_drop)
 
-    merged_df = per_cds_df.merge(filtered_tophits_df, on="cds_id", how="left")
-    merged_df = merged_df.merge(weighted_bitscore_df, on="cds_id", how="left")
+    # Merge dataframes
+    merged_df = per_cds_df.join(filtered_tophits_df, on="cds_id", how="left")
+    merged_df = merged_df.join(weighted_bitscore_df, on="cds_id", how="left")
 
-    ########
-    #### add annotation source
-    ########
+    # Add annotation source and reorder columns
+    product_index = merged_df.columns.index("product")
+    column_order = [col for col in merged_df.columns[:product_index + 1] if col != "annotation_method"] + \
+                ["annotation_method"] + \
+                [col for col in merged_df.columns[product_index + 1:] if col != "annotation_method"]
 
-    product_index = merged_df.columns.get_loc("product")
+    merged_df = merged_df.select(column_order)
 
-    new_column_order = (
-        list(
-            [
-                col
-                for col in merged_df.columns[: product_index + 1]
-                if col != "annotation_method"
-            ]
-        )
-        + ["annotation_method"]
-        + list(
-            [
-                col
-                for col in merged_df.columns[product_index + 1 :]
-                if col != "annotation_method"
-            ]
-        )
-    )
-    merged_df = merged_df.reindex(columns=new_column_order)
+    # Save the merged dataframe
+    merged_df_path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
+    merged_df.write_csv(merged_df_path, sep="\t")
 
-    # depolymerase prediction for next version - needs more time for analysis than v0.2.0
-
-    # # get deposcope info
-    # deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
-    # deposcope_df = pd.read_csv(deposcope_metadata_path, sep=",")
-    # deposcope_list = deposcope_df["tophit_protein"].tolist()
-
-    # merged_df["depolymerase"] = merged_df["tophit_protein"].isin(deposcope_list)
-
-    # # move after tophit_protein
-    # annotation_method_index = merged_df.columns.get_loc("annotation_method")
-
-    # new_column_order = (
-    #     list([col for col in merged_df.columns[: annotation_method_index + 1] if col != "depolymerase"]  )
-    #     + ["depolymerase"]
-    #     + list([col for col in merged_df.columns[annotation_method_index + 1:] if col != "depolymerase"] )
-    # )
-    # merged_df = merged_df.reindex(columns=new_column_order)
-
-    # save
-    merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
-    merged_df.to_csv(merged_df_path, index=False, sep="\t")
-
-    # clinker output
-
-    if clinker:
-        clinker_dir = Path(output) / "clinker"
-        clinker_dir.mkdir(parents=True, exist_ok=True)
-
-        # gf
-        clinker_gf_df = merged_df[["cds_id", "function"]].copy()
-        clinker_gf_path: Path = Path(clinker_dir) / f"{prefix}_gene_functions.csv"
-        clinker_gf_df.to_csv(clinker_gf_path, index=False, sep=",", header=False)
-
-        # cm
-        clinker_cm_df = merged_df[["function"]].copy()
-        clinker_cm_path: Path = Path(clinker_dir) / f"{prefix}_colourmap.csv"
-
-        # from phold plot
-        function_to_colour_dict = {
-            "unknown function": "#AAAAAA",
-            "other": "#4deeea",
-            "tail": "#74ee15",
-            "transcription regulation": "#ffe700",
-            "DNA, RNA and nucleotide metabolism": "#f000ff",
-            "lysis": "#001eff",
-            "moron, auxiliary metabolic gene and host takeover": "#8900ff",
-            "integration and excision": "#E0B0FF",
-            "head and packaging": "#ff008d",
-            "connector": "#5A5A5A",
-        }
-
-        clinker_cm_df["colour"] = clinker_cm_df["function"].map(function_to_colour_dict)
-        # remove dupes
-        clinker_cm_df = clinker_cm_df.drop_duplicates()
-        clinker_cm_df.to_csv(clinker_cm_path, index=False, sep=",", header=False)
-
-    # sub dbs output
-    # save vfdb card acr defensefinder hits with more metadata
+    # Create sub-database outputs
     sub_dbs_created = create_sub_db_outputs(merged_df, database, output)
 
-    # save the function counts is not proteins
-    if proteins_flag is False:
-        contig_ids = merged_df["contig_id"].unique()
+    # If not proteins, generate and save function counts
+    if not proteins_flag:
+        contig_ids = merged_df.select("contig_id").unique().to_list()
 
-        # get list of all functions counts
         functions_list = []
 
         for contig in contig_ids:
-            contig_df = merged_df[merged_df["contig_id"] == contig]
+            contig_df = merged_df.filter(pl.col("contig_id") == contig)
+            cds_count = contig_df.height
 
-            cds_count = len(contig_df)
-            # get counts of functions and cds
-            # all 10 PHROGs categories
-            connector_count = len(contig_df[contig_df["function"] == "connector"])
-            metabolism_count = len(
-                contig_df[contig_df["function"] == "DNA, RNA and nucleotide metabolism"]
-            )
-            head_count = len(contig_df[contig_df["function"] == "head and packaging"])
-            integration_count = len(
-                contig_df[contig_df["function"] == "integration and excision"]
-            )
-            lysis_count = len(contig_df[contig_df["function"] == "lysis"])
-            moron_count = len(
-                contig_df[
-                    contig_df["function"]
-                    == "moron, auxiliary metabolic gene and host takeover"
-                ]
-            )
-            other_count = len(contig_df[contig_df["function"] == "other"])
-            tail_count = len(contig_df[contig_df["function"] == "tail"])
-            transcription_count = len(
-                contig_df[contig_df["function"] == "transcription regulation"]
-            )
-            unknown_count = len(contig_df[contig_df["function"] == "unknown function"])
+            # Count functions
+            function_counts = {
+                "connector": contig_df.filter(pl.col("function") == "connector").height,
+                "DNA, RNA and nucleotide metabolism": contig_df.filter(pl.col("function") == "DNA, RNA and nucleotide metabolism").height,
+                "head and packaging": contig_df.filter(pl.col("function") == "head and packaging").height,
+                "integration and excision": contig_df.filter(pl.col("function") == "integration and excision").height,
+                "lysis": contig_df.filter(pl.col("function") == "lysis").height,
+                "moron, auxiliary metabolic gene and host takeover": contig_df.filter(pl.col("function") == "moron, auxiliary metabolic gene and host takeover").height,
+                "other": contig_df.filter(pl.col("function") == "other").height,
+                "tail": contig_df.filter(pl.col("function") == "tail").height,
+                "transcription regulation": contig_df.filter(pl.col("function") == "transcription regulation").height,
+                "unknown function": contig_df.filter(pl.col("function") == "unknown function").height
+            }
 
-            acr_count = len(contig_df[contig_df["phrog"] == "acr"])
+            # Count additional categories
+            phrog_counts = {
+                "VFDB_Virulence_Factors": contig_df.filter(pl.col("phrog") == "vfdb").height,
+                "CARD_AMR": contig_df.filter(pl.col("phrog") == "card").height,
+                "ACR_anti_crispr": contig_df.filter(pl.col("phrog") == "acr").height,
+                "Defensefinder": contig_df.filter(pl.col("phrog") == "defensefinder").height,
+                "Netflax": contig_df.filter(pl.col("phrog") == "netflax").height,
+            }
 
-            vfdb_count = len(contig_df[contig_df["phrog"] == "vfdb"])
-
-            card_count = len(contig_df[contig_df["phrog"] == "card"])
-
-            defensefinder_count = len(contig_df[contig_df["phrog"] == "defensefinder"])
-
-            netflax_count = len(contig_df[contig_df["phrog"] == "netflax"])
-
-            # create count list  for the dataframe
+            # Create the function count DataFrame
             count_list = [
                 cds_count,
-                connector_count,
-                metabolism_count,
-                head_count,
-                integration_count,
-                lysis_count,
-                moron_count,
-                other_count,
-                tail_count,
-                transcription_count,
-                unknown_count,
+                *function_counts.values(),
+                *phrog_counts.values()
             ]
-
+            
             description_list = [
                 "CDS",
-                "connector",
-                "DNA, RNA and nucleotide metabolism",
-                "head and packaging",
-                "integration and excision",
-                "lysis",
-                "moron, auxiliary metabolic gene and host takeover",
-                "other",
-                "tail",
-                "transcription regulation",
-                "unknown function",
+                *function_counts.keys(),
+                *phrog_counts.keys()
             ]
-            contig_list = [
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-            ]
-            # cds df
-            cds_df = pd.DataFrame(
-                {
-                    "Description": description_list,
-                    "Count": count_list,
-                    "Contig": contig_list,
-                }
-            )
 
-            vfdb_row = pd.DataFrame(
-                {
-                    "Description": ["VFDB_Virulence_Factors"],
-                    "Count": [vfdb_count],
-                    "Contig": [contig],
-                }
-            )
-            card_row = pd.DataFrame(
-                {
-                    "Description": ["CARD_AMR"],
-                    "Count": [card_count],
-                    "Contig": [contig],
-                }
-            )
+            contig_list = [contig] * len(count_list)
 
-            acr_row = pd.DataFrame(
-                {
-                    "Description": ["ACR_anti_crispr"],
-                    "Count": [acr_count],
-                    "Contig": [contig],
-                }
-            )
+            cds_df = pl.DataFrame({
+                "Description": description_list,
+                "Count": count_list,
+                "Contig": contig_list
+            })
 
-            defensefinder_row = pd.DataFrame(
-                {
-                    "Description": ["Defensefinder"],
-                    "Count": [defensefinder_count],
-                    "Contig": [contig],
-                }
-            )
-
-            netflax_row = pd.DataFrame(
-                {
-                    "Description": ["Netflax"],
-                    "Count": [netflax_count],
-                    "Contig": [contig],
-                }
-            )
-
-            # eappend it all to functions_list
             functions_list.append(cds_df)
-            functions_list.append(vfdb_row)
-            functions_list.append(card_row)
-            functions_list.append(acr_row)
-            functions_list.append(defensefinder_row)
-            functions_list.append(netflax_row)
 
-        # combine all contigs into one final df
-        description_total_df = pd.concat(functions_list)
+        description_total_df = pl.concat(functions_list)
 
-        descriptions_total_path: Path = Path(output) / f"{prefix}_all_cds_functions.tsv"
-        description_total_df.to_csv(descriptions_total_path, index=False, sep="\t")
+        # Save the total description DataFrame
+        descriptions_total_path = Path(output) / f"{prefix}_all_cds_functions.tsv"
+        description_total_df.write_csv(descriptions_total_path, sep="\t")
 
     return sub_dbs_created

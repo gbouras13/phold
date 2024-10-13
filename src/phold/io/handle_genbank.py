@@ -3,6 +3,7 @@ Module for manipulating genbank files
 some taken from phynteny https://github.com/susiegriggo/Phynteny
 """
 
+import polars as pl
 import binascii
 import gzip
 import multiprocessing.pool
@@ -237,7 +238,7 @@ def write_genbank(
     proteins_flag: bool,
     separate: bool,
     fasta_flag: bool,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Write sequences to GenBank files.
 
@@ -253,7 +254,7 @@ def write_genbank(
         fasta_flag (bool): Flag indicating whether input is a FASTA file.
 
     Returns:
-        pd.DataFrame: DataFrame containing information about each CDS.
+        pl.DataFrame: DataFrame containing information about each CDS.
     """
 
     # separate gbks per contig
@@ -381,12 +382,12 @@ def write_genbank(
             with open(output_gbk_path, "w") as output_file:
                 SeqIO.write(seq_record, output_file, "genbank")
 
-    per_cds_df = pd.DataFrame(per_cds_list)
+    per_cds_df = pl.DataFrame(per_cds_list)
 
-    if proteins_flag is False:
-        # convert strand
-        per_cds_df["strand"] = per_cds_df["strand"].apply(
-            lambda x: "-" if x == -1 else ("+" if x == 1 else x)
+    if not proteins_flag:
+        # Convert strand column
+        per_cds_df = per_cds_df.with_column(
+            pl.when(pl.col("strand") == -1).then("-").otherwise("+").alias("strand")
         )
 
         # only write the gbk if proteins_flag is False

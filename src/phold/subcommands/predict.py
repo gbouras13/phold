@@ -149,6 +149,8 @@ def subcommand_predict(
             max_batch=batch_size,
             finetuned_model_path=finetune_path,
             proteins_flag=proteins_flag,
+            cpu=cpu,
+            threads=threads
         )
 
     else:

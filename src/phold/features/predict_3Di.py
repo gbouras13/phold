@@ -214,7 +214,7 @@ def write_predictions(
         None
     """
     ss_mapping = {
-        0: "A",
+        0: "A", 
         1: "C",
         2: "D",
         3: "E",
@@ -234,6 +234,26 @@ def write_predictions(
         17: "V",
         18: "W",
         19: "Y",
+        20: "a",
+        21: "c",
+        22: "d",
+        23: "e",
+        24: "f",
+        25: "g",
+        26: "h",
+        27: "i",
+        28: "k",
+        29: "l",
+        30: "m",
+        31: "n",
+        32: "p",
+        33: "q",
+        34: "r",
+        35: "s",
+        36: "t",
+        37: "v",
+        38: "w",
+        39: "y",
     }
 
     with open(out_path, "w+") as out_f:
@@ -246,6 +266,12 @@ def write_predictions(
                 k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
             }
 
+            # masking
+            for key, (pred, mean_prob, all_prob) in prediction_contig_dict.items():
+                for i in range(len(pred)):
+                    if all_prob[0][i] < 0.5:
+                        pred[i] += 20
+                
             if proteins_flag is True:
                 # no contig_id
                 out_f.write(
@@ -281,6 +307,129 @@ def write_predictions(
     logger.info(f"Finished writing results to {out_path}")
     return None
 
+
+
+def write_threedi_predictions(
+    threedisamples,
+    proteins_flag
+) -> None:
+    """
+    Write predictions to an output file.
+
+    Args:
+        predictions (Dict[str, Dict[str, Tuple[List[str], Any, Any]]]): Predictions dictionary containing contig IDs, sequence IDs, predictions, and additional information.
+        out_path (Path): Path to the output file.
+        proteins_flag (bool): Flag indicating whether the predictions are in proteins mode or not.
+
+    Returns:
+        None
+    """
+    ss_mapping = {
+        0: "A",
+        1: "C",
+        2: "D",
+        3: "E",
+        4: "F",
+        5: "G",
+        6: "H",
+        7: "I",
+        8: "K",
+        9: "L",
+        10: "M",
+        11: "N",
+        12: "P",
+        13: "Q",
+        14: "R",
+        15: "S",
+        16: "T",
+        17: "V",
+        18: "W",
+        19: "Y",
+        20: "a",
+        21: "c",
+        22: "d",
+        23: "e",
+        24: "f",
+        25: "g",
+        26: "h",
+        27: "i",
+        28: "k",
+        29: "l",
+        30: "m",
+        31: "n",
+        32: "p",
+        33: "q",
+        34: "r",
+        35: "s",
+        36: "t",
+        37: "v",
+        38: "w",
+        39: "y",
+    }
+
+    #print(threedisamples)
+
+    out_path = "test_out_3di.fasta"
+    # with open(out_path, "w+") as out_f:
+    for contig_id, prediction_contig_dict in threedisamples.items():
+        
+        prediction_contig_dict = threedisamples[contig_id]
+
+        #print(prediction_contig_dict)
+
+            
+        # if proteins_flag is True:
+        #     # no contig_id
+        #     out_f.write(
+        #         "".join(
+        #             [
+        #                 ">{}\n{}\n".format(
+        #                     f"{seq_id}",
+        #                     "".join(
+        #                         list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
+        #                     ),
+        #                 )
+        #                 for seq_id, (yhats, _, _) in prediction_contig_dict.items()
+        #             ]
+        #         )
+        #     )
+            
+
+        # else:
+        #     # writes each CDS to a 3di FASTA with header contig_id:CDS_id
+        #     out_f.write(
+        #         "".join(
+        #             [
+        #                 ">{}\n{}\n".format(
+        #                     f"{contig_id}:{seq_id}",
+        #                     "".join(
+        #                         list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
+        #                     ),
+        #                 )
+        #                 for seq_id, (yhats, _, _) in prediction_contig_dict.items()
+        #             ]
+        #         )
+        #     )
+
+
+        with open('output.fasta', 'w') as out_f:
+            for seq_id, yhats_tensor_dict in prediction_contig_dict.items():
+                for row_idx, yhats in yhats_tensor_dict.items():
+                    # Create a unique identifier for each row
+                    row_seq_id = f"{seq_id}_row_{row_idx}"
+                    
+                    # Map the integer predictions to their corresponding characters using ss_mapping
+                    sequence = "".join(list(map(lambda yhat: ss_mapping[int(yhat)], yhats)))
+                    
+                    # Write the FASTA entry for this row
+                    out_f.write(f">{row_seq_id}\n{sequence}\n")
+
+
+
+
+
+    logger.info(f"Finished writing results to {out_path}")
+    return None
 
 def write_probs(
     predictions: Dict[str, Dict[str, Tuple[int, float, Union[int, np.ndarray]]]],
@@ -425,6 +574,7 @@ def get_embeddings(
     """
 
     predictions = {}
+    threedisamples = {}
 
     if save_per_residue_embeddings:
         embeddings_per_residue = {}
@@ -452,6 +602,7 @@ def get_embeddings(
     for record_id, cds_records in cds_dict.items():
         # instantiate the nested dict
         predictions[record_id] = {}
+        threedisamples[record_id] = {}
 
         # embeddings
         if save_per_residue_embeddings:
@@ -542,6 +693,29 @@ def get_embeddings(
                             )[0]
                         )
 
+                    # to get logits
+                        # t = prediction.transpose(1, 2)  # changes ( B x L x N ) to ( B x N x L ) 
+                        # logits = t.detach().cpu().numpy()
+                        # print(logits[0])
+                        # print(logits[0].shape)
+                        # original_mapping = ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"]
+                        
+                    # prob_tensor = F.softmax(prediction, dim=1).cpu()
+                    # #print(prob_tensor.shape)
+                    # prob_matrix = prob_tensor.squeeze(0).transpose(0, 1)
+                    # #print(prob_matrix.shape)
+                    # all_sampled_states = {}
+                    # i = 1
+                    # while i < 11:
+                    #     all_sampled_states[i] = torch.multinomial(prob_matrix, 1).squeeze(1)
+                    #     i += 1
+
+                    #sampled_states = torch.multinomial(prob_matrix, 1).squeeze(1)
+                    #sampled_states = torch.multinomial(prob_matrix, 100, replacement=True)
+                    #print(sampled_states)
+                    #print(sampled_states.shape)
+
+
                     prediction = toCPU(
                         torch.max(prediction, dim=1, keepdim=True)[1]
                     ).astype(np.byte)
@@ -550,6 +724,8 @@ def get_embeddings(
                     # extra token is added at the end of the seq
                     for batch_idx, identifier in enumerate(pdb_ids):
                         s_len = seq_lens[batch_idx]
+
+                        # threedisamples[record_id][identifier] = all_sampled_states
 
                         # save embeddings
                         if save_per_residue_embeddings or save_per_protein_embeddings:
@@ -576,6 +752,10 @@ def get_embeddings(
 
                         # slice off padding and special token appended to the end of the sequence
                         pred = prediction[batch_idx, :, 0:s_len].squeeze()
+
+                        # here try lower case masking for <50 confidence
+                        all_prob = probabilities[batch_idx, :, 0:s_len]
+
 
                         if output_probs:  # average over per-residue max.-probabilities
                             mean_prob = round(
@@ -627,6 +807,9 @@ def get_embeddings(
             tsv_writer.writerows(data_as_list_of_lists)
 
     write_predictions(predictions, output_3di, proteins_flag)
+
+    
+    #write_threedi_predictions(threedisamples, proteins_flag)
 
     if save_per_residue_embeddings:
         write_embeddings(embeddings_per_residue, output_h5_per_residue)
