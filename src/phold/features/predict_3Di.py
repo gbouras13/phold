@@ -201,6 +201,7 @@ def write_predictions(
     predictions: Dict[str, Dict[str, Tuple[List[str], Any, Any]]],
     out_path: Path,
     proteins_flag: bool,
+    mask_threshold: float
 ) -> None:
     """
     Write predictions to an output file.
@@ -209,6 +210,8 @@ def write_predictions(
         predictions (Dict[str, Dict[str, Tuple[List[str], Any, Any]]]): Predictions dictionary containing contig IDs, sequence IDs, predictions, and additional information.
         out_path (Path): Path to the output file.
         proteins_flag (bool): Flag indicating whether the predictions are in proteins mode or not.
+        mask_threshold (float): between 0 and 100 - below this ProstT5 confidence, 3Di predictions are masked
+
 
     Returns:
         None
@@ -234,7 +237,29 @@ def write_predictions(
         17: "V",
         18: "W",
         19: "Y",
+        20: "a",
+        21: "c",
+        22: "d",
+        23: "e",
+        24: "f",
+        25: "g",
+        26: "h",
+        27: "i",
+        28: "k",
+        29: "l",
+        30: "m",
+        31: "n",
+        32: "p",
+        33: "q",
+        34: "r",
+        35: "s",
+        36: "t",
+        37: "v",
+        38: "w",
+        39: "y"
     }
+
+    mask_prop_threshold = mask_threshold/100
 
     with open(out_path, "w+") as out_f:
         for contig_id, rest in predictions.items():
@@ -245,6 +270,13 @@ def write_predictions(
             prediction_contig_dict = {
                 k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
             }
+
+
+            # masking - adds 20
+            for key, (pred, mean_prob, all_prob) in prediction_contig_dict.items():
+                for i in range(len(pred)):
+                    if all_prob[0][i] < mask_prop_threshold:
+                        pred[i] += 20
 
             if proteins_flag is True:
                 # no contig_id
@@ -395,6 +427,7 @@ def get_embeddings(
     save_per_residue_embeddings: bool = False,
     save_per_protein_embeddings: bool = False,
     threads: int = 1,
+    mask_threshold: float = 50
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -418,6 +451,7 @@ def get_embeddings(
         save_embeddings (bool, optional): Whether to save embeddings to h5 file. Defaults to False. Will  save per residue embeddings
         per_protein_embeddings (bool, optional): Whether to save per protein mean embeddings to h5 file. Defaults to False.
         threads (int): number of cpu threads
+        mask_threshold (float) : 0-100 - below this ProstT5 confidence threshold, these residues are masked
 
 
     Returns:
@@ -517,6 +551,8 @@ def get_embeddings(
                         fail_ids.append(id)
                     continue
 
+                
+
                 # ProtT5 appends a special tokens at the end of each sequence
                 # Mask this also out during inference while taking into account the prostt5 prefix
                 try:
@@ -534,6 +570,7 @@ def get_embeddings(
                     residue_embedding = residue_embedding[:, 1:]
                     prediction = predictor(residue_embedding)
 
+
                     if output_probs:
                         # compute max probabilities per token/residue if requested
                         probabilities = toCPU(
@@ -545,6 +582,28 @@ def get_embeddings(
                     prediction = toCPU(
                         torch.max(prediction, dim=1, keepdim=True)[1]
                     ).astype(np.byte)
+
+
+                     # to get logits
+                    # t = prediction.transpose(1, 2)  # changes ( B x L x N ) to ( B x N x L ) 
+                    # logits = t.detach().cpu().numpy()
+                    # print(logits[0])
+                    # print(logits[0].shape)
+
+                     # prob_tensor = F.softmax(prediction, dim=1).cpu()
+                     # #print(prob_tensor.shape)
+                     # prob_matrix = prob_tensor.squeeze(0).transpose(0, 1)
+                     # #print(prob_matrix.shape)
+                     # all_sampled_states = {}
+                     # i = 1
+                     # while i < 11:
+                     #     all_sampled_states[i] = torch.multinomial(prob_matrix, 1).squeeze(1)
+                     #     i += 1
+
+                     #sampled_states = torch.multinomial(prob_matrix, 1).squeeze(1)
+                     #sampled_states = torch.multinomial(prob_matrix, 100, replacement=True)
+                     #print(sampled_states)
+                     #print(sampled_states.shape)
 
                     # batch-size x seq_len x embedding_dim
                     # extra token is added at the end of the seq
@@ -626,7 +685,7 @@ def get_embeddings(
             tsv_writer = csv.writer(file, delimiter="\t")
             tsv_writer.writerows(data_as_list_of_lists)
 
-    write_predictions(predictions, output_3di, proteins_flag)
+    write_predictions(predictions, output_3di, proteins_flag, mask_threshold)
 
     if save_per_residue_embeddings:
         write_embeddings(embeddings_per_residue, output_h5_per_residue)

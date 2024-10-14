@@ -50,7 +50,7 @@ def generate_foldseek_db_from_aa_3di(
                 )
             )
         else:
-            sequences_3di[record.id] = str(record.seq).upper()
+            sequences_3di[record.id] = str(record.seq)  #no upper if masked
 
     # assert that we parsed 3Di strings for all sequences in the amino-acid FASTA file
     for id in sequences_aa.keys():

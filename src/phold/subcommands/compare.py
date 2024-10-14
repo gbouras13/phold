@@ -39,8 +39,7 @@ def subcommand_compare(
     separate: bool,
     max_seqs: int,
     only_representatives: bool,
-    ultra_sensitive: bool,
-    clinker: bool,
+    ultra_sensitive: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -66,7 +65,6 @@ def subcommand_compare(
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         only_representatives (bool): Whether to search against representatives only (turn off --cluster-search 1)
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
-        clinker (bool): If True, then outputs gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -422,39 +420,6 @@ def subcommand_compare(
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
 
-    # clinker output
-
-    if clinker:
-        clinker_dir = Path(output) / "clinker"
-        clinker_dir.mkdir(parents=True, exist_ok=True)
-
-        # gf
-        clinker_gf_df = merged_df[["cds_id", "function"]].copy()
-        clinker_gf_path: Path = Path(clinker_dir) / f"{prefix}_gene_functions.csv"
-        clinker_gf_df.to_csv(clinker_gf_path, index=False, sep=",", header=False)
-
-        # cm
-        clinker_cm_df = merged_df[["function"]].copy()
-        clinker_cm_path: Path = Path(clinker_dir) / f"{prefix}_colourmap.csv"
-
-        # from phold plot
-        function_to_colour_dict = {
-            "unknown function": "#AAAAAA",
-            "other": "#4deeea",
-            "tail": "#74ee15",
-            "transcription regulation": "#ffe700",
-            "DNA, RNA and nucleotide metabolism": "#f000ff",
-            "lysis": "#001eff",
-            "moron, auxiliary metabolic gene and host takeover": "#8900ff",
-            "integration and excision": "#E0B0FF",
-            "head and packaging": "#ff008d",
-            "connector": "#5A5A5A",
-        }
-
-        clinker_cm_df["colour"] = clinker_cm_df["function"].map(function_to_colour_dict)
-        # remove dupes
-        clinker_cm_df = clinker_cm_df.drop_duplicates()
-        clinker_cm_df.to_csv(clinker_cm_path, index=False, sep=",", header=False)
 
     # sub dbs output
     # save vfdb card acr defensefinder hits with more metadata

@@ -123,6 +123,13 @@ def predict_options(func):
             is_flag=True,
             help="Save the ProstT5 embeddings as means per protein in a h5 file",
         ),
+        click.option(
+            "--mask_threshold",
+            default=50,
+            help="Masks 3Di residues below this value of ProstT5 confidence for Foldseek searches",
+            type=float,
+            show_default=True,
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -198,19 +205,6 @@ compare only options used for genbank/genome FASTA input (i.e. not proteins-comp
 """
 
 
-def compare_no_proteins_options(func):
-    """compare command line args"""
-    options = [
-        click.option(
-            "--clinker",
-            is_flag=True,
-            help="Create output to use consistent PHROG categories and Phold plot colours for clinker.\nCreates gene_functions.csv for use with -gf and colour_map.csv for use with -cm clinker options.",
-        )
-    ]
-    for option in reversed(options):
-        func = option(func)
-    return func
-
 
 @click.group()
 @click.help_option("--help", "-h")
@@ -238,7 +232,6 @@ run command
 @common_options
 @predict_options
 @compare_options
-@compare_no_proteins_options
 def run(
     ctx,
     input,
@@ -262,7 +255,7 @@ def run(
     save_per_protein_embeddings,
     only_representatives,
     ultra_sensitive,
-    clinker,
+    mask_threshold,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -295,7 +288,7 @@ def run(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
-        "--clinker": clinker,
+        "--mask_threshold": mask_threshold
     }
 
     # initial logging etc
@@ -330,6 +323,7 @@ def run(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
+        mask_threshold=mask_threshold
     )
 
     # phold compare
@@ -354,8 +348,7 @@ def run(
         separate=separate,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive,
-        clinker=clinker,
+        ultra_sensitive=ultra_sensitive
     )
 
     # cleanup the temp files
@@ -400,6 +393,7 @@ def predict(
     finetune_path,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
+    mask_threshold,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -424,6 +418,7 @@ def predict(
         "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
+        "--mask_threshold": mask_threshold
     }
 
     # initial logging etc
@@ -455,6 +450,7 @@ def predict(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
+        mask_threshold=mask_threshold
     )
 
     # end phold
@@ -499,7 +495,6 @@ compare command
 )
 @common_options
 @compare_options
-@compare_no_proteins_options
 def compare(
     ctx,
     input,
@@ -520,7 +515,6 @@ def compare(
     max_seqs,
     only_representatives,
     ultra_sensitive,
-    clinker,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -550,8 +544,7 @@ def compare(
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
-        "--ultra_sensitive": ultra_sensitive,
-        "--clinker": clinker,
+        "--ultra_sensitive": ultra_sensitive
     }
 
     # initial logging etc
@@ -586,8 +579,7 @@ def compare(
         separate=separate,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive,
-        clinker=clinker,
+        ultra_sensitive=ultra_sensitive
     )
 
     # cleanup the temp files
@@ -632,6 +624,7 @@ def proteins_predict(
     finetune_path,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
+    mask_threshold,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -656,6 +649,7 @@ def proteins_predict(
         "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
+        "--mask_threshold": mask_threshold
     }
 
     # initial logging etc
@@ -718,6 +712,7 @@ def proteins_predict(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
+        mask_threshold=mask_threshold
     )
 
     # end phold
@@ -877,8 +872,7 @@ def proteins_compare(
         separate=False,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive,
-        clinker=False,  # never create clinker output for proteins-compare as it doesnt make sense
+        ultra_sensitive=ultra_sensitive
     )
 
     # cleanup the temp files
@@ -907,7 +901,6 @@ remote command
 )
 @common_options
 @compare_options
-@compare_no_proteins_options
 def remote(
     ctx,
     input,
@@ -924,7 +917,6 @@ def remote(
     max_seqs,
     only_representatives,
     ultra_sensitive,
-    clinker,
     **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
@@ -949,8 +941,7 @@ def remote(
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
-        "--ultra_sensitive": ultra_sensitive,
-        "--clinker": clinker,
+        "--ultra_sensitive": ultra_sensitive
     }
 
     # initial logging etc
@@ -1028,8 +1019,7 @@ def remote(
         separate=separate,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive,
-        clinker=clinker,
+        ultra_sensitive=ultra_sensitive
     )
 
     # cleanup the temp files
