@@ -5,10 +5,10 @@ requires = ["setuptools>=61.0", "wheel>=0.37.1"]
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 name = "phold"
-version = "0.2.1" # change VERSION too
+version = "0.3.0" # change VERSION too
 description = "Phage Annotations using Protein Structures"
 readme = "README.md"
-requires-python = ">=3.8, <3.12"
+requires-python = ">=3.8, <3.13"
 license = {file = "MIT"}
 authors = [
     {name = "George Bouras", email = "george.bouras@adelaide.edu.au"},
@@ -45,7 +45,7 @@ dependencies = [
         "pyrodigal-gv >=0.3.1",
         "pyarrow >=14.0.0",
         "alive-progress >=3.0.1",
-        "numpy >=1.20",
+        "numpy >=1.20,<2",
         "pycirclize >=0.3.1",
         "h5py >=3.5"
     ]

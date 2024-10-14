@@ -262,7 +262,7 @@ class T5EncoderForTokenClassification(T5PreTrainedModel):
             valid_logits = active_logits[active_labels != -100]
             valid_labels = active_labels[active_labels != -100]
 
-            valid_labels = valid_labels.type(torch.LongTensor).to("cuda:0")
+            valid_labels = valid_labels.type(torch.LongTensor).to(device)
 
             loss = loss_fct(valid_logits, valid_labels)
 
@@ -286,17 +286,6 @@ def PT5_classification_model(num_labels, model_dir, half_precision=False):
 
     # Torch load will map back to device from state, which often is GPU:0.
     # to overcome, need to explicitly map to active device
-
-    global device
-
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        dev_name = "cuda:0"
-    else:
-        logger.error("Running phold with the finetuned ProstT5 model requires a GPU")
-
-    # logger device only if the function is called
-    logger.info("Using device: {}".format(dev_name))
 
     # load
     model_name = "Rostlab/ProstT5_fp16"
@@ -357,7 +346,7 @@ def load_model(filepath, model_dir, num_labels=1, mixed=False):
     )
 
     # Load the non-frozen parameters from the saved file
-    non_frozen_params = torch.load(filepath)
+    non_frozen_params = torch.load(filepath, map_location=device)
 
     # Assign the non-frozen parameters to the corresponding parameters of the model
     for param_name, param in model.named_parameters():
@@ -382,6 +371,8 @@ def get_embeddings_finetune(
     max_batch: int = 100,
     finetuned_model_path: Optional[str] = None,
     proteins_flag: bool = False,
+    cpu: bool = False,
+    threads: int = 1 
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using finetuned PhrostT5 model.
@@ -411,13 +402,28 @@ def get_embeddings_finetune(
 
     global device
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        dev_name = "cuda:0"
+    torch.set_num_threads(threads)
+
+    if cpu is True:
+        device = torch.device("cpu")
+        dev_name = "cpu"
     else:
-        logger.error(
-            "Running phold with the finetuned PhrostT5 model requires an available GPU."
-        )
+        # check for NVIDIA/cuda
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+            dev_name = "cuda:0"
+        # check for apple silicon/metal
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+            dev_name = "mps"
+        else:
+            device = torch.device("cpu")
+            dev_name = "cpu"
+            if cpu is not True:
+                logger.warning(
+                    "No available GPU was found, but --cpu was not specified"
+                )
+                logger.warning("ProstT5 will be run with CPU only")
 
     # logger device only if the function is called
     logger.info("Using device: {}".format(dev_name))

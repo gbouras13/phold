@@ -24,6 +24,7 @@ def subcommand_predict(
     save_per_residue_embeddings: bool,
     save_per_protein_embeddings: bool,
     threads: int,
+    mask_threshold: float
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
