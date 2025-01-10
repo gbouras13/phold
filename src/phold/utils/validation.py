@@ -10,7 +10,6 @@ from loguru import logger
 
 from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
 
-
 def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
     """
     Validate the input file format and retrieve genomic data.

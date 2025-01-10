@@ -308,19 +308,28 @@ def write_genbank(
                             # for older pharokka input before v1.5.0
                             transl_table = "11"
 
+
                     # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
+                    # turns out the genbank format adds 1 to the start coordinate on writing out issue #75 and #77
+                    # e.g. [SeqFeature(SimpleLocation(ExactPosition(0), ExactPosition(1056), strand=1) - will be writted as start=1 and end=1056
+                    # therefore, need to add genbank (pharokka) input by 1 for the output df
+                    # also need to subtract the start by 1 for pyrodigal/fasta input 
                     if cds_feature.location.strand == -1:  # neg strand
                         start = cds_feature.location.end
                         if fasta_flag is True:  # pyrodigal
                             end = cds_feature.location.start
-                        else:  # genbank
+                            # for the genbank - keeps the start and end sequential
+                            cds_feature.location = FeatureLocation(cds_feature.location.start - 1, cds_feature.location.end, cds_feature.location.strand)
+                        else:  # genbank/pharokka input fix the zero index issue for the df
                             end = cds_feature.location.start + 1
                     else:  # pos strand
+                        end = cds_feature.location.end
                         if fasta_flag is True:  # pyrodigal
                             start = cds_feature.location.start
-                        else:  # genbank
+                            # subtract by 1 for the start for the genbank
+                            cds_feature.location = FeatureLocation(start - 1, end, cds_feature.location.strand)
+                        else:  # genbank/pharokka input fix the zero index issue for the df
                             start = cds_feature.location.start + 1
-                        end = cds_feature.location.end
 
                     if fasta_flag is True:
                         cds_id = cds_feature.qualifiers["ID"]
