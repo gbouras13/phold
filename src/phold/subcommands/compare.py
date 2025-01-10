@@ -400,24 +400,35 @@ def subcommand_compare(
     )
     merged_df = merged_df.reindex(columns=new_column_order)
 
-    # depolymerase prediction for next version - needs more time for analysis than v0.2.0
+    # add qcov and tcov 
+    merged_df["qCov"] = ((merged_df["qEnd"] - merged_df["qStart"] ) / merged_df["qLen"]).round(2)
+    merged_df["tCov"] = ((merged_df["tEnd"] - merged_df["tStart"] ) / merged_df["tLen"]).round(2)
+    
+    # reorder
+    qLen_index = merged_df.columns.get_loc("qLen")
+    tLen_index = merged_df.columns.get_loc("tLen")
 
-    # # get deposcope info
-    # deposcope_metadata_path: Path = Path(database) / "deposcope.csv"
-    # deposcope_df = pd.read_csv(deposcope_metadata_path, sep=",")
-    # deposcope_list = deposcope_df["tophit_protein"].tolist()
+    new_column_order = (
+        list(
+            [
+                col
+                for col in merged_df.columns[: qLen_index + 1]
+                if col != ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+            ]
+        )
+        + ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+        + list(
+            [
+                col
+                for col in merged_df.columns[tLen_index + 1 :]
+                if col != ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+            ]
+        )
+    )
+    merged_df = merged_df.reindex(columns=new_column_order)
 
-    # merged_df["depolymerase"] = merged_df["tophit_protein"].isin(deposcope_list)
 
-    # # move after tophit_protein
-    # annotation_method_index = merged_df.columns.get_loc("annotation_method")
 
-    # new_column_order = (
-    #     list([col for col in merged_df.columns[: annotation_method_index + 1] if col != "depolymerase"]  )
-    #     + ["depolymerase"]
-    #     + list([col for col in merged_df.columns[annotation_method_index + 1:] if col != "depolymerase"] )
-    # )
-    # merged_df = merged_df.reindex(columns=new_column_order)
 
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"

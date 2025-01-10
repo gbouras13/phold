@@ -792,6 +792,7 @@ def proteins_compare(
     max_seqs,
     only_representatives,
     ultra_sensitive,
+    extra_foldseek_params,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -821,6 +822,7 @@ def proteins_compare(
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params
     }
 
     # initial logging etc
@@ -885,7 +887,8 @@ def proteins_compare(
         separate=False,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params
     )
 
     # cleanup the temp files
@@ -930,6 +933,7 @@ def remote(
     max_seqs,
     only_representatives,
     ultra_sensitive,
+    extra_foldseek_params,
     **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
@@ -954,7 +958,8 @@ def remote(
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params
     }
 
     # initial logging etc
@@ -1032,7 +1037,8 @@ def remote(
         separate=separate,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params
     )
 
     # cleanup the temp files

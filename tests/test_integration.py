@@ -281,7 +281,6 @@ def test_proteins_predict(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
-
 def test_proteins_compare(threads):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
