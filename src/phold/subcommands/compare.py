@@ -471,9 +471,6 @@ def subcommand_compare(
         
     merged_df["annotation_confidence"] = merged_df.apply(assign_annotation_confidence, axis=1)
 
-    print(merged_df)
-
-
 
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
