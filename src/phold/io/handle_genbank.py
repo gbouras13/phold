@@ -366,6 +366,15 @@ def write_genbank(
                         deleted_value = cds_feature.qualifiers.pop(key, None)
                     # get dataframe
                 per_cds_list.append(cds_info)
+            elif cds_feature.type == "tRNA": # trna features - fix the issue #76 https://github.com/gbouras13/phold/issues/76 
+                print(cds_feature)
+                if "anticodon" in cds_feature.qualifiers:
+                    del cds_feature.qualifiers["anticodon"]
+                if "trna" in cds_feature.qualifiers:
+                    cds_feature.qualifiers["product"] = cds_feature.qualifiers.pop("trna")
+                print(cds_feature)
+
+
 
         # write out the record to GBK file
         if proteins_flag is False:
