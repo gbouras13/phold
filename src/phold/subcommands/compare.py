@@ -472,6 +472,28 @@ def subcommand_compare(
     merged_df["annotation_confidence"] = merged_df.apply(assign_annotation_confidence, axis=1)
 
 
+    method_index = merged_df.columns.get_loc("annotation_method")
+
+    new_column_order = (
+        list(
+            [
+                col
+                for col in merged_df.columns[: method_index + 1]
+                if col != "annotation_method"
+            ]
+        )
+        + ["annotation_method"]
+        + list(
+            [
+                col
+                for col in merged_df.columns[tLen_index + 1 :]
+                if col != "annotation_method"
+            ]
+        )
+    )
+    merged_df = merged_df.reindex(columns=new_column_order)
+
+
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
