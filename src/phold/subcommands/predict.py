@@ -142,7 +142,7 @@ def subcommand_predict(
     else:
         output_probs = True
 
-    if finetune is True:
+    if finetune is True: # this is experimentat
         prediction_success = get_embeddings_finetune(
             cds_dict=cds_dict,
             model_dir=model_dir,

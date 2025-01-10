@@ -413,7 +413,7 @@ def subcommand_compare(
             [
                 col
                 for col in merged_df.columns[: qLen_index + 1]
-                if col != ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
             ]
         )
         + ["qCov", "tStart","tEnd",	"tLen", "tCov"]
@@ -421,12 +421,57 @@ def subcommand_compare(
             [
                 col
                 for col in merged_df.columns[tLen_index + 1 :]
-                if col != ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
             ]
         )
     )
     merged_df = merged_df.reindex(columns=new_column_order)
 
+
+    # NEEDS TO READ IN THE f"{prefix}_prostT5_3di_mean_probabilities.csv" - can't pass from the predict function in case using phold compare
+    if predictions_dir is None: # if running phold run
+        mean_probs_out_path: Path = (
+            Path(output) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+        )
+    else: # if running phold compare or phold proteins-compare
+        mean_probs_out_path: Path = (
+            Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+        )
+
+    # merge in confidence scores
+    prostT5_conf_df = pd.read_csv(mean_probs_out_path, sep=",", header=None, names=["cds_id", "prostt5_confidence"])
+
+    merged_df = pd.merge(merged_df, prostT5_conf_df, on="cds_id", how="left")
+    
+    # confidence 
+    # High - 80%+ reciprocal coverage + one of i) >30% seqid cutoff for the light zone (https://doi.org/10.1093/protein/12.2.85) OR ii) ProstT5 confidence > 60% (very good quality ProstT5 prediction) OR evalue < 1e-10 (ditto) 
+    # Medium - either query or target 80%+ coverage + one of i ) 30%+ seqid cutoff or ii) ProstT5 confidence 45-60% AND and evalue < 1-e05
+    # Low - everything else - low coverages, or low seqid and low ProstT5 confidence and evalue 
+
+    def assign_annotation_confidence(row):
+        if row["annotation_method"] == "none":
+            return "none"
+        elif row["annotation_method"] == "pharokka":
+            return "pharokka"
+        else:
+            if (
+                row["qCov"] > 0.8  
+                and row["tCov"] > 0.8
+                and (row["fident"] > 0.3 or row["prostt5_confidence"] > 60 or float(row["evalue"]) < 1e-10)
+            ):
+                return "high"
+            elif (
+                (row["qCov"] > 0.8 or row["tCov"] > 0.8 )
+                and (row["fident"] > 0.3 or 45 <= row["prostt5_confidence"] <= 60)
+                and float(row["evalue"]) < 1e-5
+            ):
+                return "medium"
+            else:
+                return "low"
+        
+    merged_df["annotation_confidence"] = merged_df.apply(assign_annotation_confidence, axis=1)
+
+    print(merged_df)
 
 
 

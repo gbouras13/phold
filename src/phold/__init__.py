@@ -103,7 +103,7 @@ def predict_options(func):
         click.option(
             "--omit_probs",
             is_flag=True,
-            help="Do not output 3Di probabilities from ProstT5",
+            help="Do not output per residue 3Di probabilities from ProstT5. Mean per protein 3Di probabilities will always be output.",
         ),
         click.option(
             "--finetune",
