@@ -39,7 +39,8 @@ def subcommand_compare(
     separate: bool,
     max_seqs: int,
     only_representatives: bool,
-    ultra_sensitive: bool
+    ultra_sensitive: bool,
+    extra_foldseek_params: str
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -65,6 +66,7 @@ def subcommand_compare(
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         only_representatives (bool): Whether to search against representatives only (turn off --cluster-search 1)
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
+        extra_foldseek_params (str): Extra foldseek search parameters
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -303,6 +305,7 @@ def subcommand_compare(
         max_seqs,
         only_representatives,
         ultra_sensitive,
+        extra_foldseek_params
     )
 
     # make result tsv

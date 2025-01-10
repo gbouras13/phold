@@ -194,6 +194,13 @@ def compare_options(func):
             is_flag=True,
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
         ),
+        click.option(
+            "--extra_foldseek_params",
+            type=str,
+            help="Extra foldseek search params",
+            show_default=True,
+        ),
+
     ]
     for option in reversed(options):
         func = option(func)
@@ -256,6 +263,7 @@ def run(
     only_representatives,
     ultra_sensitive,
     mask_threshold,
+    extra_foldseek_params,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -288,7 +296,8 @@ def run(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
-        "--mask_threshold": mask_threshold
+        "--mask_threshold": mask_threshold,
+        "--extra_foldseek_params": extra_foldseek_params
     }
 
     # initial logging etc
@@ -348,7 +357,8 @@ def run(
         separate=separate,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params
     )
 
     # cleanup the temp files
@@ -515,6 +525,7 @@ def compare(
     max_seqs,
     only_representatives,
     ultra_sensitive,
+    extra_foldseek_params,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -544,7 +555,8 @@ def compare(
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params
     }
 
     # initial logging etc
@@ -579,7 +591,8 @@ def compare(
         separate=separate,
         max_seqs=max_seqs,
         only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params
     )
 
     # cleanup the temp files

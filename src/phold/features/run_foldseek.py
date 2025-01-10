@@ -16,6 +16,7 @@ def run_foldseek_search(
     max_seqs: int,
     only_representatives: bool,
     ultra_sensitive: bool,
+    extra_foldseek_params: str
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -32,6 +33,7 @@ def run_foldseek_search(
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         only_representatives (bool): turns off --cluster-search 1 parameter in foldseek
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
+        extra_foldseek_params (str): Extra foldseek search params
 
     Returns:
         None
@@ -44,6 +46,9 @@ def run_foldseek_search(
 
     if only_representatives is False:
         cmd += " --cluster-search 1"
+
+    if extra_foldseek_params:
+        cmd += f" {extra_foldseek_params}"
 
     foldseek_search = ExternalTool(
         tool="foldseek",
