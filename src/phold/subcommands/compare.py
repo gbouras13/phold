@@ -16,6 +16,7 @@ from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
 from phold.results.topfunction import (calculate_topfunctions_results,
+                                       get_topcustom_hits,
                                        get_topfunctions)
 
 
@@ -40,7 +41,8 @@ def subcommand_compare(
     max_seqs: int,
     only_representatives: bool,
     ultra_sensitive: bool,
-    extra_foldseek_params: str
+    extra_foldseek_params: str,
+    custom_db: str
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -67,6 +69,7 @@ def subcommand_compare(
         only_representatives (bool): Whether to search against representatives only (turn off --cluster-search 1)
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
         extra_foldseek_params (str): Extra foldseek search parameters
+        custom_db (str): Custom foldseek database
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -318,6 +321,36 @@ def subcommand_compare(
     target_db: Path = Path(database) / "all_phold_structures"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
+    #####
+    # custom db
+    #####
+
+    
+
+    if custom_db:
+        # make result and temp dirs
+        result_db_custom: Path = Path(result_db_base) / "result_db_custom"
+
+        run_foldseek_search(
+        query_db,
+        Path(custom_db),
+        result_db_custom,
+        temp_db,
+        threads,
+        logdir,
+        evalue,
+        sensitivity,
+        max_seqs,
+        True, # only reps is true aka not a cluster search. Won't support custom cluster searches
+        ultra_sensitive,
+        extra_foldseek_params
+    )
+        # make result tsv
+        result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
+        create_result_tsv(query_db, Path(custom_db), result_db_custom, result_tsv_custom, logdir)
+
+
+
     ########
     # get topfunction
     ########
@@ -329,6 +362,11 @@ def subcommand_compare(
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
         result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag
+    )
+
+    if custom_db:
+        tophit_custom_db = get_topcustom_hits(
+        result_tsv_custom, structures, proteins_flag
     )
 
     # update the CDS dictionary with the tophits

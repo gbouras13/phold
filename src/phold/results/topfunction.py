@@ -503,3 +503,72 @@ def initialize_function_counts_dict(
     )
 
     return count_dict
+
+
+#####
+# custom db
+##### 
+
+def get_topcustom_hits(
+    result_tsv: Path,
+    structures: bool,
+    proteins_flag: bool,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Process Foldseek output to extract top hits for custom searches
+
+    Args:
+        result_tsv (Path): Path to the Foldseek custom result TSV file.
+        structures (bool): Flag indicating whether structures have been added.
+        proteins_flag (bool): Flag indicating whether proteins are used.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the top hits extracted from the custom Foldseek output.
+    """
+
+    logger.info("Processing Foldseek output")
+
+    col_list = [
+        "query",
+        "target",
+        "bitscore",
+        "fident",
+        "evalue",
+        "qStart",
+        "qEnd",
+        "qLen",
+        "tStart",
+        "tEnd",
+        "tLen",
+    ]
+
+    foldseek_df = pd.read_csv(
+        result_tsv, delimiter="\t", index_col=False, names=col_list
+    )
+
+    # in case the foldseek output is empty
+    if foldseek_df.empty:
+        logger.warning(
+            "Foldseek found no custom hits whatsoever - please check whether your custom database and input."
+        )
+
+    # gets the cds
+    if structures is False and proteins_flag is False:
+        # prostt5
+        foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
+            ":", expand=True, n=1
+        )
+    # structures or proteins_flag or both
+    else:
+        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
+        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".cif", "")
+
+    # clean up pdb/cif suffixes - target will be the hit
+    foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
+    foldseek_df["target"] = foldseek_df["target"].str.replace(".cif", "")
+    # split the target column as this will have phrog:protein
+
+    tophit_custom_df = foldseek_df.loc[foldseek_df.groupby("query")["evalue"].idxmin()].reset_index(drop=True)
+
+    print(tophit_custom_df)
+

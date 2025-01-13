@@ -197,8 +197,12 @@ def compare_options(func):
         click.option(
             "--extra_foldseek_params",
             type=str,
-            help="Extra foldseek search params",
-            show_default=True,
+            help="Extra foldseek search params"
+        ),
+        click.option(
+            "--custom_db",
+            type=str,
+            help="Path to custom database"
         ),
 
     ]
@@ -264,6 +268,7 @@ def run(
     ultra_sensitive,
     mask_threshold,
     extra_foldseek_params,
+    custom_db,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -297,7 +302,8 @@ def run(
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
         "--mask_threshold": mask_threshold,
-        "--extra_foldseek_params": extra_foldseek_params
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db
     }
 
     # initial logging etc
@@ -358,7 +364,8 @@ def run(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
-        extra_foldseek_params=extra_foldseek_params
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db
     )
 
     # cleanup the temp files
@@ -526,6 +533,7 @@ def compare(
     only_representatives,
     ultra_sensitive,
     extra_foldseek_params,
+    custom_db,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -556,7 +564,8 @@ def compare(
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
-        "--extra_foldseek_params": extra_foldseek_params
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db
     }
 
     # initial logging etc
@@ -592,7 +601,8 @@ def compare(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
-        extra_foldseek_params=extra_foldseek_params
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db
     )
 
     # cleanup the temp files
@@ -793,6 +803,7 @@ def proteins_compare(
     only_representatives,
     ultra_sensitive,
     extra_foldseek_params,
+    custom_db,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -822,7 +833,8 @@ def proteins_compare(
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
-        "--extra_foldseek_params": extra_foldseek_params
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db
     }
 
     # initial logging etc
@@ -959,7 +971,8 @@ def remote(
         "--max_seqs": max_seqs,
         "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
-        "--extra_foldseek_params": extra_foldseek_params
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db
     }
 
     # initial logging etc
@@ -1038,7 +1051,8 @@ def remote(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
-        extra_foldseek_params=extra_foldseek_params
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db
     )
 
     # cleanup the temp files
