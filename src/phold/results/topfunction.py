@@ -573,8 +573,8 @@ def get_topcustom_hits(
 
     tophit_custom_df = foldseek_df.loc[foldseek_df.groupby("query")["evalue"].idxmin()].reset_index(drop=True)
 
-    # dont need query any more
-    tophit_custom_df.drop(columns='query', inplace=True)
+    # dont need query or contig_id any more
+    tophit_custom_df.drop(columns=['query','contig_id'], inplace=True)
 
     return tophit_custom_df
 

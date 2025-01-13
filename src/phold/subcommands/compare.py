@@ -533,13 +533,11 @@ def subcommand_compare(
         #### merge 
         # left merge on the cds_id to get every cds/contig id (make it easier for downstream processing)
 
-        if proteins_flag: # no contig_id
-            merge_cols = ['cds_id']
-        else: # need to get the contig_id from here if structures is true
-            merge_cols = ['contig_id', 'cds_id']
-
-        all_cds_df = merged_df[merge_cols]
-        tophit_custom_df = all_cds_df.merge(tophit_custom_df, how="left", on="cds_id") # cds_id will always be unique
+        if not proteins_flag: # if not proteins, need the contig_id
+            all_cds_df = merged_df[['contig_id','cds_id']]
+        else:
+            all_cds_df = merged_df[['cds_id']]
+        tophit_custom_df = all_cds_df.merge(tophit_custom_df, how="left", on='cds_id') # cds_id will always be unique
 
         # get the final column order required
         if proteins_flag: # no contig_id
