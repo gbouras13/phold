@@ -513,7 +513,7 @@ def get_topcustom_hits(
     result_tsv: Path,
     structures: bool,
     proteins_flag: bool,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> pd.DataFrame:
     """
     Process Foldseek output to extract top hits for custom searches
 
@@ -549,7 +549,10 @@ def get_topcustom_hits(
     # in case the foldseek output is empty
     if foldseek_df.empty:
         logger.warning(
-            "Foldseek found no custom hits whatsoever - please check whether your custom database and input."
+            "Foldseek found no custom hits whatsoever - please check your custom database and input."
+        )
+        logger.warning(
+            "Phold will continue using only the default databases."
         )
 
     # gets the cds
@@ -570,5 +573,50 @@ def get_topcustom_hits(
 
     tophit_custom_df = foldseek_df.loc[foldseek_df.groupby("query")["evalue"].idxmin()].reset_index(drop=True)
 
-    print(tophit_custom_df)
+    # dont need query any more
+    tophit_custom_df.drop(columns='query', inplace=True)
 
+    return tophit_custom_df
+
+
+
+def calculate_qcov_tcov(merged_df):
+    """
+    calculates and adds qCov and tCov to tophit foldseek pandas dataframe 
+
+    Args:
+        merged_df (pd.DataFrame): tophits foldseek pandas dataframe
+
+    Returns:
+        pd.DataFrame: DataFrame containing the merged tophits with qCov and tCov columns
+    """
+
+
+    # add qcov and tcov 
+    merged_df["qCov"] = ((merged_df["qEnd"] - merged_df["qStart"] ) / merged_df["qLen"]).round(2)
+    merged_df["tCov"] = ((merged_df["tEnd"] - merged_df["tStart"] ) / merged_df["tLen"]).round(2)
+    
+    # reorder
+    qLen_index = merged_df.columns.get_loc("qLen")
+    tLen_index = merged_df.columns.get_loc("tLen")
+
+    new_column_order = (
+        list(
+            [
+                col
+                for col in merged_df.columns[: qLen_index + 1]
+                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+            ]
+        )
+        + ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+        + list(
+            [
+                col
+                for col in merged_df.columns[tLen_index + 1 :]
+                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+            ]
+        )
+    )
+    merged_df = merged_df.reindex(columns=new_column_order)
+
+    return merged_df

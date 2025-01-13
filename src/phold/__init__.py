@@ -900,7 +900,8 @@ def proteins_compare(
         max_seqs=max_seqs,
         only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
-        extra_foldseek_params=extra_foldseek_params
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db
     )
 
     # cleanup the temp files
@@ -946,6 +947,7 @@ def remote(
     only_representatives,
     ultra_sensitive,
     extra_foldseek_params,
+    custom_db,
     **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""

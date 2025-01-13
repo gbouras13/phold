@@ -17,6 +17,7 @@ from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
 from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
+                                       calculate_qcov_tcov,
                                        get_topfunctions)
 
 
@@ -321,35 +322,6 @@ def subcommand_compare(
     target_db: Path = Path(database) / "all_phold_structures"
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
 
-    #####
-    # custom db
-    #####
-
-    
-
-    if custom_db:
-        # make result and temp dirs
-        result_db_custom: Path = Path(result_db_base) / "result_db_custom"
-
-        run_foldseek_search(
-        query_db,
-        Path(custom_db),
-        result_db_custom,
-        temp_db,
-        threads,
-        logdir,
-        evalue,
-        sensitivity,
-        max_seqs,
-        True, # only reps is true aka not a cluster search. Won't support custom cluster searches
-        ultra_sensitive,
-        extra_foldseek_params
-    )
-        # make result tsv
-        result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
-        create_result_tsv(query_db, Path(custom_db), result_db_custom, result_tsv_custom, logdir)
-
-
 
     ########
     # get topfunction
@@ -362,11 +334,6 @@ def subcommand_compare(
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
         result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag
-    )
-
-    if custom_db:
-        tophit_custom_db = get_topcustom_hits(
-        result_tsv_custom, structures, proteins_flag
     )
 
     # update the CDS dictionary with the tophits
@@ -403,10 +370,10 @@ def subcommand_compare(
     else:
         weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
 
-    if proteins_flag is False:
-        columns_to_drop = ["contig_id", "phrog", "product", "function"]
-    else:
+    if proteins_flag:
         columns_to_drop = ["phrog", "product", "function"]
+    else:
+        columns_to_drop = ["contig_id", "phrog", "product", "function"]
     # drop dupe columns
     filtered_tophits_df = filtered_tophits_df.drop(columns=columns_to_drop)
 
@@ -439,31 +406,7 @@ def subcommand_compare(
     merged_df = merged_df.reindex(columns=new_column_order)
 
     # add qcov and tcov 
-    merged_df["qCov"] = ((merged_df["qEnd"] - merged_df["qStart"] ) / merged_df["qLen"]).round(2)
-    merged_df["tCov"] = ((merged_df["tEnd"] - merged_df["tStart"] ) / merged_df["tLen"]).round(2)
-    
-    # reorder
-    qLen_index = merged_df.columns.get_loc("qLen")
-    tLen_index = merged_df.columns.get_loc("tLen")
-
-    new_column_order = (
-        list(
-            [
-                col
-                for col in merged_df.columns[: qLen_index + 1]
-                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
-            ]
-        )
-        + ["qCov", "tStart","tEnd",	"tLen", "tCov"]
-        + list(
-            [
-                col
-                for col in merged_df.columns[tLen_index + 1 :]
-                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
-            ]
-        )
-    )
-    merged_df = merged_df.reindex(columns=new_column_order)
+    merged_df = calculate_qcov_tcov(merged_df)
 
 
     # NEEDS TO READ IN THE f"{prefix}_prostT5_3di_mean_probabilities.csv" - can't pass from the predict function in case using phold compare
@@ -476,15 +419,17 @@ def subcommand_compare(
             Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
         )
 
-    # merge in confidence scores
-    prostT5_conf_df = pd.read_csv(mean_probs_out_path, sep=",", header=None, names=["cds_id", "prostt5_confidence"])
+    # merge in confidence scores - only for structures
 
-    merged_df = pd.merge(merged_df, prostT5_conf_df, on="cds_id", how="left")
+    if not structures:
+        prostT5_conf_df = pd.read_csv(mean_probs_out_path, sep=",", header=None, names=["cds_id", "prostt5_confidence"])
+        merged_df = pd.merge(merged_df, prostT5_conf_df, on="cds_id", how="left")
     
     # confidence 
     # High - 80%+ reciprocal coverage + one of i) >30% seqid cutoff for the light zone (https://doi.org/10.1093/protein/12.2.85) OR ii) ProstT5 confidence > 60% (very good quality ProstT5 prediction) OR evalue < 1e-10 (ditto) 
     # Medium - either query or target 80%+ coverage + one of i ) 30%+ seqid cutoff or ii) ProstT5 confidence 45-60% AND and evalue < 1-e05
     # Low - everything else - low coverages, or low seqid and low ProstT5 confidence and evalue 
+    # with structures, just omit the ProstT5 confidence values
 
     def assign_annotation_confidence(row):
         if row["annotation_method"] == "none":
@@ -492,20 +437,35 @@ def subcommand_compare(
         elif row["annotation_method"] == "pharokka":
             return "pharokka"
         else:
-            if (
-                row["qCov"] > 0.8  
-                and row["tCov"] > 0.8
-                and (row["fident"] > 0.3 or row["prostt5_confidence"] > 60 or float(row["evalue"]) < 1e-10)
-            ):
-                return "high"
-            elif (
-                (row["qCov"] > 0.8 or row["tCov"] > 0.8 )
-                and (row["fident"] > 0.3 or 45 <= row["prostt5_confidence"] <= 60)
-                and float(row["evalue"]) < 1e-5
-            ):
-                return "medium"
+            if structures:
+                if (
+                    row["qCov"] > 0.8  
+                    and row["tCov"] > 0.8
+                    and (row["fident"] > 0.3 or float(row["evalue"]) < 1e-10)
+                ):
+                    return "high"
+                elif (
+                    (row["qCov"] > 0.8 or row["tCov"] > 0.8 )
+                    and (row["fident"] > 0.3 or float(row["evalue"]) < 1e-5)
+                ):
+                    return "medium"
+                else:
+                    return "low"
             else:
-                return "low"
+                if (
+                    row["qCov"] > 0.8  
+                    and row["tCov"] > 0.8
+                    and (row["fident"] > 0.3 or row["prostt5_confidence"] > 60 or float(row["evalue"]) < 1e-10)
+                ):
+                    return "high"
+                elif (
+                    (row["qCov"] > 0.8 or row["tCov"] > 0.8 )
+                    and (row["fident"] > 0.3 or 45 <= row["prostt5_confidence"] <= 60)
+                    and float(row["evalue"]) < 1e-5
+                ):
+                    return "medium"
+                else:
+                    return "low"
         
     merged_df["annotation_confidence"] = merged_df.apply(assign_annotation_confidence, axis=1)
 
@@ -524,7 +484,7 @@ def subcommand_compare(
         + list(
             [
                 col
-                for col in merged_df.columns[tLen_index + 1 :]
+                for col in merged_df.columns[method_index + 1 :]
                 if col != "annotation_confidence"
             ]
         )
@@ -534,6 +494,69 @@ def subcommand_compare(
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
     merged_df.to_csv(merged_df_path, index=False, sep="\t")
+
+    # custom db output 
+
+    #####
+    # custom db
+    #####
+
+    if custom_db:
+
+        logger.info(f"Foldseek will also be run against your custom database {custom_db}")
+        # make result and temp dirs
+        result_db_custom: Path = Path(result_db_base) / "result_db_custom"
+
+        #try:
+        run_foldseek_search(
+        query_db,
+        Path(custom_db),
+        result_db_custom,
+        temp_db,
+        threads,
+        logdir,
+        evalue,
+        sensitivity,
+        max_seqs,
+        True, # only reps is true aka not a cluster search. Won't support custom cluster searches
+        ultra_sensitive,
+        extra_foldseek_params
+    )
+    
+        # make result tsv
+        result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
+        create_result_tsv(query_db, Path(custom_db), result_db_custom, result_tsv_custom, logdir)
+
+        tophit_custom_df = get_topcustom_hits(
+        result_tsv_custom, structures, proteins_flag)
+
+        #### merge 
+        # left merge on the cds_id to get every cds/contig id (make it easier for downstream processing)
+
+        if proteins_flag: # no contig_id
+            merge_cols = ['cds_id']
+        else: # need to get the contig_id from here if structures is true
+            merge_cols = ['contig_id', 'cds_id']
+
+        all_cds_df = merged_df[merge_cols]
+        tophit_custom_df = all_cds_df.merge(tophit_custom_df, how="left", on="cds_id") # cds_id will always be unique
+
+        # get the final column order required
+        if proteins_flag: # no contig_id
+            columns_order = ['cds_id'] + [col for col in tophit_custom_df.columns if col not in ['contig_id', 'cds_id']]
+        else: # including structures, will have contig_id too in the merged_df
+            columns_order = ['contig_id', 'cds_id'] + [col for col in tophit_custom_df.columns if col not in ['contig_id', 'cds_id']]
+        tophit_custom_df = tophit_custom_df[columns_order]
+
+        # get coverages
+        tophit_custom_df = calculate_qcov_tcov(tophit_custom_df)
+        custom_hits_path: Path = Path(output) / f"{prefix}_custom_database_hits.tsv"
+        tophit_custom_df.to_csv(custom_hits_path, index=False, sep="\t")
+        
+        # except:
+        #     logger.error(f"Foldseek failed to run against your custom database {custom_db}. Please check that it is formatted correctly as a Foldseek database")
+
+
 
     # sub dbs output
     # save vfdb card acr defensefinder hits with more metadata
