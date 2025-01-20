@@ -125,9 +125,10 @@ def subcommand_predict(
     # prostt5
     ############
 
-    # generates the embeddings using ProstT5 and saves them to file
-    fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+    
 
+
+    fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
     # embeddings h5 - will only be generated if flag is true
     output_h5_per_residue: Path = Path(output) / f"{prefix}_embeddings_per_residue.h5"
     output_h5_per_protein: Path = Path(output) / f"{prefix}_embeddings_per_protein.h5"

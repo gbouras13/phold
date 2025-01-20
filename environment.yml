@@ -4,7 +4,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - foldseek ==9.427df8a
+  - foldseek ==10.941cd33
   - python >=3.8,<3.11
   - biopython >=1.80
   - alive-progress >=3.0.1
