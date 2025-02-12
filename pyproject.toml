@@ -47,7 +47,8 @@ dependencies = [
         "alive-progress >=3.0.1",
         "numpy >=1.20,<2",
         "pycirclize >=0.3.1",
-        "h5py >=3.5"
+        "h5py >=3.5",
+        "tqdm >=4.35.0"
     ]
 
 [project.scripts]

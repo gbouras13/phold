@@ -11,6 +11,7 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 import csv
 import json
 from pathlib import Path
+from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import h5py
@@ -508,7 +509,8 @@ def get_embeddings(
         )
 
         batch = list()
-        for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
+        for seq_idx, (pdb_id, seq) in tqdm(enumerate(seq_dict.items(), 1), total=len(seq_dict), desc="Processing Proteins"):
+        # for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)

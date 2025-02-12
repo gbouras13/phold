@@ -5,7 +5,6 @@ from pathlib import Path
 from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
-from phold.features.predict_3Di_finetune import get_embeddings_finetune
 
 
 def subcommand_predict(
@@ -143,36 +142,25 @@ def subcommand_predict(
     else:
         output_probs = True
 
-    if finetune is True: # this is experimentat
-        prediction_success = get_embeddings_finetune(
-            cds_dict=cds_dict,
-            model_dir=model_dir,
-            output_3di=fasta_3di,
-            max_batch=batch_size,
-            finetuned_model_path=finetune_path,
-            proteins_flag=proteins_flag,
-        )
-
-    else:
-        prediction_success = get_embeddings(
-            cds_dict,
-            output,
-            prefix,
-            model_dir,
-            model_name,
-            fasta_3di,
-            output_h5_per_residue,
-            output_h5_per_protein,
-            half_precision=half_precision,
-            max_residues=5000,
-            max_seq_len=1000,
-            max_batch=batch_size,
-            cpu=cpu,
-            output_probs=output_probs,
-            proteins_flag=proteins_flag,
-            save_per_residue_embeddings=save_per_residue_embeddings,
-            save_per_protein_embeddings=save_per_protein_embeddings,
-            threads=threads,
-        )
+    prediction_success = get_embeddings(
+        cds_dict,
+        output,
+        prefix,
+        model_dir,
+        model_name,
+        fasta_3di,
+        output_h5_per_residue,
+        output_h5_per_protein,
+        half_precision=half_precision,
+        max_residues=5000,
+        max_seq_len=1000,
+        max_batch=batch_size,
+        cpu=cpu,
+        output_probs=output_probs,
+        proteins_flag=proteins_flag,
+        save_per_residue_embeddings=save_per_residue_embeddings,
+        save_per_protein_embeddings=save_per_protein_embeddings,
+        threads=threads,
+    )
 
     return prediction_success
