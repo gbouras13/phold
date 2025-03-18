@@ -114,6 +114,8 @@ def get_topfunctions(
 
     # Replace NaN values in the 'product' column with 'hypothetical protein'
     foldseek_df["product"] = foldseek_df["product"].fillna("hypothetical protein")
+    foldseek_df["function"] = foldseek_df["function"].fillna("unknown function")
+
 
     # filter out rows of foldseek_df where vfdb or card - stricter threshold due to Enault et al
     # https://www.nature.com/articles/ismej201690
@@ -123,6 +125,7 @@ def get_topfunctions(
         & (foldseek_df["evalue"].astype(float) < float(card_vfdb_evalue))
         | ((foldseek_df["phrog"] != "vfdb") & (foldseek_df["phrog"] != "card"))
     ]
+
 
     def custom_nsmallest(group):
         # where all the
@@ -283,7 +286,7 @@ def calculate_topfunctions_results(
             cds_record_dict[cds_id] = record_id
 
     # Get record_id for every cds_id and merge into the df
-    if structures is True:
+    if structures:
         cds_record_df = pd.DataFrame(
             list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
         )
@@ -291,7 +294,7 @@ def calculate_topfunctions_results(
             filtered_tophits_df, cds_record_df, on="cds_id", how="left"
         )
 
-    if proteins_flag is True:
+    if proteins_flag:
         column_order = ["cds_id"] + [
             col for col in filtered_tophits_df.columns if col != "cds_id"
         ]
@@ -390,9 +393,17 @@ def calculate_topfunctions_results(
                         "annotation_source",
                     ].values[0]
 
-                # same phrog as pharokka do nothing
+                # same phrog as pharokka - only update the function with new annots in v1 in case users have older pharokka
+                if foldseek_phrog == cds_feature.qualifiers["phrog"][0]:
+                    updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                            result_dict[record_id][cds_id]["product"]
+                        )
+                    updated_cds_dict[record_id][cds_id].qualifiers["function"][
+                            0
+                        ] = result_dict[record_id][cds_id]["function"]
+
                 # different phrog as pharokka
-                if foldseek_phrog != cds_feature.qualifiers["phrog"][0]:
+                else:
                     # where there was no phrog in pharokka
                     if cds_feature.qualifiers["phrog"][0] == "No_PHROG":
                         updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (

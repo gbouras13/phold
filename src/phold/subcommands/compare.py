@@ -44,7 +44,8 @@ def subcommand_compare(
     ultra_sensitive: bool,
     extra_foldseek_params: str,
     custom_db: str,
-    foldseek_gpu: bool
+    foldseek_gpu: bool,
+    all_members: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -68,11 +69,12 @@ def subcommand_compare(
         fasta_flag (bool): Flag indicating whether FASTA files are used.
         separate (bool): Flag indicating whether to separate the analysis.
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
-        only_representatives (bool): Whether to search against representatives only (turn off --cluster-search 1)
+        only_representatives (bool): Whether to search against cluster representatives only (turn off --cluster-search 1)
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
         extra_foldseek_params (str): Extra foldseek search parameters
         custom_db (str): Custom foldseek database
         foldseek_gpu (bool): Use Foldseek-GPU acceleration and ungappedprefilter
+        all_members (bool): Run Foldseek vs the full Phold DB not the clustered version 
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -270,13 +272,10 @@ def subcommand_compare(
     short_db_name = prefix
 
     # # clustered db search
-    # if cluster_db is True:
-    #     database_name = "all_phold_structures_clustered_searchDB"
-    # else:
-    #     database_name = "all_phold_structures"
-
-    # clustered DB
-    database_name = "all_phold_structures_clustered_searchDB"
+    if all_members:
+        database_name = "all_phold_structures"
+    else: # clustered DB
+        database_name = "all_phold_structures_clustered_searchDB"
 
     if short_db_name == database_name:
         logger.error(
@@ -312,7 +311,8 @@ def subcommand_compare(
         only_representatives,
         ultra_sensitive,
         extra_foldseek_params,
-        foldseek_gpu
+        foldseek_gpu,
+        all_members
     )
 
     # make result tsv
@@ -422,7 +422,7 @@ def subcommand_compare(
             Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
         )
 
-    # merge in confidence scores - only for structures
+    # merge in confidence scores - only for not structures
 
     if not structures:
         prostT5_conf_df = pd.read_csv(mean_probs_out_path, sep=",", header=None, names=["cds_id", "prostt5_confidence"])

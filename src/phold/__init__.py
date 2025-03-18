@@ -187,7 +187,7 @@ def compare_options(func):
         click.option(
             "--only_representatives",
             is_flag=True,
-            help="Foldseek search only against the cluster representatives (i.e. turn off --cluster-search 1 Foldseek parameter)",
+            help="Foldseek search only against the cluster db representatives (i.e. turn off --cluster-search 1 Foldseek parameter)",
         ),
         click.option(
             "--ultra_sensitive",
@@ -208,6 +208,11 @@ def compare_options(func):
             "--foldseek_gpu",
             is_flag=True,
             help="Use this to enable compatibility with Foldseek-GPU acceleration",
+        ),
+        click.option(
+            "--all_members",
+            is_flag=True,
+            help="Run Foldseek vs the Phold DB without any clustering (all members)",
         )
 
     ]
@@ -275,6 +280,7 @@ def run(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    all_members,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -373,7 +379,8 @@ def run(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu
+        foldseek_gpu=foldseek_gpu,
+        all_members=all_members
     )
 
     # cleanup the temp files
@@ -543,6 +550,7 @@ def compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    all_members,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -613,7 +621,8 @@ def compare(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu
+        foldseek_gpu=foldseek_gpu,
+        all_members=all_members
     )
 
     # cleanup the temp files
@@ -816,6 +825,7 @@ def proteins_compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    all_members,
     **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -915,7 +925,8 @@ def proteins_compare(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu
+        foldseek_gpu=foldseek_gpu,
+        all_members=all_members
     )
 
     # cleanup the temp files
@@ -962,6 +973,7 @@ def remote(
     ultra_sensitive,
     extra_foldseek_params,
     custom_db,
+    all_members,
     **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
@@ -1069,7 +1081,8 @@ def remote(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=False # doesn't make sense for remote to do this as you would have a GPU
+        foldseek_gpu=False, # doesn't make sense for remote to do this as you wouldn't probably have a GPU
+        all_members=all_members
     )
 
     # cleanup the temp files

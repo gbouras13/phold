@@ -65,7 +65,7 @@ PHOLD_DB_NAMES = [
     "all_phold_structures_clustered_searchDB_ca",
     "all_phold_structures_clustered_searchDB_ca.dbtype",
     "all_phold_structures_clustered_searchDB_ca.index",
-    "all_phold_structures_clustered_searchDB_clu",
+    #"all_phold_structures_clustered_searchDB_clu",
     "all_phold_structures_clustered_searchDB_clu.dbtype",
     "all_phold_structures_clustered_searchDB_clu.index",
     "all_phold_structures_clustered_searchDB.dbtype",
