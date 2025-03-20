@@ -291,6 +291,9 @@ def subcommand_compare(
     temp_db: Path = Path(output) / "temp_db"
     temp_db.mkdir(parents=True, exist_ok=True)
 
+    # make result tsv
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
+
     # run foldseek search
     run_foldseek_search(
         query_db,
@@ -307,22 +310,13 @@ def subcommand_compare(
         foldseek_gpu
     )
 
-    # make result tsv
-    result_tsv: Path = Path(output) / "foldseek_results.tsv"
 
-    # target_db is all_phold_structures regardless of the clustered search mode
-    # needs all_phold_structures and all_phold_structures_h
-    # delete the rest to save some space
-
-    target_db: Path = Path(database) / "all_phold_structures"
-    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir)
+    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu)
 
 
     ########
     # get topfunction
     ########
-
-    result_tsv: Path = Path(output) / "foldseek_results.tsv"
 
     # get top hit with non-unknown function for each CDS
     # also calculate the weighted bitscore df
@@ -501,6 +495,7 @@ def subcommand_compare(
         logger.info(f"Foldseek will also be run against your custom database {custom_db}")
         # make result and temp dirs
         result_db_custom: Path = Path(result_db_base) / "result_db_custom"
+        result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
 
         #try:
         run_foldseek_search(
@@ -521,8 +516,7 @@ def subcommand_compare(
     
     
         # make result tsv
-        result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
-        create_result_tsv(query_db, Path(custom_db), result_db_custom, result_tsv_custom, logdir)
+        create_result_tsv(query_db, Path(custom_db), result_db_custom, result_tsv_custom, logdir, foldseek_gpu)
 
         tophit_custom_df = get_topcustom_hits(
         result_tsv_custom, structures, proteins_flag)
