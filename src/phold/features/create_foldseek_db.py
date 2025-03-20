@@ -248,3 +248,34 @@ def generate_foldseek_db_from_structures(
     )
 
     ExternalTool.run_tool(foldseek_createdb_from_structures)
+
+
+#### foldseek_gpu 
+
+
+def create_foldseek_prostt5_gpu_db(
+    fasta_aa: Path, foldseek_db_path: Path, db_dir: Path, logdir: Path
+) -> None:
+    """
+    Convert a Foldseek DB with ProstT5 3Di predictions using Foldseek-GPU
+
+    Args:
+        fasta_aa (Path): Path to the amino-acid FASTA file.
+        foldseek_db_path (Path): Path to the directory where Foldseek database will be stored.
+        db_dir (Path): Path to the Phold DB
+        logdir (Path): Path to the directory where logs will be stored.
+    Returns:
+        None
+    """
+
+    prostt5_db_path = Path(db_dir) / "prostt5_weights"
+    
+    foldseek_createdb_prostt5 = ExternalTool(
+        tool="foldseek",
+        input=f"",
+        output=f"",
+        params=f"createdb {fasta_aa} {foldseek_db_path}  --prostt5-model {prostt5_db_path}  ",
+        logdir=logdir,
+    )
+
+    ExternalTool.run_tool(foldseek_createdb_prostt5)

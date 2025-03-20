@@ -16,6 +16,9 @@ def run_foldseek_search(
     max_seqs: int,
     only_representatives: bool,
     ultra_sensitive: bool,
+    extra_foldseek_params: str,
+    foldseek_gpu: bool,
+    all_members: bool
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -32,6 +35,9 @@ def run_foldseek_search(
         max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
         only_representatives (bool): turns off --cluster-search 1 parameter in foldseek
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
+        extra_foldseek_params (str): Extra foldseek search params
+        foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
+        all_members (bool): turns off --cluster-search 1 (use with full PholdDB)
 
     Returns:
         None
@@ -42,8 +48,15 @@ def run_foldseek_search(
     else:
         cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}"
 
-    if only_representatives is False:
+    if only_representatives is False and all_members is False:
         cmd += " --cluster-search 1"
+
+    # support foldseek gpu only for the regular DB search for now
+    if foldseek_gpu:
+        cmd = f"search {query_db} {target_db}_gpu {result_db} {temp_db} --threads {str(threads)} -e {evalue}  --max-seqs {max_seqs} --cluster-search 1 --gpu 1"
+
+    if extra_foldseek_params:
+        cmd += f" {extra_foldseek_params}"
 
     foldseek_search = ExternalTool(
         tool="foldseek",

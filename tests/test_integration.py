@@ -37,10 +37,13 @@ database_dir = Path(f"{test_data}/phold_db")
 pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 cif_dir = Path(f"{test_data}/NC_043029_af3_cif")
 output_dir = Path(f"{test_data}/outputs")
+dummy_custom_db = Path(f"{test_data}/dummy_custom_db/dummy_db")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
+run_gbk_pharokka_1_4_1_dir_extra: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
+run_gbk_pharokka_1_4_1_dir_custom: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_long_header_dir: Path = f"{output_dir}/long_header_fasta"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
@@ -52,6 +55,7 @@ save_embeddings_predict_gbk_dir: Path = (
     f"{output_dir}/combined_truncated_phold_predict_save_embeddings_gbk"
 )
 compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
+compare_pdb_dir_custom: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb_custom"
 compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_compare_gbk_pdb"
 compare_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_compare_gbk"
 predict_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_predict_fasta"
@@ -62,22 +66,20 @@ proteins_predict_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_pr
 proteins_compare_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_compare"
 proteins_compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_pdb"
 proteins_compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif"
+proteins_compare_cif_dir_custom: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif_custom_db"
 plots_dir: Path = f"{output_dir}/plot_output"
 
 
 logger.add(lambda _: sys.exit(1), level="ERROR")
 # threads = 1
 
-
 def remove_directory(dir_path):
     if os.path.exists(dir_path):
         shutil.rmtree(dir_path)
 
-
 @pytest.fixture(scope="session")
 def gpu_available(pytestconfig):
     return pytestconfig.getoption("gpu_available")
-
 
 @pytest.fixture(scope="session")
 def run_remote(pytestconfig):
@@ -131,6 +133,21 @@ def test_run_genbank_ncbi(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_run_genbank_extra_foldseek_params(gpu_available, threads):
+    """test phold run with --extra_foldseek_params"""
+    input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_extra} -t {threads} -d {database_dir} --extra_foldseek_params \"--cov-mode 2\" -f "
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+def test_run_custom_db(gpu_available, threads):
+    """test phold run with --custom_db"""
+    input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_custom} -t {threads} -d {database_dir} --custom_db {dummy_custom_db} -f "
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_run_genbank_old_pharokka(gpu_available, threads):
     """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
@@ -226,6 +243,11 @@ def test_compare_pdb(threads):
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} -f"
     exec_command(cmd)
 
+def test_compare_pdb_custom(threads):
+    """test phold compare with pdbs input with custom db"""
+    input_gbk: Path = f"{test_data}/NC_043029.gbk"
+    cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir_custom} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} --custom_db {dummy_custom_db}  -f"
+    exec_command(cmd)
 
 def test_compare_cif(threads):
     """test phold compare with AF3 cif input"""
@@ -235,11 +257,16 @@ def test_compare_cif(threads):
 
 
 def test_proteins_compare_pdb(threads):
-    """test phold proteins-compare with pdbs input"""
+    """test phold proteins-compare with cifs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
     exec_command(cmd)
 
+def test_proteins_compare_cifs_custom_db(threads):
+    """test phold proteins-compare with cifs input"""
+    input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
+    cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_cif_dir_custom} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} --custom_db {dummy_custom_db}  -f"
+    exec_command(cmd)
 
 def test_proteins_compare_cif(threads):
     """test phold proteins-compare with AF3 cif input"""
@@ -272,15 +299,13 @@ def test_proteins_predict(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
-
-def test_proteins_predict(gpu_available, threads):
+def test_proteins_predict_gzip(gpu_available, threads):
     """test phold proteins-predict with gzip"""
     input_fasta: Path = f"{test_data}/phanotate.faa.gz"
     cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
-
 
 def test_proteins_compare(threads):
     """test phold proteins-compare"""

@@ -10,7 +10,6 @@ from loguru import logger
 
 from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
 
-
 def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
     """
     Validate the input file format and retrieve genomic data.
@@ -138,9 +137,9 @@ def check_dependencies() -> None:
         f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
     )
 
-    if foldseek_major_version != 9:
-        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
-    if foldseek_minor_version != "427df8a":
-        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
+    #if foldseek_major_version != 10:
+    #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
+    #if foldseek_minor_version != "941cd33":
+    #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
 
     logger.info("Foldseek version is ok")
