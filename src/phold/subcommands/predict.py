@@ -161,6 +161,7 @@ def subcommand_predict(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
+        mask_threshold=mask_threshold
     )
 
     return prediction_success
