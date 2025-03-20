@@ -5,7 +5,7 @@ requires = ["setuptools>=61.0", "wheel>=0.37.1"]
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 name = "phold"
-version = "0.3.0" # change VERSION too
+version = "1.0.0" # change VERSION too
 description = "Phage Annotations using Protein Structures"
 readme = "README.md"
 requires-python = ">=3.8, <3.13"
@@ -29,6 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [

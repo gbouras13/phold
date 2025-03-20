@@ -9,7 +9,7 @@ from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
 from pycirclize.parser import Genbank
 
-from phold.databases.db import install_database, validate_db, foldseek_gpu_prostt5_download, check_prostT5_foldseek_download
+from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
@@ -106,14 +106,6 @@ def predict_options(func):
             help="Do not output per residue 3Di probabilities from ProstT5. Mean per protein 3Di probabilities will always be output.",
         ),
         click.option(
-            "--finetune",
-            is_flag=True,
-            help="Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now",
-        ),
-        click.option(
-            "--finetune_path", help="Path to finetuned model weights", default=None
-        ),
-        click.option(
             "--save_per_residue_embeddings",
             is_flag=True,
             help="Save the ProstT5 embeddings per resuide in a h5 file ",
@@ -180,14 +172,9 @@ def compare_options(func):
         click.option(
             "--max_seqs",
             type=int,
-            default=10000,
+            default=1000,
             show_default=True,
             help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
-        ),
-        click.option(
-            "--only_representatives",
-            is_flag=True,
-            help="Foldseek search only against the cluster db representatives (i.e. turn off --cluster-search 1 Foldseek parameter)",
         ),
         click.option(
             "--ultra_sensitive",
@@ -207,14 +194,8 @@ def compare_options(func):
         click.option(
             "--foldseek_gpu",
             is_flag=True,
-            help="Use this to enable compatibility with Foldseek-GPU acceleration",
-        ),
-        click.option(
-            "--all_members",
-            is_flag=True,
-            help="Run Foldseek vs the Phold DB without any clustering (all members)",
+            help="Use this to enable compatibility with Foldseek-GPU search acceleration",
         )
-
     ]
     for option in reversed(options):
         func = option(func)
@@ -267,20 +248,16 @@ def run(
     cpu,
     omit_probs,
     keep_tmp_files,
-    finetune,
-    finetune_path,
     card_vfdb_evalue,
     separate,
     max_seqs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
-    only_representatives,
     ultra_sensitive,
     mask_threshold,
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    all_members,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -304,14 +281,11 @@ def run(
         "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune,
-        "--finetune_path": finetune_path,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
         "--mask_threshold": mask_threshold,
         "--extra_foldseek_params": extra_foldseek_params,
@@ -344,8 +318,6 @@ def run(
         model_dir,
         model_name,
         batch_size,
-        finetune,
-        finetune_path,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
@@ -375,12 +347,10 @@ def run(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        all_members=all_members
     )
 
     # cleanup the temp files
@@ -545,12 +515,10 @@ def compare(
     card_vfdb_evalue,
     separate,
     max_seqs,
-    only_representatives,
     ultra_sensitive,
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    all_members,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -579,7 +547,6 @@ def compare(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
-        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
@@ -617,12 +584,10 @@ def compare(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu,
-        all_members=all_members
+        foldseek_gpu=foldseek_gpu
     )
 
     # cleanup the temp files
@@ -663,8 +628,6 @@ def proteins_predict(
     batch_size,
     cpu,
     omit_probs,
-    finetune,
-    finetune_path,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
@@ -688,8 +651,6 @@ def proteins_predict(
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune,
-        "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--mask_threshold": mask_threshold
@@ -747,9 +708,6 @@ def proteins_predict(
         omit_probs,
         model_dir,
         model_name,
-        batch_size,
-        finetune,
-        finetune_path,
         proteins_flag=True,
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
@@ -820,13 +778,11 @@ def proteins_compare(
     card_vfdb_evalue,
     separate,
     max_seqs,
-    only_representatives,
     ultra_sensitive,
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    all_members,
-    **kwargs,
+    **kwargs
 ):
     """Runs Foldseek vs phold db on proteins input"""
 
@@ -853,7 +809,6 @@ def proteins_compare(
         "--keep_tmp_files": keep_tmp_files,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--max_seqs": max_seqs,
-        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
@@ -921,12 +876,10 @@ def proteins_compare(
         fasta_flag=False,
         separate=False,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu,
-        all_members=all_members
+        foldseek_gpu=foldseek_gpu
     )
 
     # cleanup the temp files
@@ -969,12 +922,10 @@ def remote(
     card_vfdb_evalue,
     separate,
     max_seqs,
-    only_representatives,
     ultra_sensitive,
     extra_foldseek_params,
     custom_db,
-    all_members,
-    **kwargs,
+    **kwargs
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
 
@@ -997,7 +948,6 @@ def remote(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
-        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db
@@ -1077,12 +1027,10 @@ def remote(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=False, # doesn't make sense for remote to do this as you wouldn't probably have a GPU
-        all_members=all_members
     )
 
     # cleanup the temp files
@@ -1237,35 +1185,20 @@ def install(
         )
         database = Path(DB_DIR)
 
-    # foldseek_gpu flag - means 
-    if foldseek_gpu:
-        logger.info(
-            f"You have specified --foldseek_gpu. Phold's database will be installed in a fashion compatible with using Foldseek-GPU acceleration."
-        )
-        logger.info(f"Checking Foldseek ProstT5 model is in {database}/prostt5_weights")
-        download = check_prostT5_foldseek_download(database)
-        if download:
-            logger.info("Foldseek ProstT5 model is missing")
-            logger.info("Downloading the Foldseek ProstT5 model database")
-            foldseek_gpu_prostt5_download(database)
-        else:
-            logger.info("Foldseek ProstT5 model is already downloaded")
+    model_name = "Rostlab/ProstT5_fp16"
 
-    else:
-        model_name = "Rostlab/ProstT5_fp16"
+    logger.info(
+        f"Checking that the {model_name} ProstT5 model is available in {database}"
+    )
 
-        logger.info(
-            f"Checking that the {model_name} ProstT5 model is available in {database}"
-        )
+    # always install with cpu mode as guarantee to be present
+    cpu = True
 
-        # always install with cpu mode as guarantee to be present
-        cpu = True
-
-        # load model (will be downloaded if not present)
-        model, vocab = get_T5_model(database, model_name, cpu, threads=1)
-        del model
-        del vocab
-        logger.info(f"ProstT5 model downloaded")
+    # load model (will be downloaded if not present)
+    model, vocab = get_T5_model(database, model_name, cpu, threads=1)
+    del model
+    del vocab
+    logger.info(f"ProstT5 model downloaded")
 
     # will check if db is present, and if not, download it
     install_database(database, foldseek_gpu)

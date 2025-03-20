@@ -16,8 +16,6 @@ def subcommand_predict(
     model_dir: Path,
     model_name: str,
     batch_size: int,
-    finetune: bool,
-    finetune_path: Path,
     proteins_flag: bool,
     fasta_flag: bool,
     save_per_residue_embeddings: bool,
@@ -37,8 +35,6 @@ def subcommand_predict(
         model_dir (str): Directory containing the ProstT5 model.
         model_name (str): Name of the ProstT5 model.
         batch_size (int): Batch size for prediction.
-        finetune (bool): Flag indicating whether to use fine-tuned model.
-        finetune_path (str): Path to the fine-tuned model.
         proteins_flag (bool): True if phold proteins-predict, false otherwise
         fasta_flag (bool): True if pyrodigal-gv was used to predict CDS from FASTA input. False otherwise
         save_per_residue_embeddings (bool, optional): Whether to save per residue embeddings to h5 file. Defaults to False.
@@ -123,8 +119,7 @@ def subcommand_predict(
     ############
     # prostt5
     ############
-
-    
+   
 
 
     fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
