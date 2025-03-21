@@ -6,6 +6,21 @@ from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
 
+def convert_lowercase_low_confidence_aa(sequence, scores, threshold=0.5):
+    """
+    Removes the stop codon (*) from the sequence and converts amino acids to lowercase 
+    if their corresponding ProstT5 confidence score is below the given threshold.
+
+    Parameters:
+    sequence (str): The amino acid sequence.
+    scores (List[float]): A list of confidence scores for each amino acid.
+    threshold (float, optional): The confidence threshold below which amino acids are converted to lowercase. Default is 0.5.
+
+    Returns:
+    str: The modified amino acid sequence with low-confidence residues in lowercase.
+    """
+    return "".join(aa.lower() if float(score) < threshold else aa 
+                   for aa, score in zip(sequence, *scores) if aa != '*')
 
 def subcommand_predict(
     gb_dict: dict,
@@ -102,19 +117,6 @@ def subcommand_predict(
                     else:
                         cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
 
-    ########
-    ## write the AA CDS to file
-    ######
-    with open(fasta_aa, "w+") as out_f:
-        for contig_id, rest in cds_dict.items():
-            aa_contig_dict = cds_dict[contig_id]
-
-            for seq_id, cds_feature in aa_contig_dict.items():
-                if proteins_flag is True:
-                    out_f.write(f">{seq_id}\n")
-                else:
-                    out_f.write(f">{contig_id}:{seq_id}\n")
-                out_f.write(f"{cds_feature.qualifiers['translation']}\n")
 
     ############
     # prostt5
@@ -137,7 +139,7 @@ def subcommand_predict(
     else:
         output_probs = True
 
-    prediction_success = get_embeddings(
+    predictions = get_embeddings(
         cds_dict,
         output,
         prefix,
@@ -159,4 +161,30 @@ def subcommand_predict(
         mask_threshold=mask_threshold
     )
 
-    return prediction_success
+    mask_prop_threshold = mask_threshold/100
+
+
+
+    ########
+    ## write the AA CDS to file
+    ######
+    with open(fasta_aa, "w+") as out_f:
+        for contig_id, rest in cds_dict.items():
+            aa_contig_dict = cds_dict[contig_id]
+            prediction_contig_dict = predictions[contig_id]
+            prediction_contig_dict = {
+                k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
+            }
+            for seq_id, cds_feature in aa_contig_dict.items():
+                if proteins_flag is True:
+                    out_f.write(f">{seq_id}\n")
+                else:
+                    out_f.write(f">{contig_id}:{seq_id}\n")
+
+                prot_seq = cds_feature.qualifiers['translation']
+                # prediction_contig_dict[seq_id][2] these are teh ProstT5 confidence scores from 0-1 - need to convert to list
+                prot_seq = convert_lowercase_low_confidence_aa(prot_seq, prediction_contig_dict[seq_id][2].tolist(), threshold=mask_prop_threshold)
+
+                out_f.write(f"{prot_seq}\n")
+
+    return True

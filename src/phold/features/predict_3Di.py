@@ -509,7 +509,7 @@ def get_embeddings(
         )
 
         batch = list()
-        for seq_idx, (pdb_id, seq) in tqdm(enumerate(seq_dict.items(), 1), total=len(seq_dict), desc="Processing Proteins"):
+        for seq_idx, (pdb_id, seq) in tqdm(enumerate(seq_dict.items(), 1), total=len(seq_dict), desc=f"Predicting 3Di for {record_id}"):
         # for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
@@ -713,4 +713,4 @@ def get_embeddings(
     
     write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
-    return True
+    return predictions
