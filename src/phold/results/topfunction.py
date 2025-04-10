@@ -34,19 +34,38 @@ def get_topfunctions(
 
     logger.info("Processing Foldseek output")
 
-    col_list = [
-        "query",
-        "target",
-        "bitscore",
-        "fident",
-        "evalue",
-        "qStart",
-        "qEnd",
-        "qLen",
-        "tStart",
-        "tEnd",
-        "tLen",
-    ]
+    if structures:
+
+        col_list = [
+            "query",
+            "target",
+            "bitscore",
+            "fident",
+            "evalue",
+            "qStart",
+            "qEnd",
+            "qLen",
+            "tStart",
+            "tEnd",
+            "tLen",
+            "alntmscore",
+            "lddt"
+        ]
+    else:
+
+        col_list = [
+            "query",
+            "target",
+            "bitscore",
+            "fident",
+            "evalue",
+            "qStart",
+            "qEnd",
+            "qLen",
+            "tStart",
+            "tEnd",
+            "tLen",
+        ]
 
     foldseek_df = pd.read_csv(
         result_tsv, delimiter="\t", index_col=False, names=col_list
@@ -330,6 +349,7 @@ def calculate_topfunctions_results(
             "tStart": row["tStart"],
             "tEnd": row["tEnd"],
             "tLen": row["tLen"],
+            
         }
 
         # nan on record_id -> means the structure in the structure_dir has a foldseek hit but can't be matched up to a contig

@@ -39,7 +39,6 @@ def run_foldseek_search(
         None
     """
 
-    format = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen"
 
     if ultra_sensitive:
         cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --exhaustive-search"
@@ -64,8 +63,58 @@ def run_foldseek_search(
     ExternalTool.run_tool(foldseek_search)
 
 
+
+def run_foldseek_align(
+    query_db: Path,
+    target_db: Path,
+    result_db: Path,
+    temp_db: Path,
+    aln_db: Path,
+    threads: int,
+    logdir: Path,
+    foldseek_gpu: bool
+) -> None:
+    """
+    Run a Foldseek align using given parameters.
+
+    foldseek align test_str/foldseek_db/phold ../../phold_db_v1_updated_annots_no_phrog_hits/all_phold_structures test_str/result_db/result_db alnNew -a
+
+    Args:
+        query_db (Path): Path to the query database.
+        target_db (Path): Path to the target database.
+        result_db (Path): Path to store the result database.
+        temp_db (Path): Path to store temporary files.
+        threads (int): Number of threads to use for the search.
+        logdir (Path): Path to the directory where logs will be stored.
+        evalue (float): E-value threshold for the search.
+        sensitivity (float): Sensitivity threshold for the search.
+        max_seqs (int): Maximum results per query sequence allowed to pass the prefilter for foldseek.
+        ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
+        extra_foldseek_params (str): Extra foldseek search params
+        foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
+
+    Returns:
+        None
+    """
+
+    if foldseek_gpu:
+        target_db = f"{target_db}_gpu"
+
+    cmd = f"align {query_db} {target_db} {result_db} {aln_db} --threads {str(threads)} -a"
+
+
+    foldseek_search = ExternalTool(
+        tool="foldseek",
+        input=f"",
+        output=f"",
+        params=f"{cmd}",
+        logdir=logdir,
+    )
+
+    ExternalTool.run_tool(foldseek_search)
+
 def create_result_tsv(
-    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool
+    query_db: Path, target_db: Path, result_db: Path, aln_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool,structures: bool
 ) -> None:
     """
     Create a TSV file containing the results of a Foldseek search.
@@ -77,20 +126,28 @@ def create_result_tsv(
         result_tsv (Path): Path to save the resulting TSV file.
         logdir (Path): Path to the directory where logs will be stored.
         foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
+        structures (bool): Whether structures were input (not ProstT5)
 
     Returns:
         None
     """
-
-    format_string = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen "
+    if structures:
+        format_string= "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen,alntmscore,lddt"
+        third_db = aln_db
+    else:
+        format_string = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen"
+        third_db = result_db
     if foldseek_gpu:
         target_db = f"{target_db}_gpu"
+
+    
+    cmd = f"convertalis {query_db} {target_db} {third_db} {result_tsv} {format_string}"
 
     foldseek_createtsv = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"convertalis {query_db} {target_db} {result_db}  {result_tsv} {format_string}",
+        params=f"{cmd}",
         logdir=logdir,
     )
 
