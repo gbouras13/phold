@@ -30,6 +30,7 @@ def subcommand_predict(
     omit_probs: bool,
     model_dir: Path,
     model_name: str,
+    checkpoint_path: Path,
     batch_size: int,
     proteins_flag: bool,
     fasta_flag: bool,
@@ -49,6 +50,7 @@ def subcommand_predict(
         omit_probs (bool): Flag indicating whether to omit prediction probabilities from ProstT5.
         model_dir (str): Directory containing the ProstT5 model.
         model_name (str): Name of the ProstT5 model.
+        checkpoint_path (Path): Path to ProstT5 CNN checkpoint.
         batch_size (int): Batch size for prediction.
         proteins_flag (bool): True if phold proteins-predict, false otherwise
         fasta_flag (bool): True if pyrodigal-gv was used to predict CDS from FASTA input. False otherwise
@@ -145,6 +147,7 @@ def subcommand_predict(
         prefix,
         model_dir,
         model_name,
+        checkpoint_path,
         fasta_3di,
         output_h5_per_residue,
         output_h5_per_protein,

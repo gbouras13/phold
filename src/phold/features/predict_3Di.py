@@ -402,7 +402,13 @@ def load_predictor(checkpoint_path: Union[str, Path]) -> CNN:
 
     state = torch.load(checkpoint_path, map_location=device)
 
-    model.load_state_dict(state["state_dict"])
+    # regular ProstT5 CNN 
+    if checkpoint_path.suffix == '.pt':
+        model.load_state_dict(state["state_dict"])
+    # finetuned
+    else:
+        model.load_state_dict(state)
+
 
     model = model.eval()
     model = model.to(device)
@@ -416,6 +422,7 @@ def get_embeddings(
     prefix: str,
     model_dir: Path,
     model_name: str,
+    checkpoint_path: Path,
     output_3di: Path,
     output_h5_per_residue: Path,
     output_h5_per_protein: Path,
@@ -469,7 +476,6 @@ def get_embeddings(
 
     prostt5_prefix = "<AA2fold>"
 
-    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
     model, vocab = get_T5_model(model_dir, model_name, cpu, threads)
     predictor = load_predictor(checkpoint_path)

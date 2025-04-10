@@ -17,7 +17,7 @@ from phold.io.handle_genbank import open_protein_fasta_file
 from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
-from phold.utils.constants import DB_DIR
+from phold.utils.constants import DB_DIR, CNN_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
@@ -121,6 +121,16 @@ def predict_options(func):
             help="Masks 3Di residues below this value of ProstT5 confidence for Foldseek searches",
             type=float,
             show_default=True,
+        ),
+        click.option(
+            "--finetune",
+            is_flag=True,
+            help="Use gbouras13/ProstT5Phold model finetuned on phage proteins",
+        ),
+        click.option(
+            "--vanilla",
+            is_flag=True,
+            help="Use vanilla CNN model (trained on CASP14) instead of the one trained on phage proteins",
         ),
     ]
     for option in reversed(options):
@@ -258,6 +268,8 @@ def run(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    finetune,
+    vanilla,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -290,7 +302,9 @@ def run(
         "--mask_threshold": mask_threshold,
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
-        "--foldseek_gpu": foldseek_gpu
+        "--foldseek_gpu": foldseek_gpu,
+        "--finetune": finetune,
+        "--vanilla": vanilla
     }
 
     # initial logging etc
@@ -308,6 +322,16 @@ def run(
     # phold predict
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    
+
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+
 
     subcommand_predict(
         gb_dict,
@@ -317,6 +341,7 @@ def run(
         omit_probs,
         model_dir,
         model_name,
+        checkpoint_path,
         batch_size,
         proteins_flag=False,
         fasta_flag=fasta_flag,
@@ -394,6 +419,8 @@ def predict(
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
+    finetune,
+    vanilla,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -416,7 +443,9 @@ def predict(
         "--omit_probs": omit_probs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--mask_threshold": mask_threshold
+        "--mask_threshold": mask_threshold,
+        "--finetune": finetune,
+        "--vanilla": vanilla
     }
 
     # initial logging etc
@@ -431,6 +460,14 @@ def predict(
     # runs phold predict subcommand
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+
 
     subcommand_predict(
         gb_dict,
@@ -440,6 +477,7 @@ def predict(
         omit_probs,
         model_dir,
         model_name,
+        checkpoint_path,
         batch_size,
         proteins_flag=False,
         fasta_flag=fasta_flag,
@@ -625,6 +663,8 @@ def proteins_predict(
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
+    finetune,
+    vanilla,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -647,7 +687,9 @@ def proteins_predict(
         "--omit_probs": omit_probs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--mask_threshold": mask_threshold
+        "--mask_threshold": mask_threshold,
+        "--finetune": finetune,
+        "--vanilla": vanilla
     }
 
     # initial logging etc
@@ -693,8 +735,16 @@ def proteins_predict(
     # runs phold predict subcommand
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    success = subcommand_predict(
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+
+
+    subcommand_predict(
         cds_dict,
         output,
         prefix,
@@ -702,6 +752,7 @@ def proteins_predict(
         omit_probs,
         model_dir,
         model_name,
+        checkpoint_path,
         proteins_flag=True,
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,

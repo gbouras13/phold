@@ -116,6 +116,20 @@ PROSTT5_MD5_DICTIONARY = {
     },
 }
 
+PROSTT5_FINETUNE_MD5_DICTIONARY = {
+    "refs": {"main": "833198a97a993b079841bb51b3096b6a"},
+    "blobs": {
+        "17ade346a1042cbe0c1436f5bedcbd85c099d582": "9583322ae544dfbdb0001350ab4c3fd9",
+        "474673ae9f1fcf1da9b939df0da5888abf0674af6e50546927b4edd4536b8897": "028128ddd5340a8bfb4151f562cb2091",
+        "47ce84c8a086256c31ca8aa555e55787f9368b3e": "865fce8e8f6db4ad9bbb0f9596438e1e",
+        "74da7b4afcde53faa570114b530c726135bdfcdb813dec3abfb27f9d44db7324": "6ad28d9980aaec37d3935072d204e520",
+        "7b4566bb3be907e8bba6c764ecd41d3388b81b79": "67183db6031983c323e7fbb0ae7dac57",
+        "a45ead5f5f3e3b842f660aa8e7ab2d66cbb959ad743f8677d0559c13f7f4a0c4": "b7cb2d32552a3d3cabf4db25e54fdb44",
+        "c72eadd6ad03b26932928906cd12a29586b9fd7217775cd8207fa38cd52ebaaf" : "5cacb3a7b9789143e6a28279a25a0bad",
+        "d91b97e1ea1225fcbc4e5ee14c09bb196251cee9" : "ce3c5c2e2e583314c72b3a5c823118f8"
+    },
+}
+
 #FOLDSEEK_PROSTT5_MD5 = "77fa1dae82e17fde715741861bcb7558"
 
 PHOLD_DB_FOLDSEEK_GPU_NAMES = [
@@ -261,23 +275,35 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
     # assumes already has been downloaded
     download = False
 
-    for key in PROSTT5_MD5_DICTIONARY:
-        for nested_key in PROSTT5_MD5_DICTIONARY[key]:
+    if model_name == "Rostlab/ProstT5_fp16":
+
+        model_sub_dir = "models--Rostlab--ProstT5_fp16"
+        DICT = PROSTT5_MD5_DICTIONARY
+
+    elif model_name == "gbouras13/ProstT5Phold":
+
+        model_sub_dir = "models--gbouras13--ProstT5Phold"
+        DICT = PROSTT5_FINETUNE_MD5_DICTIONARY
+
+
+    for key in DICT:
+        for nested_key in DICT[key]:
             file_path = Path(
-                f"{model_dir}/models--Rostlab--ProstT5_fp16/{key}/{nested_key}"
+                f"{model_dir}/{model_sub_dir}/{key}/{nested_key}"
             )
 
             # check file exists
             if file_path.exists():
                 md5_sum = calc_md5_sum(file_path)
-                if md5_sum != PROSTT5_MD5_DICTIONARY[key][nested_key]:
+                if md5_sum != DICT[key][nested_key]:
                     logger.warning(
-                        f"Corrupt model file {file_path}! MD5 should be '{PROSTT5_MD5_DICTIONARY[key][nested_key]}' but is '{md5_sum}'"
+                        f"Corrupt model file {file_path}! MD5 should be '{DICT[key][nested_key]}' but is '{md5_sum}'"
                     )
                     download = True
             else:
                 logger.warning(f"Model file {file_path} does not exist.")
                 download = True
+    
     return download
 
 # for now, until we have a better confidence metric, use PyTorch
