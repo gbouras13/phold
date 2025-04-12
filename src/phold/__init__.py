@@ -753,6 +753,7 @@ def proteins_predict(
         model_dir,
         model_name,
         checkpoint_path,
+        batch_size,
         proteins_flag=True,
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
