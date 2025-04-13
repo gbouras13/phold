@@ -12,7 +12,7 @@ from loguru import logger
 
 from phold.features.create_foldseek_db import (
     generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_structures)
-from phold.features.run_foldseek import create_result_tsv, run_foldseek_search, run_foldseek_align
+from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
 from phold.results.topfunction import (calculate_topfunctions_results,
@@ -310,29 +310,8 @@ def subcommand_compare(
         foldseek_gpu
     )
 
-    aln_db_base: Path = Path(output) / "aln_db"
-    aln_db: Path = Path(aln_db_base) / "aln_db"
-
-    if structures:
-
-        # make aln_db dirs
-        aln_db_base.mkdir(parents=True, exist_ok=True)
-
-        run_foldseek_align(
-            query_db,
-            target_db,
-            result_db,
-            temp_db,
-            aln_db,
-            threads,
-            logdir,
-            foldseek_gpu
-        )
-        
-
-
-
-    create_result_tsv(query_db, target_db, result_db, aln_db, result_tsv, logdir, foldseek_gpu, structures)
+       
+    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures)
 
 
     ########
@@ -535,30 +514,11 @@ def subcommand_compare(
         foldseek_gpu
     )
 
-        aln_db_custom_base: Path = Path(output) / "aln_db_custom"
-        aln_db_custom: Path = Path(aln_db_base) / "aln_db_custom"
-
-        if structures:
-
-            # make aln_db dirs
-            aln_db_custom_base.mkdir(parents=True, exist_ok=True)
-
-            run_foldseek_align(
-                query_db,
-                Path(custom_db),
-                result_db_custom,
-                temp_db,
-                aln_db_custom,
-                threads,
-                logdir,
-                foldseek_gpu
-            )
-        
-        
+      
     
     
         # make result tsv
-        create_result_tsv(query_db, Path(custom_db), result_db_custom, aln_db_custom, result_tsv_custom, logdir, foldseek_gpu, structures)
+        create_result_tsv(query_db, Path(custom_db), result_db_custom,  result_tsv_custom, logdir, foldseek_gpu, structures)
 
         tophit_custom_df = get_topcustom_hits(
         result_tsv_custom, structures, proteins_flag)
