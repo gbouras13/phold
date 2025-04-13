@@ -311,7 +311,7 @@ def subcommand_compare(
     )
 
        
-    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures)
+    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads)
 
 
     ########
@@ -518,7 +518,7 @@ def subcommand_compare(
     
     
         # make result tsv
-        create_result_tsv(query_db, Path(custom_db), result_db_custom,  result_tsv_custom, logdir, foldseek_gpu, structures)
+        create_result_tsv(query_db, Path(custom_db), result_db_custom,  result_tsv_custom, logdir, foldseek_gpu, structures, threads)
 
         tophit_custom_df = get_topcustom_hits(
         result_tsv_custom, structures, proteins_flag)

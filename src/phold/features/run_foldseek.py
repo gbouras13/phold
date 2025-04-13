@@ -115,7 +115,7 @@ def run_foldseek_search(
 #     ExternalTool.run_tool(foldseek_search)
 
 def create_result_tsv(
-    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool,structures: bool
+    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool,structures: bool, threads: int
 ) -> None:
     """
     Create a TSV file containing the results of a Foldseek search.
@@ -128,6 +128,7 @@ def create_result_tsv(
         logdir (Path): Path to the directory where logs will be stored.
         foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
         structures (bool): Whether structures were input (not ProstT5)
+        threads (int): Number of threads to use.
 
     Returns:
         None
@@ -140,7 +141,7 @@ def create_result_tsv(
         target_db = f"{target_db}_gpu"
 
     
-    cmd = f"convertalis {query_db} {target_db} {result_db} {result_tsv} {format_string}"
+    cmd = f"convertalis {query_db} {target_db} {result_db} {result_tsv} {format_string} --threads {threads}"
 
     foldseek_createtsv = ExternalTool(
         tool="foldseek",
