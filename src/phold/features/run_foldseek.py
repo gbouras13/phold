@@ -16,7 +16,8 @@ def run_foldseek_search(
     max_seqs: int,
     ultra_sensitive: bool,
     extra_foldseek_params: str,
-    foldseek_gpu: bool
+    foldseek_gpu: bool,
+    structures: bool
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -39,19 +40,24 @@ def run_foldseek_search(
         None
     """
 
-    # need -a 1 to compute the alignment so tmscore and lddt can be output (if using --structures)
+    
 
     if ultra_sensitive:
-        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --exhaustive-search -a 1"
+        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --exhaustive-search"
     else:
-        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}  -a 1"
+        cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --max-seqs {max_seqs}"
 
     # support foldseek gpu only for the regular DB search for now
     if foldseek_gpu:
-        cmd = f"search {query_db} {target_db}_gpu {result_db} {temp_db} --threads {str(threads)} -e {evalue}  --gpu 1 --prefilter-mode 1 --max-seqs {max_seqs} -a 1"
+        cmd = f"search {query_db} {target_db}_gpu {result_db} {temp_db} --threads {str(threads)} -e {evalue}  --gpu 1 --prefilter-mode 1 --max-seqs {max_seqs}"
 
     if extra_foldseek_params:
         cmd += f" {extra_foldseek_params}"
+
+    # need -a 1 to compute the alignment so tmscore and lddt can be output (if using --structures)
+    if structures:
+        cmd += f" -a 1"
+
 
     foldseek_search = ExternalTool(
         tool="foldseek",
@@ -115,7 +121,7 @@ def run_foldseek_search(
 #     ExternalTool.run_tool(foldseek_search)
 
 def create_result_tsv(
-    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool,structures: bool, threads: int
+    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool, structures: bool, threads: int
 ) -> None:
     """
     Create a TSV file containing the results of a Foldseek search.

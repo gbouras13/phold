@@ -307,7 +307,8 @@ def subcommand_compare(
         max_seqs,
         ultra_sensitive,
         extra_foldseek_params,
-        foldseek_gpu
+        foldseek_gpu,
+        structures
     )
 
        
@@ -508,10 +509,10 @@ def subcommand_compare(
         evalue,
         sensitivity,
         max_seqs,
-        True, # only reps is true aka not a cluster search. Won't support custom cluster searches
         ultra_sensitive,
         extra_foldseek_params,
-        foldseek_gpu
+        foldseek_gpu,
+        structures
     )
 
       
