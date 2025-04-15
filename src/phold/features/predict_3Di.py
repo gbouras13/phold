@@ -238,26 +238,27 @@ def write_predictions(
         17: "V",
         18: "W",
         19: "Y",
-        20: "a",
-        21: "c",
-        22: "d",
-        23: "e",
-        24: "f",
-        25: "g",
-        26: "h",
-        27: "i",
-        28: "k",
-        29: "l",
-        30: "m",
-        31: "n",
-        32: "p",
-        33: "q",
-        34: "r",
-        35: "s",
-        36: "t",
-        37: "v",
-        38: "w",
-        39: "y"
+        20: "X" # fully mask the low confidence 3Di residues with X not lower case (not working for Foldseek v10, but X does)
+        # 20: "a",
+        # 21: "c",
+        # 22: "d",
+        # 23: "e",
+        # 24: "f",
+        # 25: "g",
+        # 26: "h",
+        # 27: "i",
+        # 28: "k",
+        # 29: "l",
+        # 30: "m",
+        # 31: "n",
+        # 32: "p",
+        # 33: "q",
+        # 34: "r",
+        # 35: "s",
+        # 36: "t",
+        # 37: "v",
+        # 38: "w",
+        # 39: "y"
     }
 
     mask_prop_threshold = mask_threshold/100
@@ -273,11 +274,11 @@ def write_predictions(
             }
 
 
-            # masking - adds 20
+            # masking - make the 3Di X=20
             for key, (pred, mean_prob, all_prob) in prediction_contig_dict.items():
                 for i in range(len(pred)):
                     if all_prob[0][i] < mask_prop_threshold:
-                        pred[i] += 20
+                        pred[i] = 20
 
             if proteins_flag is True:
                 # no contig_id
@@ -436,7 +437,7 @@ def get_embeddings(
     save_per_residue_embeddings: bool = False,
     save_per_protein_embeddings: bool = False,
     threads: int = 1,
-    mask_threshold: float = 50
+    mask_threshold: float = 0
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.

@@ -6,10 +6,9 @@ from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
 
-def convert_lowercase_low_confidence_aa(sequence, scores, threshold=0.5):
+def mask_low_confidence_aa(sequence, scores, threshold=0.5):
     """
-    Removes the stop codon (*) from the sequence and converts amino acids to lowercase 
-    if their corresponding ProstT5 confidence score is below the given threshold.
+    Masks all low confidence AA to X if their corresponding ProstT5 confidence score is below the given threshold.
 
     Parameters:
     sequence (str): The amino acid sequence.
@@ -19,8 +18,8 @@ def convert_lowercase_low_confidence_aa(sequence, scores, threshold=0.5):
     Returns:
     str: The modified amino acid sequence with low-confidence residues in lowercase.
     """
-    return "".join(aa.lower() if float(score) < threshold else aa 
-                   for aa, score in zip(sequence, *scores) if aa != '*')
+    return "".join('X' if float(score) < threshold else aa 
+                   for aa, score in zip(sequence, *scores))
 
 def subcommand_predict(
     gb_dict: dict,
@@ -171,6 +170,7 @@ def subcommand_predict(
     ########
     ## write the AA CDS to file
     ######
+
     with open(fasta_aa, "w+") as out_f:
         for contig_id, rest in cds_dict.items():
             aa_contig_dict = cds_dict[contig_id]
@@ -186,7 +186,7 @@ def subcommand_predict(
 
                 prot_seq = cds_feature.qualifiers['translation']
                 # prediction_contig_dict[seq_id][2] these are teh ProstT5 confidence scores from 0-1 - need to convert to list
-                prot_seq = convert_lowercase_low_confidence_aa(prot_seq, prediction_contig_dict[seq_id][2].tolist(), threshold=mask_prop_threshold)
+                prot_seq = mask_low_confidence_aa(prot_seq, prediction_contig_dict[seq_id][2].tolist(), threshold=mask_prop_threshold)
 
                 out_f.write(f"{prot_seq}\n")
 
