@@ -186,7 +186,13 @@ def subcommand_predict(
 
                 prot_seq = cds_feature.qualifiers['translation']
                 # prediction_contig_dict[seq_id][2] these are teh ProstT5 confidence scores from 0-1 - need to convert to list
-                prot_seq = mask_low_confidence_aa(prot_seq, prediction_contig_dict[seq_id][2].tolist(), threshold=mask_prop_threshold)
+
+                try:
+                    # this will fail if ProstT5 OOM fails (or fails for some other reason)
+                    prot_seq = mask_low_confidence_aa(prot_seq, prediction_contig_dict[seq_id][2].tolist(), threshold=mask_prop_threshold)
+                except (KeyError, IndexError):
+                    # in that case, just return 'X' aka masked proteins
+                    prot_seq = "X" * len(prot_seq)
 
                 out_f.write(f"{prot_seq}\n")
 
