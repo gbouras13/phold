@@ -117,7 +117,7 @@ def predict_options(func):
         ),
         click.option(
             "--mask_threshold",
-            default=0,
+            default=25,
             help="Masks 3Di residues below this value of ProstT5 confidence for Foldseek searches",
             type=float,
             show_default=True,
