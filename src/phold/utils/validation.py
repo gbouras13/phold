@@ -24,7 +24,7 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
 
     # validates input
     fasta_flag = False
-    gb_dict = get_genbank(input)
+    gb_dict, method = get_genbank(input)
     if not gb_dict:
         logger.warning(f"{input} was not a Genbank format file")
         logger.warning(
@@ -57,9 +57,9 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
             )
             fasta_flag = True
     else:
-        logger.info(f"Successfully parsed input {input} as a Genbank format file")
+        logger.info(f"Successfully parsed input {input} as a {method} style Genbank file.")
 
-    return fasta_flag, gb_dict
+    return fasta_flag, gb_dict, method
 
 
 def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:

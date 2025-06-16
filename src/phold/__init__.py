@@ -324,7 +324,7 @@ def run(
     database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # validate input
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # phold predict
     model_dir = database
@@ -342,6 +342,7 @@ def run(
 
     subcommand_predict(
         gb_dict,
+        method,
         output,
         prefix,
         cpu,
@@ -465,7 +466,7 @@ def predict(
     database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # runs phold predict subcommand
     model_dir = database
@@ -481,6 +482,7 @@ def predict(
 
     subcommand_predict(
         gb_dict,
+        method,
         output,
         prefix,
         cpu,
@@ -607,7 +609,7 @@ def compare(
     database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # validate fasta
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     subcommand_compare(
         gb_dict,
@@ -755,9 +757,11 @@ def proteins_predict(
         if vanilla:
             checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
 
+    method = "pharokka" # this can be whatever for proteins, it wont matter - it is for genbank input
 
     subcommand_predict(
         cds_dict,
+        method,
         output,
         prefix,
         cpu,
@@ -1021,7 +1025,7 @@ def remote(
     database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # Create a nested dictionary to store CDS features by contig ID
     cds_dict = {}
@@ -1405,7 +1409,7 @@ def plot(
     # single threaded plots
     threads = 1
 
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     gbk = Genbank(input)
 

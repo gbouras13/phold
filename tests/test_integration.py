@@ -42,6 +42,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
 run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
+run_gbk_bakta: Path = f"{output_dir}/run_gbk_ncbi_bakta"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
 run_gbk_pharokka_1_4_1_dir_extra: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
 run_gbk_pharokka_1_4_1_dir_custom: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
@@ -124,7 +125,7 @@ def test_run_genbank(gpu_available, threads):
     exec_command(cmd)
 
 def test_run_hyps(gpu_available, threads):
-    """test phold run with genbank input"""
+    """test phold run with --hyps"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hpys"
     if gpu_available is False:
@@ -136,6 +137,16 @@ def test_run_genbank_ncbi(gpu_available, threads):
     input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
     cmd = (
         f"phold run -i {input_gbk} -o {run_gbk_ncbi} -t {threads} -d {database_dir} -f"
+    )
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+def test_run_genbank_bakta(gpu_available, threads):
+    """test phold run with genbank input from bakta"""
+    input_gbk: Path = f"{test_data}/NC_043029_bakta.gbk"
+    cmd = (
+        f"phold run -i {input_gbk} -o {run_gbk_bakta} -t {threads} -d {database_dir} -f"
     )
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
@@ -211,15 +222,6 @@ def test_run_netflax(gpu_available, threads):
     exec_command(cmd)
 
 
-# def test_run_depolymerase(gpu_available, threads):
-#     """test phold run with phage contig with a depolymerase"""
-#     input_fasta: Path = f"{test_data}/PP476965.1_subset_depolymerase.fasta"
-#     cmd = f"phold run -i {input_fasta} -o {run_fasta_depolymerase_dir} -t {threads} -d {database_dir} -f"
-#     if gpu_available is False:
-#         cmd = f"{cmd} --cpu"
-#     exec_command(cmd)
-
-
 def test_predict_genbank(gpu_available, threads):
     """test phold predict with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
@@ -262,7 +264,6 @@ def test_compare_cif(threads):
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} -f"
     exec_command(cmd)
-
 
 def test_proteins_compare_pdb(threads):
     """test phold proteins-compare with cifs input"""
@@ -354,13 +355,14 @@ def test_remote_fasta(run_remote, threads):
 
 # class testFails(unittest.TestCase):
 #     """Tests for fails"""
-
-#     def test_dupe_header(self):
-#         """tests that pharokka exits if a duplicate header is passed"""
-#         with self.assertRaises(RuntimeError):
-#             input_fasta: Path = f"{standard_data}/dupe_header.fasta"
-#             cmd = f"pharokka.py -i {input_fasta} -d {database_dir} -o {temp_dir} -t 1 -f -m"
-#             exec_command(cmd)
+   
+#     def test_run_hyps_ncbi(gpu_available, threads):
+#         """test phold run with --hyps but not pharokka input"""
+#         input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
+#         cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hpys"
+#         if gpu_available is False:
+#             cmd = f"{cmd} --cpu"
+#         exec_command(cmd)
 
 
 remove_directory(output_dir)

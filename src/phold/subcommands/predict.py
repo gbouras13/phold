@@ -23,6 +23,7 @@ def mask_low_confidence_aa(sequence, scores, threshold=0.5):
 
 def subcommand_predict(
     gb_dict: dict,
+    method: str,
     output: Path,
     prefix: str,
     cpu: bool,
@@ -44,6 +45,7 @@ def subcommand_predict(
 
     Args:
         gb_dict (Dict[str, any]): Dictionary containing GenBank records.
+        method (str): "pharokka", "bakta" or "ncbi" - input format
         output (str): Output directory path.
         prefix (str): Prefix for output file names.
         cpu (bool): Flag indicating whether to use CPU for prediction.
@@ -67,7 +69,13 @@ def subcommand_predict(
     #########
 
     if hyps:
-        logger.info(f"You have used --hyps. Only unknown function proteins from your Pharokka input Genbank will be extracted and annotated with Phold.")
+        if method == "Pharokka":
+            logger.info(f"You have used --hyps and a Pharokka style input Genbank was detected.")
+            logger.info("Only unknown function proteins from your Pharokka input Genbank will be extracted and annotated with Phold.")
+        else:
+            logger.warning("You can specified --hyps but your input Genbank file is not a Pharokka style input Genbank file.")
+            logger.warning("Ignoring --hyps: all input CDS will be annotated with Phold.")
+
 
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
@@ -84,49 +92,72 @@ def subcommand_predict(
                 if cds_feature.type == "CDS":
                     # due to the weird list issue when parsing from genbank file
                     if fasta_flag is False:
+
                         cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
-                            "translation"
-                        ][0]
+                            "translation"][0]
 
-                        # first try Pharokka (ID)
-                        try:
-                            cds_id = cds_feature.qualifiers["ID"][
-                                0
-                            ]  # if this breaks, will mean not Pharokka input
-
-                            # If hyps is True and 'phrog' is not present, skip this feature
-                            if hyps: 
-                                if "phrog" not in cds_feature.qualifiers:
-                                    logger.error("You can specified --hyps but your input Genbank does not appear to be a Pharokka genbank. Please check your input.")
-                            
-                                if cds_feature.qualifiers["function"][0] != "unknown function":
-                                    logger.info(f"Skipping {cds_id} as it has a known function from Pharokka")
-                                    continue
-                             
-                        except:
-                            # next try GeNbank/NCBI (uses protein_id)
+                        if method == "Pharokka":
                             try:
-                                # add these extra fields to make it all play nice
-                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
-                                    "protein_id"
-                                ]
-                                cds_feature.qualifiers["function"] = []
-                                cds_feature.qualifiers["function"].append(
-                                    "unknown function"
-                                )
-                                cds_feature.qualifiers["phrog"] = []
-                                cds_feature.qualifiers["phrog"].append("No_PHROG")
+                                cds_id = cds_feature.qualifiers["ID"][
+                                    0
+                                ]  # if this breaks, will mean not Pharokka input
 
-                                cds_id = cds_feature.qualifiers["ID"][0]
-
-                                cds_dict[record_id][
-                                    cds_feature.qualifiers["ID"][0]
-                                ] = cds_feature
+                                if hyps:  
+                                    if cds_feature.qualifiers["function"][0] != "unknown function":
+                                        logger.info(f"Skipping {cds_id} as it has a known function from Pharokka")
+                                        continue
                             except:
                                 logger.error(
-                                    f"Feature {cds_feature} has no 'ID' or 'protein_id' qualifier in the Genbank file. Please add one in."
+                                    f"Feature {cds_feature} has no 'ID' qualifier in the Genbank file despite being likely Pharokka origin. Please check your input Genbank file."
                                 )
+                        else:
+                            # next try Genbank/NCBI (uses protein_id)
+                            if method == "NCBI":
+                                try:
+                                    # add these extra fields to make it all play nice
+                                    cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
+                                        "protein_id"
+                                    ]
+                                    cds_feature.qualifiers["function"] = []
+                                    cds_feature.qualifiers["function"].append(
+                                        "unknown function"
+                                    )
+                                    cds_feature.qualifiers["phrog"] = []
+                                    cds_feature.qualifiers["phrog"].append("No_PHROG")
 
+                                    cds_id = cds_feature.qualifiers["ID"][0]
+
+                                    cds_dict[record_id][
+                                        cds_feature.qualifiers["ID"][0]
+                                    ] = cds_feature
+                                except:
+                                    logger.error(
+                                        f"Feature {cds_feature} has no 'protein_ID' qualifier in the Genbank file despite being detected as being likely NCBI Refseq style. Please add one in."
+                                    )
+                             # finally try bakta (use locus_tag)
+                            if method == "Bakta":
+                                try:
+                                    # add these extra fields to make it all play nice
+                                    cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
+                                        "locus_tag"
+                                    ]
+                                    cds_feature.qualifiers["function"] = []
+                                    cds_feature.qualifiers["function"].append(
+                                        "unknown function"
+                                    )
+                                    cds_feature.qualifiers["phrog"] = []
+                                    cds_feature.qualifiers["phrog"].append("No_PHROG")
+
+                                    cds_id = cds_feature.qualifiers["locus_tag"][0]
+
+                                    cds_dict[record_id][
+                                        cds_feature.qualifiers["locus_tag"][0]
+                                    ] = cds_feature
+                                except:
+                                    logger.error(
+                                        f"Feature {cds_feature} has no 'locus_tag' qualifier in the Genbank file despite being detected as being likely bakta origin. Please check your input Genbank file."
+                                    )
+                        # append CDS
                         cds_dict[record_id][cds_id] = cds_feature
 
                     else:
