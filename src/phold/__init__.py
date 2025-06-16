@@ -132,6 +132,11 @@ def predict_options(func):
             is_flag=True,
             help="Use vanilla CNN model (trained on CASP14) instead of the one trained on phage proteins",
         ),
+        click.option(
+            "--hyps",
+            is_flag=True,
+            help="Use this to only annotate hypothetical proteins from a Pharokka genbank input",
+        )
     ]
     for option in reversed(options):
         func = option(func)
@@ -268,6 +273,7 @@ def run(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    hyps,
     finetune,
     vanilla,
     **kwargs,
@@ -303,6 +309,7 @@ def run(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--hyps": hyps,
         "--finetune": finetune,
         "--vanilla": vanilla
     }
@@ -348,7 +355,8 @@ def run(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
+        hyps=hyps
     )
 
     # phold compare
@@ -375,7 +383,7 @@ def run(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu,
+        foldseek_gpu=foldseek_gpu
     )
 
     # cleanup the temp files
@@ -421,6 +429,7 @@ def predict(
     mask_threshold,
     finetune,
     vanilla,
+    hyps,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -445,7 +454,8 @@ def predict(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--mask_threshold": mask_threshold,
         "--finetune": finetune,
-        "--vanilla": vanilla
+        "--vanilla": vanilla,
+        "--hyps": hyps
     }
 
     # initial logging etc
@@ -484,7 +494,8 @@ def predict(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
+        hyps=hyps
     )
 
     # end phold
@@ -551,6 +562,7 @@ def compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    hyps,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -619,7 +631,7 @@ def compare(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=foldseek_gpu
+        foldseek_gpu=foldseek_gpu,
     )
 
     # cleanup the temp files
@@ -759,7 +771,8 @@ def proteins_predict(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
+        hyps=False # always False for this as no Pharokka genbank to parse on input
     )
 
     # end phold
@@ -822,7 +835,6 @@ def proteins_compare(
     filter_structures,
     keep_tmp_files,
     card_vfdb_evalue,
-    separate,
     max_seqs,
     ultra_sensitive,
     extra_foldseek_params,
@@ -858,7 +870,7 @@ def proteins_compare(
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
-        "--foldseek_gpu": foldseek_gpu
+        "--foldseek_gpu": foldseek_gpu,
     }
 
     # initial logging etc

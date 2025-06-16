@@ -36,7 +36,8 @@ def subcommand_predict(
     save_per_residue_embeddings: bool,
     save_per_protein_embeddings: bool,
     threads: int,
-    mask_threshold: float
+    mask_threshold: float,
+    hyps: bool
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -65,6 +66,9 @@ def subcommand_predict(
     # make nested dictionary
     #########
 
+    if hyps:
+        logger.info(f"You have used --hyps. Only unknown function proteins from your Pharokka input Genbank will be extracted and annotated with Phold.")
+
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
     # if proteins, already done and passed as gb_dict
@@ -89,6 +93,16 @@ def subcommand_predict(
                             cds_id = cds_feature.qualifiers["ID"][
                                 0
                             ]  # if this breaks, will mean not Pharokka input
+
+                            # If hyps is True and 'phrog' is not present, skip this feature
+                            if hyps: 
+                                if "phrog" not in cds_feature.qualifiers:
+                                    logger.error("You can specified --hyps but your input Genbank does not appear to be a Pharokka genbank. Please check your input.")
+                            
+                                if cds_feature.qualifiers["function"][0] != "unknown function":
+                                    logger.info(f"Skipping {cds_id} as it has a known function from Pharokka")
+                                    continue
+                             
                         except:
                             # next try GeNbank/NCBI (uses protein_id)
                             try:

@@ -40,6 +40,7 @@ output_dir = Path(f"{test_data}/outputs")
 dummy_custom_db = Path(f"{test_data}/dummy_custom_db/dummy_db")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
+run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
 run_gbk_pharokka_1_4_1_dir_extra: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
@@ -122,6 +123,13 @@ def test_run_genbank(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_run_hyps(gpu_available, threads):
+    """test phold run with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hpys"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_run_genbank_ncbi(gpu_available, threads):
     """test phold run with genbank input from NCBI"""
