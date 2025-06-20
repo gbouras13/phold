@@ -564,7 +564,6 @@ def compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    hyps,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
