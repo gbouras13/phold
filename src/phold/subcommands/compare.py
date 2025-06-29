@@ -43,7 +43,8 @@ def subcommand_compare(
     ultra_sensitive: bool,
     extra_foldseek_params: str,
     custom_db: str,
-    foldseek_gpu: bool
+    foldseek_gpu: bool,
+    clustered_db: bool
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -271,6 +272,10 @@ def subcommand_compare(
 
     database_name = "all_phold_structures"
 
+    if clustered_db:
+        database_name = "all_phold_structures_clustered_searchDB"
+
+
     if short_db_name == database_name:
         logger.error(
             f"Please choose a different {prefix} as this conflicts with the {database_name}"
@@ -308,7 +313,8 @@ def subcommand_compare(
         ultra_sensitive,
         extra_foldseek_params,
         foldseek_gpu,
-        structures
+        structures,
+        clustered_db
     )
 
        
@@ -512,7 +518,8 @@ def subcommand_compare(
         ultra_sensitive,
         extra_foldseek_params,
         foldseek_gpu,
-        structures
+        structures,
+        clustered_db=False
     )
 
       

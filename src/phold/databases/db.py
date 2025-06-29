@@ -136,18 +136,23 @@ PHOLD_DB_FOLDSEEK_GPU_NAMES = [
     "all_phold_structures_gpu"
 ]
 
-def install_database(db_dir: Path, foldseek_gpu: bool) -> None:
+PHOLD_DB_FOLDSEEK_GPU_CLUSTERED_NAMES = [
+    "all_phold_structures_clustered_searchDB_gpu"
+]
+
+def install_database(db_dir: Path, foldseek_gpu: bool, clustered_db: bool) -> None:
     """
     Install the Phold database.
 
     Args:
         db_dir Path: The directory where the database should be installed.
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
+        clustered_db bool: Whether to install foldseek-gpu compatible phold db clustered (for benchmarking)
     """
 
     # check the database is installed
     logger.info(f"Checking Phold database installation in {db_dir}.")
-    downloaded_flag, gpu_flag = check_db_installation(db_dir, foldseek_gpu)
+    downloaded_flag, gpu_flag = check_db_installation(db_dir, foldseek_gpu, clustered_db)
     if downloaded_flag:
         logger.info("All Phold databases files are present")
     else:
@@ -185,7 +190,7 @@ def install_database(db_dir: Path, foldseek_gpu: bool) -> None:
         else:
             logger.info("Some Phold database files compatible with Foldseek-GPU are missing")
             logger.info("Creating them")
-            foldseek_makepaddedseqdb(db_dir)
+            foldseek_makepaddedseqdb(db_dir, clustered_db)
 
 
 
@@ -387,13 +392,14 @@ def untar(tarball_path: Path, output_path: Path) -> None:
         logger.error(f"Could not extract {tarball_path} to {output_path}")
 
 
-def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
+def check_db_installation(db_dir: Path, foldseek_gpu: bool, clustered_db: bool) -> bool:
     """
     Check if the Phold database is installed.
 
     Args:
         db_dir Path: The directory where the database is installed.
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
+        clustered_db bool: Whether to install foldseek-gpu compatible phold clustered db
 
     Returns:
         bool: True if all required files are present, False otherwise.
@@ -415,10 +421,18 @@ def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
                 gpu_flag = False
                 break 
 
+    if clustered_db:
+        for file_name in PHOLD_DB_FOLDSEEK_GPU_CLUSTERED_NAMES:
+            path = Path(db_dir) / file_name
+            if not path.is_file():
+                logger.warning(f"Phold Foldseek-GPU Clustered Database file {path} is missing")
+                gpu_flag = False
+                break 
+
     return downloaded_flag, gpu_flag
 
 
-def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
+def validate_db(database: str, default_dir: str, foldseek_gpu: bool, clustered_db: bool) -> Path:
     """
     Validates the Phold database is installed.
 
@@ -426,6 +440,7 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
         database str: The directory where the database is installed.
         default_dir str: Default DB location
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
+        clustered_db bool: Whether to install foldseek-gpu compatible phold clustered DB
 
     Returns:
         bool: True if all required files are present, False otherwise.
@@ -438,7 +453,7 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
 
     # check the database is installed
     logger.info(f"Checking Phold database installation in {database}")
-    downloaded_flag, gpu_flag = check_db_installation(database, foldseek_gpu)
+    downloaded_flag, gpu_flag = check_db_installation(database, foldseek_gpu, clustered_db)
     if downloaded_flag == True:
         logger.info("All Phold databases files are present")
     else:
@@ -479,22 +494,24 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
 #     ExternalTool.run_tool(foldseek_createdb_gpu)
 #     remove_directory(tmp_dir)
 
-def foldseek_makepaddedseqdb(db_dir: Path) -> None:
+def foldseek_makepaddedseqdb(db_dir: Path, clustered_db: bool) -> None:
 
-    # this is how you would do it for a cluster db
-    # phold_db_clu_search = Path(db_dir) / "all_phold_structures_clustered_searchDB"
-    # phold_db_clu_search_gpu = Path(db_dir) / "all_phold_structures_clustered_searchDB_gpu"
-    # logdir = Path(db_dir) / "logdir"
+    if clustered_db:
 
-    # foldseek_makepaddedseqdb = ExternalTool(
-    #     tool="foldseek",
-    #     input=f"",
-    #     output=f"",
-    #     params=f"makepaddedseqdb {phold_db_clu_search} {phold_db_clu_search_gpu} --cluster-search 1",
-    #     logdir=logdir,
-    # )
+        #this is how you would do it for a cluster db
+        phold_db_clu_search = Path(db_dir) / "all_phold_structures_clustered_searchDB"
+        phold_db_clu_search_gpu = Path(db_dir) / "all_phold_structures_clustered_searchDB_gpu"
+        logdir = Path(db_dir) / "logdir"
 
-    # ExternalTool.run_tool(foldseek_makepaddedseqdb)
+        foldseek_makepaddedseqdb = ExternalTool(
+            tool="foldseek",
+            input=f"",
+            output=f"",
+            params=f"makepaddedseqdb {phold_db_clu_search} {phold_db_clu_search_gpu} --cluster-search 1",
+            logdir=logdir,
+        )
+
+        ExternalTool.run_tool(foldseek_makepaddedseqdb)
 
     phold_db_search = Path(db_dir) / "all_phold_structures"
     phold_db_search_gpu = Path(db_dir) / "all_phold_structures_gpu"

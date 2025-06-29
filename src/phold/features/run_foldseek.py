@@ -17,7 +17,8 @@ def run_foldseek_search(
     ultra_sensitive: bool,
     extra_foldseek_params: str,
     foldseek_gpu: bool,
-    structures: bool
+    structures: bool,
+    clustered_db: bool
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -35,6 +36,8 @@ def run_foldseek_search(
         ultra_sensitive (bool): Whether to skip foldseek prefilter for maximum sensitivity
         extra_foldseek_params (str): Extra foldseek search params
         foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
+        structures (bool): Run Foldseek with structures, not ProstT5 3Dis
+        clustered_db (bool): Run Foldseek with clustered DB (for benchmarking)
 
     Returns:
         None
@@ -57,6 +60,9 @@ def run_foldseek_search(
     # need -a 1 to compute the alignment so tmscore and lddt can be output (if using --structures)
     if structures:
         cmd += f" -a 1"
+
+    if clustered_db:
+       cmd += f" --cluster-search 1"
 
 
     foldseek_search = ExternalTool(
