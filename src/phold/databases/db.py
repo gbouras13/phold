@@ -496,6 +496,20 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool, clustered_d
 
 def foldseek_makepaddedseqdb(db_dir: Path, clustered_db: bool) -> None:
 
+    phold_db_search = Path(db_dir) / "all_phold_structures"
+    phold_db_search_gpu = Path(db_dir) / "all_phold_structures_gpu"
+    logdir = Path(db_dir) / "logdir"
+
+    foldseek_makepaddedseqdb = ExternalTool(
+        tool="foldseek",
+        input=f"",
+        output=f"",
+        params=f"makepaddedseqdb {phold_db_search} {phold_db_search_gpu}",
+        logdir=logdir,
+    )
+
+    ExternalTool.run_tool(foldseek_makepaddedseqdb)
+
     if clustered_db:
 
         #this is how you would do it for a cluster db
@@ -513,16 +527,4 @@ def foldseek_makepaddedseqdb(db_dir: Path, clustered_db: bool) -> None:
 
         ExternalTool.run_tool(foldseek_makepaddedseqdb)
 
-    phold_db_search = Path(db_dir) / "all_phold_structures"
-    phold_db_search_gpu = Path(db_dir) / "all_phold_structures_gpu"
-    logdir = Path(db_dir) / "logdir"
-
-    foldseek_makepaddedseqdb = ExternalTool(
-        tool="foldseek",
-        input=f"",
-        output=f"",
-        params=f"makepaddedseqdb {phold_db_search} {phold_db_search_gpu}",
-        logdir=logdir,
-    )
-
-    ExternalTool.run_tool(foldseek_makepaddedseqdb)
+    
