@@ -8,7 +8,7 @@
 
 Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5 with `phold compare`.
 
-The `phold` databse consists of over 1.36 million protein structures from the following databases:
+The `phold` databse consists of over 1.36 million protein structures generated using [Colabfold](https://github.com/sokrypton/ColabFold) and [ESMFold](https://github.com/facebookresearch/esm) from the following databases:
 
 * [PHROGs](https://phrogs.lmge.uca.fr) — 441,177 de-deuplicated proteins. Proteins over 3000AA were chunked into equal components such that each fragment was under 3k.
 * [enVhogs](http://envhog.u-ga.fr/envhog/) — 562,369 proteins from the ~2.2M ENVHOGs <3000AA that were assigned a PHROG.
