@@ -328,7 +328,7 @@ def run(
     check_dependencies()
 
     # check the database is installed and return it
-    database = validate_db(database, DB_DIR, foldseek_gpu)
+    database = validate_db(database, DB_DIR, foldseek_gpu, clustered_db)
 
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
