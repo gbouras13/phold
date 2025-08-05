@@ -10,11 +10,11 @@ If you have a local workstation without a GPU, please use `phold run` with `--cp
 
 If you have trouble running ProstT5, please use `phold remote`.
 
-If you are having troubing runing `phold` offline after installation (e.g. on a HPC), please add `TRANSFORMERS_OFFLINE=True` to your environment. 
+If you are having troubing runing `phold` offline after installation (e.g. on a HPC), you may need to add `TRANSFORMERS_OFFLINE=True` to your environment. 
 
 ## Input 
 
-Most subcommands of `phold` takes as their input an entry Genbank formatted file that contains the output of [`pharokka`](https://github.com/gbouras13/pharokka) for your phage or phage contigs. This will be called `pharokka.gbk` by default in your pharokka output.
+Most subcommands of `phold` takes as their input an entry GenBank formatted file that contains the output of [`pharokka`](https://github.com/gbouras13/pharokka) for your phage or phage contigs. This will be called `pharokka.gbk` by default in your pharokka output. `phold` will also accept [`bakta`](https://github.com/oschwengers/bakta) GenBank or NCBI RefSeq GenBank format input.
 
 Alternatively, `phold` will detect if the input is a FASTA contig/genome file as input. If so, [Pyrodigal-gv](https://github.com/althonos/pyrodigal-gv]) will then be run to quickly predict the CDS and these will be annotated. However, neither tRNAs, tmRNA nor CRISPR repeats will be predicted (unlike in pharokka) for now.
 
@@ -24,7 +24,7 @@ For `phold proteins-predict` and `phold proteins-compare`, the input will be a F
 
 ### `phold predict`
 
-`predict` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [foldseek](https://github.com/steineggerlab/foldseek). This module is greatly accelerated if you have a GPU available and is recommended
+`predict` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [foldseek](https://github.com/steineggerlab/foldseek). This module is greatly accelerated if you have a GPU available and is recommended.
 
 ```bash
 Usage: phold predict [OPTIONS]
@@ -44,14 +44,23 @@ Options:
   --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
                                  [default: 1]
   --cpu                          Use cpus only.
-  --omit_probs                   Do not output 3Di probabilities from ProstT5
-  --finetune                     Use finetuned ProstT5 model (PhrostT5).
-                                 Experimental and not recommended for now
-  --finetune_path TEXT           Path to finetuned model weights
+  --omit_probs                   Do not output per residue 3Di probabilities
+                                 from ProstT5. Mean per protein 3Di
+                                 probabilities will always be output.
   --save_per_residue_embeddings  Save the ProstT5 embeddings per resuide in a
                                  h5 file
   --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
                                  protein in a h5 file
+  --mask_threshold FLOAT         Masks 3Di residues below this value of
+                                 ProstT5 confidence for Foldseek searches
+                                 [default: 25]
+  --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
+                                 model both finetuned on phage proteins
+  --vanilla                      Use vanilla CNN model (trained on CASP14)
+                                 with ProstT5Phold encoder instead of the one
+                                 trained on phage proteins
+  --hyps                         Use this to only annotate hypothetical
+                                 proteins from a Pharokka GenBank input
 ```
 
 Example usage (assuming you have run `phold install`)
@@ -66,15 +75,15 @@ phold predict -i pharokka.gbk -o phold_predict_output
 
 Alternatively, if you have provided pre-generated .pdb format protein structures for you proteins, you can specify those by specifiying `--structures --structure_dir <directory>`. 
 
-`phold compare` does not use a GPU. Use as many CPU threads with `-t` as you can.
+`phold compare` does not use a GPU by default. However, if you have one available, you can utilise Foldseek-GPU acceleration using `--foldseek_gpu`. Note that you need to make sure your also run `phold install` with `--foldseek_gpu` prior. Regardless of whether you use `--foldseek_gpu` or not, it is recommended to use as many CPU threads with `-t` as you can (as the GPU only accelerates Foldseek's prefilter, not the alignment step).
 
-Example usage following `phold predict`
+Example usage of `phold compare` following `phold predict`
 
 ```bash
 phold compare -i pharokka.gbk -o phold_compare_output  --predictions_dir phold_predict_output
 ```
 
-Example usage if you have .pdb format structures available for your phage proteins (note: the .pdb file names must be called cds_id.pdb, where cds_id is the CDS ids output from Pharokka). You can see an example in the `tests/test_data/NC_043029_pdbs` directory [here](https://github.com/gbouras13/phold/tree/main/tests/test_data/NC_043029_pdbs).
+Example usage if you have `.pdb` or `.cif` format structures available for your phage proteins (note: the .pdb file names must be called cds_id.pdb, where cds_id is the CDS ids output from Pharokka). You can see an example in the `tests/test_data/NC_043029_pdbs` directory [here](https://github.com/gbouras13/phold/tree/main/tests/test_data/NC_043029_pdbs).
 
 
 ```bash
@@ -85,58 +94,63 @@ phold compare -i pharokka.gbk -o phold_compare_output_pdb  --pdb --pdb_dir direc
 Usage: phold compare [OPTIONS]
 
   Runs Foldseek vs phold db
+
 Options:
-  -h, --help                Show this message and exit.
-  -V, --version             Show the version and exit.
-  -i, --input PATH          Path to input file in Genbank format or nucleotide
-                            FASTA format  [required]
-  --predictions_dir PATH    Path to output directory from phold predict
-  --structures              Use if you have .pdb or .cif file structures for
-                            the input proteins (e.g. with AF2/Colabfold .pdb
-                            or AF3 for .cif) in a directory that you specify
-                            with --structure_dir
-  --structure_dir PATH      Path to directory with .pdb or .cif file
-                            structures. The CDS IDs need to be in the name of
-                            the file
-  --filter_structures       Flag that creates a copy of the .pdb or .cif files
-                            structures with matching record IDs found in the
-                            input GenBank file. Helpful if you have a
-                            directory with lots of .pdb files and want to
-                            annotate only e.g. 1 phage.
-  -o, --output PATH         Output directory   [default: output_phold]
-  -t, --threads INTEGER     Number of threads  [default: 1]
-  -p, --prefix TEXT         Prefix for output files  [default: phold]
-  -d, --database TEXT       Specific path to installed phold database
-  -f, --force               Force overwrites the output directory
-  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
-  -s, --sensitivity FLOAT   Sensitivity parameter for foldseek  [default: 9.5]
-  --keep_tmp_files          Keep temporary intermediate files, particularly
-                            the large foldseek_results.tsv of all Foldseek
-                            hits
-  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
-                            VFDB hits  [default: 1e-10]
-  --separate                Output separate GenBank files for each contig
-  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
-                            the prefilter. You may want to reduce this to save
-                            disk space for enormous datasets  [default: 10000]
-  --only_representatives    Foldseek search only against the cluster
-                            representatives (i.e. turn off --cluster-search 1
-                            Foldseek parameter)
-  --ultra_sensitive         Runs phold with maximum sensitivity by skipping
-                            Foldseek prefilter. Not recommended for large
-                            datasets.
+  -h, --help                    Show this message and exit.
+  -V, --version                 Show the version and exit.
+  -i, --input PATH              Path to input file in Genbank format or
+                                nucleotide FASTA format  [required]
+  --predictions_dir PATH        Path to output directory from phold predict
+  --structures                  Use if you have .pdb or .cif file structures
+                                for the input proteins (e.g. with
+                                AF2/Colabfold .pdb or AF3 for .cif) in a
+                                directory that you specify with
+                                --structure_dir
+  --structure_dir PATH          Path to directory with .pdb or .cif file
+                                structures. The CDS IDs need to be in the name
+                                of the file
+  --filter_structures           Flag that creates a copy of the .pdb or .cif
+                                files structures with matching record IDs
+                                found in the input GenBank file. Helpful if
+                                you have a directory with lots of .pdb files
+                                and want to annotate only e.g. 1 phage.
+  -o, --output PATH             Output directory   [default: output_phold]
+  -t, --threads INTEGER         Number of threads  [default: 1]
+  -p, --prefix TEXT             Prefix for output files  [default: phold]
+  -d, --database TEXT           Specific path to installed phold database
+  -f, --force                   Force overwrites the output directory
+  -e, --evalue FLOAT            Evalue threshold for Foldseek  [default: 1e-3]
+  -s, --sensitivity FLOAT       Sensitivity parameter for foldseek  [default:
+                                9.5]
+  --keep_tmp_files              Keep temporary intermediate files,
+                                particularly the large foldseek_results.tsv of
+                                all Foldseek hits
+  --card_vfdb_evalue FLOAT      Stricter E-value threshold for Foldseek CARD
+                                and VFDB hits  [default: 1e-10]
+  --separate                    Output separate GenBank files for each contig
+  --max_seqs INTEGER            Maximum results per query sequence allowed to
+                                pass the prefilter. You may want to reduce
+                                this to save disk space for enormous datasets
+                                [default: 1000]
+  --ultra_sensitive             Runs phold with maximum sensitivity by
+                                skipping Foldseek prefilter. Not recommended
+                                for large datasets.
+  --extra_foldseek_params TEXT  Extra foldseek search params
+  --custom_db TEXT              Path to custom database
+  --foldseek_gpu                Use this to enable compatibility with
+                                Foldseek-GPU search acceleration
 ```
 
 ### `phold run`
 
-`phold run` runs `phold predict` and `phold compare` together in one command. Recommended if you are running `phold` on a local workstation with an available GPU.
+`phold run` runs `phold predict` and `phold compare` together in one command. Recommended if you are running `phold` on a local workstation with an available GPU. If you have an NVIDIA GPU, `--foldseek_gpu` is recommended to accelerate Foldseek.
 
 Also recommended if you are running `phold` in a low-resource environment without a GPU e.g. with a laptop - you will also need to specify `--cpu`.
 
-Example usage where GPU is available:
+Example usage where NVIDIA GPU is available:
 
 ```bash
-phold run -i pharokka.gbk -o phold_output  -t 8
+phold run -i pharokka.gbk -o phold_output  -t 8 --foldseek_gpu
 ```
 
 ```bash
@@ -145,33 +159,56 @@ Usage: phold run [OPTIONS]
   phold predict then comapare all in one - GPU recommended
 
 Options:
-  -h, --help                Show this message and exit.
-  -V, --version             Show the version and exit.
-  -i, --input PATH          Path to input file in Pharokka Genbank format or
-                            nucleotide FASTA format  [required]
-  -o, --output PATH         Output directory   [default: output_phold]
-  -t, --threads INTEGER     Number of threads  [default: 1]
-  -p, --prefix TEXT         Prefix for output files  [default: phold]
-  -d, --database TEXT       Specific path to installed phold database
-  -f, --force               Force overwrites the output directory
-  --batch_size INTEGER      batch size for ProstT5  [default: 1]
-  --cpu                     Use cpus only with ProstT5
-  --omit_probs              Do not output 3Di probabilities from ProstT5
-  --finetune                Use finetuned ProstT5 model
-  --finetune_path TEXT      Path to finetuned model weights
-  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
-  -s, --sensitivity FLOAT   sensitivity parameter for foldseek  [default: 9.5]
-  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
-                            VFDB hits  [default: 1e-10]
-  --separate                output separate genbank files for each contig
-  --keep_tmp_files          Keep temporary intermediate files, particularly
-                            the large foldseek_results.tsv of all Foldseek
-                            hits
-  --split                   Split the Foldseek runs by ProstT5 probability
-  --split_threshold FLOAT   ProstT5 Probability to split by  [default: 60]
-  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
-                            the prefilter. You may want to reduce this to save
-                            disk space for enormous datasets  [default: 1000]
+  -h, --help                     Show this message and exit.
+  -V, --version                  Show the version and exit.
+  -i, --input PATH               Path to input file in Genbank format or
+                                 nucleotide FASTA format  [required]
+  -o, --output PATH              Output directory   [default: output_phold]
+  -t, --threads INTEGER          Number of threads  [default: 1]
+  -p, --prefix TEXT              Prefix for output files  [default: phold]
+  -d, --database TEXT            Specific path to installed phold database
+  -f, --force                    Force overwrites the output directory
+  --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
+                                 [default: 1]
+  --cpu                          Use cpus only.
+  --omit_probs                   Do not output per residue 3Di probabilities
+                                 from ProstT5. Mean per protein 3Di
+                                 probabilities will always be output.
+  --save_per_residue_embeddings  Save the ProstT5 embeddings per resuide in a
+                                 h5 file
+  --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
+                                 protein in a h5 file
+  --mask_threshold FLOAT         Masks 3Di residues below this value of
+                                 ProstT5 confidence for Foldseek searches
+                                 [default: 25]
+  --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
+                                 model both finetuned on phage proteins
+  --vanilla                      Use vanilla CNN model (trained on CASP14)
+                                 with ProstT5Phold encoder instead of the one
+                                 trained on phage proteins
+  --hyps                         Use this to only annotate hypothetical
+                                 proteins from a Pharokka GenBank input
+  -e, --evalue FLOAT             Evalue threshold for Foldseek  [default:
+                                 1e-3]
+  -s, --sensitivity FLOAT        Sensitivity parameter for foldseek  [default:
+                                 9.5]
+  --keep_tmp_files               Keep temporary intermediate files,
+                                 particularly the large foldseek_results.tsv
+                                 of all Foldseek hits
+  --card_vfdb_evalue FLOAT       Stricter E-value threshold for Foldseek CARD
+                                 and VFDB hits  [default: 1e-10]
+  --separate                     Output separate GenBank files for each contig
+  --max_seqs INTEGER             Maximum results per query sequence allowed to
+                                 pass the prefilter. You may want to reduce
+                                 this to save disk space for enormous datasets
+                                 [default: 1000]
+  --ultra_sensitive              Runs phold with maximum sensitivity by
+                                 skipping Foldseek prefilter. Not recommended
+                                 for large datasets.
+  --extra_foldseek_params TEXT   Extra foldseek search params
+  --custom_db TEXT               Path to custom database
+  --foldseek_gpu                 Use this to enable compatibility with
+                                 Foldseek-GPU search acceleration
 ```
 
 ### `phold proteins-predict`
@@ -201,14 +238,23 @@ Options:
   --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
                                  [default: 1]
   --cpu                          Use cpus only.
-  --omit_probs                   Do not output 3Di probabilities from ProstT5
-  --finetune                     Use finetuned ProstT5 model (PhrostT5).
-                                 Experimental and not recommended for now
-  --finetune_path TEXT           Path to finetuned model weights
+  --omit_probs                   Do not output per residue 3Di probabilities
+                                 from ProstT5. Mean per protein 3Di
+                                 probabilities will always be output.
   --save_per_residue_embeddings  Save the ProstT5 embeddings per resuide in a
                                  h5 file
   --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
                                  protein in a h5 file
+  --mask_threshold FLOAT         Masks 3Di residues below this value of
+                                 ProstT5 confidence for Foldseek searches
+                                 [default: 25]
+  --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
+                                 model both finetuned on phage proteins
+  --vanilla                      Use vanilla CNN model (trained on CASP14)
+                                 with ProstT5Phold encoder instead of the one
+                                 trained on phage proteins
+  --hyps                         Use this to only annotate hypothetical
+                                 proteins from a Pharokka GenBank input
 ```
 
 ### `phold proteins-compare`

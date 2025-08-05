@@ -524,7 +524,6 @@ def subcommand_compare(
 
       
     
-    
         # make result tsv
         create_result_tsv(query_db, Path(custom_db), result_db_custom,  result_tsv_custom, logdir, foldseek_gpu, structures, threads)
 

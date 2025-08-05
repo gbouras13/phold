@@ -34,6 +34,7 @@ from loguru import logger
 # test data
 test_data = Path("tests/test_data")
 database_dir = Path(f"{test_data}/phold_db")
+ext_database_dir = Path(f"{test_data}/phold_db_3M16")
 pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 cif_dir = Path(f"{test_data}/NC_043029_af3_cif")
 output_dir = Path(f"{test_data}/outputs")
@@ -110,11 +111,15 @@ def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
     return out.decode("utf8") if out is not None else None
 
 
-def test_install():
+def test_install(threads):
     """test phold install"""
-    cmd = f"phold install -d {database_dir}"
+    cmd = f"phold install -d {database_dir} -t {threads}"
     exec_command(cmd)
 
+def test_install_extended(threads):
+    """test phold install"""
+    cmd = f"phold install -d {ext_database_dir} -t {threads} --extended_db"
+    exec_command(cmd)
 
 def test_run_genbank(gpu_available, threads):
     """test phold run with genbank input"""
@@ -127,7 +132,7 @@ def test_run_genbank(gpu_available, threads):
 def test_run_hyps(gpu_available, threads):
     """test phold run with --hyps"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
-    cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hpys"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hyps"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)

@@ -573,6 +573,10 @@ def get_topcustom_hits(
         "tLen",
     ]
 
+    # tmscore and lddt computed
+    if structures:
+        col_list += ["alntmscore", "lddt"]
+
     foldseek_df = pd.read_csv(
         result_tsv, delimiter="\t", index_col=False, names=col_list
     )
@@ -592,6 +596,8 @@ def get_topcustom_hits(
         foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
             ":", expand=True, n=1
         )
+        # dont need it
+        foldseek_df.drop(columns=['contig_id'], inplace=True)
     # structures or proteins_flag or both
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
@@ -605,7 +611,7 @@ def get_topcustom_hits(
     tophit_custom_df = foldseek_df.loc[foldseek_df.groupby("query")["evalue"].idxmin()].reset_index(drop=True)
 
     # dont need query or contig_id any more
-    tophit_custom_df.drop(columns=['query','contig_id'], inplace=True)
+    tophit_custom_df.drop(columns=['query'], inplace=True)
 
     return tophit_custom_df
 

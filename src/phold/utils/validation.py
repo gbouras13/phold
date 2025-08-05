@@ -122,16 +122,13 @@ def check_dependencies() -> None:
 
     foldseek_version = foldseek_out.strip()
 
-    # conda install
-    if "." in foldseek_version:
-        foldseek_major_version = int(foldseek_version.split(".")[0])
-        foldseek_minor_version = str(foldseek_version.split(".")[1])
-    # brew install (issue #39)
-    elif "-" in foldseek_version:
-        foldseek_major_version = int(foldseek_version.split("-")[0])
-        foldseek_minor_version = str(foldseek_version.split("-")[1])
+    if "941cd33" in foldseek_version:
+        foldseek_major_version=10
+        foldseek_minor_version="941cd33"
     else:
-        logger.error("Foldseek not found. Please reinstall phold.")
+        logger.warning(f"Foldseek version found is v{foldseek_version}")
+        logger.warning(f"Phold is recommended to be run with Foldseek v10.941cd33")
+        logger.warning(f"Using a different Foldseek version is likely to work without issue, but this cannot be guaranteed.")
 
     logger.info(
         f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
