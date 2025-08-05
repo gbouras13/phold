@@ -44,7 +44,7 @@ def subcommand_compare(
     extra_foldseek_params: str,
     custom_db: str,
     foldseek_gpu: bool,
-    clustered_db: bool
+    clustered_db=False # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -519,7 +519,7 @@ def subcommand_compare(
         extra_foldseek_params,
         foldseek_gpu,
         structures,
-        clustered_db=False # keep functionality for now in case I ever revert, but no clustered_db
+        clustered_db=False # no custom db cluster searching
     )
 
       

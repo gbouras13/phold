@@ -1,14 +1,3 @@
-"""
-to tar DBs
-
-# v0.1.0
-GZIP=-9 tar cvzf phold_structure_foldseek_db.tar.gz phold_structure_foldseek_db
-
-# v0.2.0
-GZIP=-9 tar cvzf phold_db_v_0_2_0.tar.gz phold_db_v_0_2_0
-
-"""
-
 import hashlib
 import os
 import shutil
@@ -23,7 +12,7 @@ from phold.utils.util import remove_directory
 from phold.utils.external_tools import ExternalTool
 
 # set this if changes
-CURRENT_DB_VERSION: str = "0.2.0"
+CURRENT_DB_VERSION: str = "1.0.0"
 
 # to hold information about the different DBs
 VERSION_DICTIONARY = {
@@ -53,20 +42,37 @@ VERSION_DICTIONARY = {
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     },
     "1.0.0": {
-        "md5": "99ed8b4bcc41ca6e05e8690ba7e85197",
+        "md5": "ddbe0d94b1d94a392cfeb4ec113f4362",
         "major": 1,
         "minor": 0,
-        "minorest": 0,
-        "db_url": "https://zenodo.org/records/12735568/files/phold_db_v_1_0_0.tar.gz",
-        "dir_name": "phold_db_v_1_0_0",
-        "tarball": "phold_db_v_1_0_0.tar.gz",
+        "minorest": 0, 
+        "db_url": "https://zenodo.org/records/16741548/files/phold_search_db_v_1_0_0.tar.gz",
+        "dir_name": "phold_search_db_v_1_0_0",
+        "tarball": "phold_search_db_v_1_0_0.tar.gz",
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     }
 }
 
-CURRENT_VERSION = "0.2.0"
+# for the extended DB
+
+VERSION_DICTIONARY_3M16 = {
+    "1.0.0": {
+        "md5": "10aaafa55b5a28c04c08833f3c787097",
+        "major": 1,
+        "minor": 0,
+        "minorest": 0,
+        "db_url": "https://zenodo.org/records/16741548/files/phold_db_3M16_v_1_0_0.tar.gz",
+        "dir_name": "phold_db_3M16_v_1_0_0",
+        "tarball": "phold_db_3M16_v_1_0_0.tar.gz",
+        "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
+    }
+}
+
+
 
 PHOLD_DB_NAMES = [
     "acrs_plddt_over_70_metadata.tsv",
@@ -82,7 +88,7 @@ PHOLD_DB_NAMES = [
     "all_phold_structures.lookup",
     "all_phold_structures.source",
     "all_phold_structures_ss",
-    "all_phold_structures_ss.dbtype"
+    "all_phold_structures_ss.dbtype",
     "all_phold_structures_ss.index",
     "card_plddt_over_70_metadata.tsv",
     "defensefinder_plddt_over_70_metadata.tsv",
@@ -118,23 +124,21 @@ PROSTT5_FINETUNE_MD5_DICTIONARY = {
     },
 }
 
-#FOLDSEEK_PROSTT5_MD5 = "77fa1dae82e17fde715741861bcb7558"
 
 PHOLD_DB_FOLDSEEK_GPU_NAMES = [
     "all_phold_structures_gpu"
 ]
 
-PHOLD_DB_FOLDSEEK_GPU_CLUSTERED_NAMES = [
-    "all_phold_structures_clustered_searchDB_gpu"
-]
 
-def install_database(db_dir: Path, foldseek_gpu: bool) -> None:
+def install_database(db_dir: Path, foldseek_gpu: bool, extended_db: bool, threads: int) -> None:
     """
     Install the Phold database.
 
     Args:
         db_dir Path: The directory where the database should be installed.
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
+        extended_db bool: Whether to download the extended Phold DB 3.16M with 1.8M unknown function efam and enVhog proteins
+        threads int: Number of threads available (makes downloading faster)
     """
 
     # check the database is installed
@@ -144,17 +148,25 @@ def install_database(db_dir: Path, foldseek_gpu: bool) -> None:
         logger.info("All Phold databases files are present")
     else:
         logger.info("Some Phold databases files are missing")
-        logger.info("Downloading the Phold database")
 
-        db_url = VERSION_DICTIONARY[CURRENT_DB_VERSION]["db_url"]
-        requiredmd5 = VERSION_DICTIONARY[CURRENT_DB_VERSION]["md5"]
+        if extended_db:
+            DICT = VERSION_DICTIONARY_3M16
+            db_url = DICT[CURRENT_DB_VERSION]["db_url"]
+            logger.info(f"Downloading Phold DB 3.16M from {db_url}")
 
-        logger.info(f"Downloading Phold database from {db_url}")
+        else:
+            DICT = VERSION_DICTIONARY
+            db_url = DICT[CURRENT_DB_VERSION]["db_url"]
+            logger.info(f"Downloading Phold Search DB 1.36M from {db_url}")
 
-        tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["tarball"]
+        requiredmd5 = DICT[CURRENT_DB_VERSION]["md5"]
+        tarball = DICT[CURRENT_DB_VERSION]["tarball"]
+
+        
         tarball_path = Path(f"{db_dir}/{tarball}")
+        logdir = Path(db_dir) / "logdir"
 
-        download(db_url, tarball_path)
+        download(db_url, tarball_path, logdir, threads)
 
         md5_sum = calc_md5_sum(tarball_path)
 
@@ -168,7 +180,7 @@ def install_database(db_dir: Path, foldseek_gpu: bool) -> None:
         logger.info(
             f"Extracting Phold database tarball: file={tarball_path}, output={db_dir}"
         )
-        untar(tarball_path, db_dir)
+        untar(tarball_path, db_dir, DICT)
         tarball_path.unlink()
 
     if foldseek_gpu:
@@ -186,32 +198,61 @@ lots of this code from the marvellous bakta https://github.com/oschwengers/bakta
 """
 
 
-def download(db_url: str, tarball_path: Path) -> None:
+# def download(db_url: str, tarball_path: Path) -> None:
+#     """
+#     Download the database from the given URL.
+
+#     Args:
+#         db_url (str): The URL of the database.
+#         tarball_path (Path): The path where the downloaded tarball should be saved.
+#     """
+#     try:
+#         with tarball_path.open("wb") as fh_out, requests.get(
+#             db_url, stream=True
+#         ) as resp:
+#             total_length = resp.headers.get("content-length")
+#             if total_length is not None:  # content length header is set
+#                 total_length = int(total_length)
+#             with alive_bar(total=total_length, scale="SI") as bar:
+#                 for data in resp.iter_content(chunk_size=1024 * 1024):
+#                     fh_out.write(data)
+#                     bar(count=len(data))
+#     except IOError:
+#         logger.error(
+#             f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
+#         )
+
+"""
+aria2c bottlenecked by Zenodo but still faster
+"""
+
+def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> None:
     """
-    Download the database from the given URL.
+    Download the database from the given URL using aria2c.
 
     Args:
         db_url (str): The URL of the database.
         tarball_path (Path): The path where the downloaded tarball should be saved.
+        logdir (Path): The path to store logs
+        threads (int): Number of threads for aria2c
     """
-    try:
-        with tarball_path.open("wb") as fh_out, requests.get(
-            db_url, stream=True
-        ) as resp:
-            total_length = resp.headers.get("content-length")
-            if total_length is not None:  # content length header is set
-                total_length = int(total_length)
-            with alive_bar(total=total_length, scale="SI") as bar:
-                for data in resp.iter_content(chunk_size=1024 * 1024):
-                    fh_out.write(data)
-                    bar(count=len(data))
-    except IOError:
-        logger.error(
-            f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
-        )
+
+    cmd = f"--dir {str(tarball_path.parent)} --out {tarball_path.name} --max-connection-per-server={str(threads)} --allow-overwrite=true  {db_url}"
+
+    download_db = ExternalTool(
+        tool="aria2c",
+        input=f"",
+        output=f"",
+        params=f"{cmd}",
+        logdir=logdir,
+    )
+
+    ExternalTool.run_download(download_db)
 
 
-def download_zenodo_prostT5(model_dir):
+
+
+def download_zenodo_prostT5(model_dir, logdir, threads):
     """
     Download the ProstT5 model from Zenodo
 
@@ -228,7 +269,7 @@ def download_zenodo_prostT5(model_dir):
     tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
     tarball_path = Path(f"{model_dir}/{tarball}")
 
-    download(db_url, tarball_path)
+    download(db_url, tarball_path, logdir, threads)
     md5_sum = calc_md5_sum(tarball_path)
 
     if md5_sum == requiredmd5:
@@ -320,13 +361,14 @@ def calc_md5_sum(tarball_path: Path, buffer_size: int = 1024 * 1024) -> str:
     return md5.hexdigest()
 
 
-def untar(tarball_path: Path, output_path: Path) -> None:
+def untar(tarball_path: Path, output_path: Path, DICT: dict) -> None:
     """
     Extract the tarball to the output path.
 
     Args:
         tarball_path (Path): The path to the tarball file.
         output_path (Path): The path where the contents of the tarball should be extracted.
+        DICT (dict): version dictionary
     """
     try:
         with tarball_path.open("rb") as fh_in, tarfile.open(
@@ -334,7 +376,7 @@ def untar(tarball_path: Path, output_path: Path) -> None:
         ) as tar_file:
             tar_file.extractall(path=str(output_path))
 
-        tarpath = Path(output_path) / VERSION_DICTIONARY[CURRENT_DB_VERSION]["dir_name"]
+        tarpath = Path(output_path) / DICT[CURRENT_DB_VERSION]["dir_name"]
 
         # Get a list of all files in the directory
         files_to_move = [f for f in tarpath.iterdir() if f.is_file()]

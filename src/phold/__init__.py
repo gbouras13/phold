@@ -125,17 +125,17 @@ def predict_options(func):
         click.option(
             "--finetune",
             is_flag=True,
-            help="Use gbouras13/ProstT5Phold model finetuned on phage proteins",
+            help="Use gbouras13/ProstT5Phold encoder + CNN model both finetuned on phage proteins",
         ),
         click.option(
             "--vanilla",
             is_flag=True,
-            help="Use vanilla CNN model (trained on CASP14) instead of the one trained on phage proteins",
+            help="Use vanilla CNN model (trained on CASP14) with ProstT5Phold encoder instead of the one trained on phage proteins",
         ),
         click.option(
             "--hyps",
             is_flag=True,
-            help="Use this to only annotate hypothetical proteins from a Pharokka genbank input",
+            help="Use this to only annotate hypothetical proteins from a Pharokka GenBank input",
         )
     ]
     for option in reversed(options):
@@ -176,7 +176,7 @@ def compare_options(func):
             "--card_vfdb_evalue",
             default="1e-10",
             type=float,
-            help="Stricter Evalue threshold for Foldseek CARD and VFDB hits",
+            help="Stricter E-value threshold for Foldseek CARD and VFDB hits",
             show_default=True,
         ),
         click.option(
@@ -1227,10 +1227,31 @@ install command
     is_flag=True,
     help="Use this to enable compatibility with Foldseek-GPU acceleration",
 )
+@click.option(
+    "--extended_db",
+    is_flag=True,
+    help=(
+        "Download the extended Phold DB 3.16M including 1.8M efam and enVhog proteins without functional labels\n"
+        "instead of the default Phold Search 1.36M. Using the extended database will likely marginally reduce\n"
+        "functional annotation sensitivity and increase runtime, but may find more hits overall\n"
+        "i.e. including to efam and enVhog proteins that have no functional labels."
+    )
+)
+@click.option(
+            "-t",
+            "--threads",
+            help="Number of threads",
+            default=1,
+            type=int,
+            show_default=True,
+)
+
 def install(
     ctx,
     database,
     foldseek_gpu,
+    extended_db,
+    threads,
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
@@ -1262,7 +1283,7 @@ def install(
     logger.info(f"ProstT5 model downloaded")
 
     # will check if db is present, and if not, download it
-    install_database(database, foldseek_gpu)
+    install_database(database, foldseek_gpu, extended_db, threads)
 
 
 @main_cli.command()

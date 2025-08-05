@@ -140,7 +140,6 @@ def get_T5_model(
     if download is True:
         localfile = False
         logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
-
     try:
         model = T5EncoderModel.from_pretrained(
             model_name,
@@ -148,10 +147,11 @@ def get_T5_model(
             force_download=download,
             local_files_only=localfile,
         ).to(device)
+        
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
-
-        download_zenodo_prostT5(model_dir)
+        logdir = f"{model_dir}/logdir"
+        download_zenodo_prostT5(model_dir, logdir, threads )
 
         model = T5EncoderModel.from_pretrained(
             model_name,
