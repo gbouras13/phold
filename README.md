@@ -21,13 +21,7 @@
 
 Alternatively, you can specify protein structures that you have pre-computed for your phage(s) instead of using ProstT5 using the parameters  `--structures` and `--structure_dir` with `phold compare`.
 
-Benchmarking is ongoing, but `phold` strongly outperforms [Pharokka](https://github.com/gbouras13/pharokka), particularly for less characterised phages such as those from metagenomic datasets.
-
-The below plot shows the percentage of annotated coding sequences (CDS) for 179 metagenomic phage genomes assembled with [phables](https://github.com/Vini2/phables). Phold v0.2.0 run both in default settings (with ProstT5) settings and where predicted protein structures (with Colabfold) were compared against Pharokka v1.7.0.
-
-<p align="center">
-  <img src="img/phables_bench.jpeg" alt="phables benchmarking" height=200>
-</p>
+`phold` strongly outperforms sequence-based homology phage annotation tools like [Pharokka](https://github.com/gbouras13/pharokka), particularly for less characterised phages such as those from metagenomic datasets.
 
 If you have already annotated your phage(s) with Pharokka, `phold` takes the Genbank output of Pharokka as an input option, so you can easily update the annotation with more functional predictions!
 
@@ -40,9 +34,7 @@ Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutori
 If you don't want to install `phold` locally, you can run it without any code using one of the following Google Colab notebooks:
 
 * To run `pharokka` + `phold` + `phynteny` use [this link](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb)
-    * [phynteny](https://github.com/susiegriggo/Phynteny) uses a long-short term memory model trained on phage synteny (the conserved gene order across phages) to assign hypothetical phage proteins to a PHROG category - it might help you add extra PHROG category annotations to hypothetical genes remaining after you run `phold`. 
-    * Note: Phynteny will work only if your phage has fewer than 120 predicted proteins
-    * You can still use this notebook to run `phold` if your phage(s) are too big - just don't run the Phynteny step!
+    * [phynteny](https://github.com/susiegriggo/Phynteny_transformer) uses phage synteny (the conserved gene order across phages) to assign hypothetical phage proteins to a PHROG category - it might help you add extra PHROG category annotations to hypothetical genes remaining after you run `phold`. 
   
 # Table of Contents
 
@@ -68,10 +60,10 @@ For more details (particularly if you are using a non-NVIDIA GPU), check out the
 
 The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
 
-To install `phold` using [mamba](https://github.com/conda-forge/miniforge):
+To install `phold` using [conda](https://github.com/conda-forge/miniforge):
 
 ```bash
-mamba create -n pholdENV -c conda-forge -c bioconda phold 
+conda create -n pholdENV -c conda-forge -c bioconda phold 
 ```
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. By default conda/mamba will install a CPU-only version. 
@@ -79,7 +71,7 @@ To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be insta
 If you have an NVIDIA GPU, please try:
 
 ```bash
-mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
+conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 ```
 
 If you have a Mac running an Apple Silicon chip (M1/M2/M3), `phold` should be able to use the GPU. Please try:
@@ -96,7 +88,13 @@ If you are having trouble with `pytorch` see [this link](https://pytorch.org) fo
 Once `phold` is installed, to download and install the database run:
 
 ```bash
-phold install
+phold install -t 8
+```
+
+If you have an NVIDIA GPU and can take advantage of Foldseek's GPU acceleration, instead run
+
+```bash
+phold install -t 8 --foldseek_gpu
 ```
 
 * Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are just over 8GB uncompressed).
@@ -110,11 +108,12 @@ phold install
 phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 ```
 
-* If you do not have a GPU available, add `--cpu`.
+* If you have an NVIDIA GPU available, add `--foldseek_gpu`
+* If you do not have any GPU available, add `--cpu`.
 * `phold run` will run in a reasonable time for small datasets with CPU only (e.g. <5 minutes for a 50kbp phage).
 * However, `phold predict` will complete much faster if a GPU is available, and is necessary for large metagenomic datasets to run in a reasonable time. 
 
-* In a cluster environment, it is most efficient to run `phold` in 2 steps for optimal resource usage.
+* In a cluster environment where GPUs are scarce, it may be most efficient to run `phold` in 2 steps for optimal resource usage.
 
 1. Predict the 3Di sequences with ProstT5 using `phold predict`. This is massively accelerated if a GPU available.
 
@@ -122,7 +121,7 @@ phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 phold predict -i tests/test_data/NC_043029.gbk -o test_predictions 
 ```
 
-2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU. 
+2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU . 
 
 ```bash
 phold compare -i tests/test_data/NC_043029.gbk --predictions_dir test_predictions -o test_output_phold -t 8 
@@ -176,14 +175,23 @@ Options:
   --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
                                  [default: 1]
   --cpu                          Use cpus only.
-  --omit_probs                   Do not output 3Di probabilities from ProstT5
-  --finetune                     Use finetuned ProstT5 model (PhrostT5).
-                                 Experimental and not recommended for now
-  --finetune_path TEXT           Path to finetuned model weights
+  --omit_probs                   Do not output per residue 3Di probabilities
+                                 from ProstT5. Mean per protein 3Di
+                                 probabilities will always be output.
   --save_per_residue_embeddings  Save the ProstT5 embeddings per resuide in a
                                  h5 file
   --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
                                  protein in a h5 file
+  --mask_threshold FLOAT         Masks 3Di residues below this value of
+                                 ProstT5 confidence for Foldseek searches
+                                 [default: 25]
+  --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
+                                 model both finetuned on phage proteins
+  --vanilla                      Use vanilla CNN model (trained on CASP14)
+                                 with ProstT5Phold encoder instead of the one
+                                 trained on phage proteins
+  --hyps                         Use this to only annotate hypothetical
+                                 proteins from a Pharokka GenBank input
   -e, --evalue FLOAT             Evalue threshold for Foldseek  [default:
                                  1e-3]
   -s, --sensitivity FLOAT        Sensitivity parameter for foldseek  [default:
@@ -191,19 +199,20 @@ Options:
   --keep_tmp_files               Keep temporary intermediate files,
                                  particularly the large foldseek_results.tsv
                                  of all Foldseek hits
-  --card_vfdb_evalue FLOAT       Stricter Evalue threshold for Foldseek CARD
+  --card_vfdb_evalue FLOAT       Stricter E-value threshold for Foldseek CARD
                                  and VFDB hits  [default: 1e-10]
   --separate                     Output separate GenBank files for each contig
   --max_seqs INTEGER             Maximum results per query sequence allowed to
                                  pass the prefilter. You may want to reduce
                                  this to save disk space for enormous datasets
-                                 [default: 10000]
-  --only_representatives         Foldseek search only against the cluster
-                                 representatives (i.e. turn off --cluster-
-                                 search 1 Foldseek parameter)
+                                 [default: 1000]
   --ultra_sensitive              Runs phold with maximum sensitivity by
                                  skipping Foldseek prefilter. Not recommended
                                  for large datasets.
+  --extra_foldseek_params TEXT   Extra foldseek search params
+  --custom_db TEXT               Path to custom database
+  --foldseek_gpu                 Use this to enable compatibility with
+                                 Foldseek-GPU search acceleration
   ```
 
 # Plotting 
