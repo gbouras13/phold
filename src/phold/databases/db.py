@@ -38,10 +38,8 @@ VERSION_DICTIONARY = {
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
-    }
-}
+    },
 
-VERSION_DICTIONARY = {
     "0.2.0": {
         "md5": "99ed8b4bcc41ca6e05e8690ba7e85197",
         "major": 0,
@@ -53,6 +51,18 @@ VERSION_DICTIONARY = {
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
+    },
+    "1.0.0": {
+        "md5": "99ed8b4bcc41ca6e05e8690ba7e85197",
+        "major": 1,
+        "minor": 0,
+        "minorest": 0,
+        "db_url": "https://zenodo.org/records/12735568/files/phold_db_v_1_0_0.tar.gz",
+        "dir_name": "phold_db_v_1_0_0",
+        "tarball": "phold_db_v_1_0_0.tar.gz",
+        "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
+        "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     }
 }
 
@@ -61,34 +71,9 @@ CURRENT_VERSION = "0.2.0"
 PHOLD_DB_NAMES = [
     "acrs_plddt_over_70_metadata.tsv",
     "all_phold_structures",
-    "all_phold_structures_clustered_searchDB",
-    "all_phold_structures_clustered_searchDB_ca",
-    "all_phold_structures_clustered_searchDB_ca.dbtype",
-    "all_phold_structures_clustered_searchDB_ca.index",
-    #"all_phold_structures_clustered_searchDB_clu",
-    "all_phold_structures_clustered_searchDB_clu.dbtype",
-    "all_phold_structures_clustered_searchDB_clu.index",
-    "all_phold_structures_clustered_searchDB.dbtype",
-    "all_phold_structures_clustered_searchDB_h",
-    "all_phold_structures_clustered_searchDB_h.index",
-    "all_phold_structures_clustered_searchDB_h.dbtype",
-    "all_phold_structures_clustered_searchDB.index",
-    "all_phold_structures_clustered_searchDB.lookup",
-    "all_phold_structures_clustered_searchDB_seq.1",
-    "all_phold_structures_clustered_searchDB_seq_ca.1",
-    "all_phold_structures_clustered_searchDB_seq_ca.dbtype",
-    "all_phold_structures_clustered_searchDB_seq_ca.index",
-    "all_phold_structures_clustered_searchDB_seq_h.1",
-    "all_phold_structures_clustered_searchDB_seq_h.dbtype",
-    "all_phold_structures_clustered_searchDB_seq_h.index",
-    "all_phold_structures_clustered_searchDB_seq.index",
-    "all_phold_structures_clustered_searchDB_seq_ss.1",
-    "all_phold_structures_clustered_searchDB_seq_ss.dbtype",
-    "all_phold_structures_clustered_searchDB_seq_ss.index",
-    "all_phold_structures_clustered_searchDB.source",
-    "all_phold_structures_clustered_searchDB_ss",
-    "all_phold_structures_clustered_searchDB_ss.dbtype",
-    "all_phold_structures_clustered_searchDB_ss.index",
+    "all_phold_structures_ca",
+    "all_phold_structures_ca.dbtype",
+    "all_phold_structures_ca.index",
     "all_phold_structures.dbtype",
     "all_phold_structures_h",
     "all_phold_structures_h.index",
@@ -96,11 +81,14 @@ PHOLD_DB_NAMES = [
     "all_phold_structures.index",
     "all_phold_structures.lookup",
     "all_phold_structures.source",
+    "all_phold_structures_ss",
+    "all_phold_structures_ss.dbtype"
+    "all_phold_structures_ss.index",
     "card_plddt_over_70_metadata.tsv",
-    "vfdb_description_output.csv",
-    "netflax_annotation_table.tsv",
-    "phold_annots.tsv",
     "defensefinder_plddt_over_70_metadata.tsv",
+    "netflax_annotation_table.tsv",
+    "vfdb_description_output.csv",
+    "phold_annots.tsv"
 ]
 
 
@@ -140,19 +128,18 @@ PHOLD_DB_FOLDSEEK_GPU_CLUSTERED_NAMES = [
     "all_phold_structures_clustered_searchDB_gpu"
 ]
 
-def install_database(db_dir: Path, foldseek_gpu: bool, clustered_db: bool) -> None:
+def install_database(db_dir: Path, foldseek_gpu: bool) -> None:
     """
     Install the Phold database.
 
     Args:
         db_dir Path: The directory where the database should be installed.
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
-        clustered_db bool: Whether to install foldseek-gpu compatible phold db clustered (for benchmarking)
     """
 
     # check the database is installed
     logger.info(f"Checking Phold database installation in {db_dir}.")
-    downloaded_flag, gpu_flag = check_db_installation(db_dir, foldseek_gpu, clustered_db)
+    downloaded_flag, gpu_flag = check_db_installation(db_dir, foldseek_gpu)
     if downloaded_flag:
         logger.info("All Phold databases files are present")
     else:
@@ -190,7 +177,7 @@ def install_database(db_dir: Path, foldseek_gpu: bool, clustered_db: bool) -> No
         else:
             logger.info("Some Phold database files compatible with Foldseek-GPU are missing")
             logger.info("Creating them")
-            foldseek_makepaddedseqdb(db_dir, clustered_db)
+            foldseek_makepaddedseqdb(db_dir)
 
 
 
@@ -311,34 +298,6 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
     
     return download
 
-# for now, until we have a better confidence metric, use PyTorch
-# def check_prostT5_foldseek_download(db_dir: Path) -> bool:
-#     """
-#      Args:
-#         db_dir (Path): Database directory
-#     Returns:
-#         bool: bool to tell Phold whether to download ProstT5 with Foldseek
-#     """
-
-#     # assumes already has been downloaded
-#     download = False
-
-#     file_path = Path(db_dir) / "prostt5_weights" / "prostt5-f16.gguf"
-
-#     if file_path.exists():
-#         md5_sum = calc_md5_sum(file_path)
-
-#         if md5_sum != FOLDSEEK_PROSTT5_MD5:
-#             logger.warning(
-#                         f"Corrupt ProstT5 model file {file_path}! MD5 should be '{FOLDSEEK_PROSTT5_MD5}' but is '{md5_sum}'"
-#                     )
-#             download = True
-#     else:
-#         logger.warning(f"ProstT5 Model file {file_path} does not exist.")
-#         download = True
-
-#     return download
-
 
 def calc_md5_sum(tarball_path: Path, buffer_size: int = 1024 * 1024) -> str:
     """
@@ -392,14 +351,13 @@ def untar(tarball_path: Path, output_path: Path) -> None:
         logger.error(f"Could not extract {tarball_path} to {output_path}")
 
 
-def check_db_installation(db_dir: Path, foldseek_gpu: bool, clustered_db: bool) -> bool:
+def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
     """
     Check if the Phold database is installed.
 
     Args:
         db_dir Path: The directory where the database is installed.
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
-        clustered_db bool: Whether to install foldseek-gpu compatible phold clustered db
 
     Returns:
         bool: True if all required files are present, False otherwise.
@@ -421,18 +379,10 @@ def check_db_installation(db_dir: Path, foldseek_gpu: bool, clustered_db: bool) 
                 gpu_flag = False
                 break 
 
-    if clustered_db:
-        for file_name in PHOLD_DB_FOLDSEEK_GPU_CLUSTERED_NAMES:
-            path = Path(db_dir) / file_name
-            if not path.is_file():
-                logger.warning(f"Phold Foldseek-GPU Clustered Database file {path} is missing")
-                gpu_flag = False
-                break 
-
     return downloaded_flag, gpu_flag
 
 
-def validate_db(database: str, default_dir: str, foldseek_gpu: bool, clustered_db: bool) -> Path:
+def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
     """
     Validates the Phold database is installed.
 
@@ -440,7 +390,6 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool, clustered_d
         database str: The directory where the database is installed.
         default_dir str: Default DB location
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
-        clustered_db bool: Whether to install foldseek-gpu compatible phold clustered DB
 
     Returns:
         bool: True if all required files are present, False otherwise.
@@ -453,7 +402,7 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool, clustered_d
 
     # check the database is installed
     logger.info(f"Checking Phold database installation in {database}")
-    downloaded_flag, gpu_flag = check_db_installation(database, foldseek_gpu, clustered_db)
+    downloaded_flag, gpu_flag = check_db_installation(database, foldseek_gpu)
     if downloaded_flag == True:
         logger.info("All Phold databases files are present")
     else:
@@ -494,7 +443,7 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool, clustered_d
 #     ExternalTool.run_tool(foldseek_createdb_gpu)
 #     remove_directory(tmp_dir)
 
-def foldseek_makepaddedseqdb(db_dir: Path, clustered_db: bool) -> None:
+def foldseek_makepaddedseqdb(db_dir: Path) -> None:
 
     phold_db_search = Path(db_dir) / "all_phold_structures"
     phold_db_search_gpu = Path(db_dir) / "all_phold_structures_gpu"
@@ -510,21 +459,6 @@ def foldseek_makepaddedseqdb(db_dir: Path, clustered_db: bool) -> None:
 
     ExternalTool.run_tool(foldseek_makepaddedseqdb)
 
-    if clustered_db:
 
-        #this is how you would do it for a cluster db
-        phold_db_clu_search = Path(db_dir) / "all_phold_structures_clustered_searchDB"
-        phold_db_clu_search_gpu = Path(db_dir) / "all_phold_structures_clustered_searchDB_gpu"
-        logdir = Path(db_dir) / "logdir"
-
-        foldseek_makepaddedseqdb = ExternalTool(
-            tool="foldseek",
-            input=f"",
-            output=f"",
-            params=f"makepaddedseqdb {phold_db_clu_search} {phold_db_clu_search_gpu} --cluster-search 1",
-            logdir=logdir,
-        )
-
-        ExternalTool.run_tool(foldseek_makepaddedseqdb)
 
     

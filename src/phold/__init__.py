@@ -210,11 +210,6 @@ def compare_options(func):
             "--foldseek_gpu",
             is_flag=True,
             help="Use this to enable compatibility with Foldseek-GPU search acceleration",
-        ),
-        click.option(
-            "--clustered_db",
-            is_flag=True,
-            help="Run Foldseek vs clustered Phold DB (for benchmarking)",
         )
     ]
     for option in reversed(options):
@@ -281,7 +276,6 @@ def run(
     hyps,
     finetune,
     vanilla,
-    clustered_db,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -318,7 +312,6 @@ def run(
         "--hyps": hyps,
         "--finetune": finetune,
         "--vanilla": vanilla,
-        "--clustered_db": clustered_db
     }
 
     # initial logging etc
@@ -328,7 +321,7 @@ def run(
     check_dependencies()
 
     # check the database is installed and return it
-    database = validate_db(database, DB_DIR, foldseek_gpu, clustered_db)
+    database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
@@ -392,7 +385,6 @@ def run(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        clustered_db=clustered_db
     )
 
     # cleanup the temp files
@@ -471,7 +463,7 @@ def predict(
     start_time = begin_phold(params, "predict")
 
     # check the database is installed
-    database = validate_db(database, DB_DIR, foldseek_gpu=False, clustered_db=False)
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
@@ -572,7 +564,6 @@ def compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    clustered_db,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -605,7 +596,6 @@ def compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
-        "--clustered_db": clustered_db
     }
 
     # initial logging etc
@@ -615,7 +605,7 @@ def compare(
     check_dependencies()
 
     # check the database is installed
-    database = validate_db(database, DB_DIR, foldseek_gpu, clustered_db)
+    database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # validate fasta
     fasta_flag, gb_dict, method = validate_input(input, threads)
@@ -643,7 +633,6 @@ def compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        clustered_db=clustered_db
     )
 
     # cleanup the temp files
@@ -720,7 +709,7 @@ def proteins_predict(
     start_time = begin_phold(params, "proteins-predict")
 
     # check the database is installed
-    database = validate_db(database, DB_DIR, foldseek_gpu=False, clustered_db=False)
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -854,7 +843,6 @@ def proteins_compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    clustered_db,
     **kwargs
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -886,7 +874,6 @@ def proteins_compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
-        "--clustered_db": clustered_db
     }
 
     # initial logging etc
@@ -896,7 +883,7 @@ def proteins_compare(
     check_dependencies()
 
     # check the database is installed
-    database = validate_db(database, DB_DIR, foldseek_gpu, clustered_db)
+    database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -954,7 +941,6 @@ def proteins_compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        clustered_db=clustered_db
     )
 
     # cleanup the temp files
@@ -1035,7 +1021,7 @@ def remote(
     check_dependencies()
 
     # check the database is installed
-    database = validate_db(database, DB_DIR, foldseek_gpu=False, clustered_db=False)
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
@@ -1241,16 +1227,10 @@ install command
     is_flag=True,
     help="Use this to enable compatibility with Foldseek-GPU acceleration",
 )
-@click.option(
-    "--clustered_db",
-    is_flag=True,
-    help="Run Foldseek vs clustered Phold DB (for benchmarking)",
-        )
 def install(
     ctx,
     database,
     foldseek_gpu,
-    clustered_db,
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
@@ -1282,7 +1262,7 @@ def install(
     logger.info(f"ProstT5 model downloaded")
 
     # will check if db is present, and if not, download it
-    install_database(database, foldseek_gpu, clustered_db)
+    install_database(database, foldseek_gpu)
 
 
 @main_cli.command()

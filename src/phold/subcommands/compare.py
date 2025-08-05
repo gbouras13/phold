@@ -519,7 +519,7 @@ def subcommand_compare(
         extra_foldseek_params,
         foldseek_gpu,
         structures,
-        clustered_db=False
+        clustered_db=False # keep functionality for now in case I ever revert, but no clustered_db
     )
 
       
