@@ -273,50 +273,56 @@ Usage: phold proteins-compare [OPTIONS]
   Runs Foldseek vs phold db on proteins input
 
 Options:
-  -h, --help                Show this message and exit.
-  -V, --version             Show the version and exit.
-  -i, --input PATH          Path to input file in multiFASTA format
-                            [required]
-  --predictions_dir PATH    Path to output directory from phold proteins-
-                            predict
-  --structures              Use if you have .pdb or .cif file structures for
-                            the input proteins (e.g. with AF2/Colabfold) in a
-                            directory that you specify with --structure_dir
-  --structure_dir PATH      Path to directory with .pdb or .cif file
-                            structures. The CDS IDs need to be in the name of
-                            the file
-  --filter_structures       Flag that creates a copy of the .pdb or .cif files
-                            structures with matching record IDs found in the
-                            input GenBank file. Helpful if you have a
-                            directory with lots of .pdb files and want to
-                            annotate only e.g. 1 phage.
-  -o, --output PATH         Output directory   [default: output_phold]
-  -t, --threads INTEGER     Number of threads  [default: 1]
-  -p, --prefix TEXT         Prefix for output files  [default: phold]
-  -d, --database TEXT       Specific path to installed phold database
-  -f, --force               Force overwrites the output directory
-  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
-  -s, --sensitivity FLOAT   Sensitivity parameter for foldseek  [default: 9.5]
-  --keep_tmp_files          Keep temporary intermediate files, particularly
-                            the large foldseek_results.tsv of all Foldseek
-                            hits
-  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
-                            VFDB hits  [default: 1e-10]
-  --separate                Output separate GenBank files for each contig
-  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
-                            the prefilter. You may want to reduce this to save
-                            disk space for enormous datasets  [default: 10000]
-  --only_representatives    Foldseek search only against the cluster
-                            representatives (i.e. turn off --cluster-search 1
-                            Foldseek parameter)
-  --ultra_sensitive         Runs phold with maximum sensitivity by skipping
-                            Foldseek prefilter. Not recommended for large
-                            datasets.
+  -h, --help                    Show this message and exit.
+  -V, --version                 Show the version and exit.
+  -i, --input PATH              Path to input file in multiFASTA format
+                                [required]
+  --predictions_dir PATH        Path to output directory from phold proteins-
+                                predict
+  --structures                  Use if you have .pdb or .cif file structures
+                                for the input proteins (e.g. with
+                                AF2/Colabfold) in a directory that you specify
+                                with --structure_dir
+  --structure_dir PATH          Path to directory with .pdb or .cif file
+                                structures. The CDS IDs need to be in the name
+                                of the file
+  --filter_structures           Flag that creates a copy of the .pdb or .cif
+                                files structures with matching record IDs
+                                found in the input GenBank file. Helpful if
+                                you have a directory with lots of .pdb files
+                                and want to annotate only e.g. 1 phage.
+  -o, --output PATH             Output directory   [default: output_phold]
+  -t, --threads INTEGER         Number of threads  [default: 1]
+  -p, --prefix TEXT             Prefix for output files  [default: phold]
+  -d, --database TEXT           Specific path to installed phold database
+  -f, --force                   Force overwrites the output directory
+  -e, --evalue FLOAT            Evalue threshold for Foldseek  [default: 1e-3]
+  -s, --sensitivity FLOAT       Sensitivity parameter for foldseek  [default:
+                                9.5]
+  --keep_tmp_files              Keep temporary intermediate files,
+                                particularly the large foldseek_results.tsv of
+                                all Foldseek hits
+  --card_vfdb_evalue FLOAT      Stricter E-value threshold for Foldseek CARD
+                                and VFDB hits  [default: 1e-10]
+  --separate                    Output separate GenBank files for each contig
+  --max_seqs INTEGER            Maximum results per query sequence allowed to
+                                pass the prefilter. You may want to reduce
+                                this to save disk space for enormous datasets
+                                [default: 1000]
+  --ultra_sensitive             Runs phold with maximum sensitivity by
+                                skipping Foldseek prefilter. Not recommended
+                                for large datasets.
+  --extra_foldseek_params TEXT  Extra foldseek search params
+  --custom_db TEXT              Path to custom database
+  --foldseek_gpu                Use this to enable compatibility with
+                                Foldseek-GPU search acceleration
 ```
 
 ### `phold remote`
 
 This command queries the Foldseek webserver to predict the 3Di sequence instead of running ProstT5 locally, followed by a local Foldseek search against the Phold database locally. This is recommended for users with extremely low compute (such as an old laptop) or who can't get ProstT5 to run on their machine.
+
+I would recommend our [Colab notebook](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb) instead to be honest.
 
 Example usage 
 
@@ -330,32 +336,35 @@ Usage: phold remote [OPTIONS]
   Uses Foldseek API to run ProstT5 then Foldseek locally
 
 Options:
-  -h, --help                Show this message and exit.
-  -V, --version             Show the version and exit.
-  -i, --input PATH          Path to input file in Genbank format or nucleotide
-                            FASTA format  [required]
-  -o, --output PATH         Output directory   [default: output_phold]
-  -t, --threads INTEGER     Number of threads  [default: 1]
-  -p, --prefix TEXT         Prefix for output files  [default: phold]
-  -d, --database TEXT       Specific path to installed phold database
-  -f, --force               Force overwrites the output directory
-  -e, --evalue FLOAT        Evalue threshold for Foldseek  [default: 1e-3]
-  -s, --sensitivity FLOAT   Sensitivity parameter for foldseek  [default: 9.5]
-  --keep_tmp_files          Keep temporary intermediate files, particularly
-                            the large foldseek_results.tsv of all Foldseek
-                            hits
-  --card_vfdb_evalue FLOAT  Stricter Evalue threshold for Foldseek CARD and
-                            VFDB hits  [default: 1e-10]
-  --separate                Output separate GenBank files for each contig
-  --max_seqs INTEGER        Maximum results per query sequence allowed to pass
-                            the prefilter. You may want to reduce this to save
-                            disk space for enormous datasets  [default: 10000]
-  --only_representatives    Foldseek search only against the cluster
-                            representatives (i.e. turn off --cluster-search 1
-                            Foldseek parameter)
-  --ultra_sensitive         Runs phold with maximum sensitivity by skipping
-                            Foldseek prefilter. Not recommended for large
-                            datasets.
+  -h, --help                    Show this message and exit.
+  -V, --version                 Show the version and exit.
+  -i, --input PATH              Path to input file in Genbank format or
+                                nucleotide FASTA format  [required]
+  -o, --output PATH             Output directory   [default: output_phold]
+  -t, --threads INTEGER         Number of threads  [default: 1]
+  -p, --prefix TEXT             Prefix for output files  [default: phold]
+  -d, --database TEXT           Specific path to installed phold database
+  -f, --force                   Force overwrites the output directory
+  -e, --evalue FLOAT            Evalue threshold for Foldseek  [default: 1e-3]
+  -s, --sensitivity FLOAT       Sensitivity parameter for foldseek  [default:
+                                9.5]
+  --keep_tmp_files              Keep temporary intermediate files,
+                                particularly the large foldseek_results.tsv of
+                                all Foldseek hits
+  --card_vfdb_evalue FLOAT      Stricter E-value threshold for Foldseek CARD
+                                and VFDB hits  [default: 1e-10]
+  --separate                    Output separate GenBank files for each contig
+  --max_seqs INTEGER            Maximum results per query sequence allowed to
+                                pass the prefilter. You may want to reduce
+                                this to save disk space for enormous datasets
+                                [default: 1000]
+  --ultra_sensitive             Runs phold with maximum sensitivity by
+                                skipping Foldseek prefilter. Not recommended
+                                for large datasets.
+  --extra_foldseek_params TEXT  Extra foldseek search params
+  --custom_db TEXT              Path to custom database
+  --foldseek_gpu                Use this to enable compatibility with
+                                Foldseek-GPU search acceleration
 ```
 
 
@@ -369,7 +378,6 @@ Example usage
 ```bash
 phold createdb --fasta_aa phold_aa.fasta  --fasta_3di phold_3di.fasta -o my_foldseek_db  
 ```
-
 
 ```bash
 Usage: phold createdb [OPTIONS]

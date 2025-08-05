@@ -69,16 +69,16 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 # Database Installation
 
-To download and install the `phold` database
+To download and install the `phold` database. Database downloads are multi-threaded (as of v1.0.0).
 
 ```bash
-phold install
+phold install -t <threads>
 ```
 
 If you would like to specify a particular location for the database (e.g. if you use `phold` on a shared server), please use `-d`
 
 ```bash
-phold install -d <path/to/databse_dir>
+phold install -d <path/to/databse_dir> -t <threads>
 ```
 
 * Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are 7.7GB uncompressed).
@@ -86,7 +86,31 @@ phold install -d <path/to/databse_dir>
 If you have an NVIDIA GPU available, you may wish to accelerate Foldseek using GPU. To do this, you will need to format the databases appropriately as follows
 
 ```bash
-phold install -d <path/to/databse_dir> --foldseek_gpu 
+phold install -d <path/to/databse_dir> --foldseek_gpu -t <threads>
+```
+
+If you would like to install the Phold DB 3.16M (i.e. including 1.8M extra enVhog and efam proteins without PHROG assignment or functional annotation label), you can use `--extended_db`
+
+```bash
+Usage: phold install [OPTIONS]
+
+  Installs ProstT5 model and phold database
+
+Options:
+  -h, --help             Show this message and exit.
+  -V, --version          Show the version and exit.
+  -d, --database TEXT    Specific path to install the phold database
+  --foldseek_gpu         Use this to enable compatibility with Foldseek-GPU
+                         acceleration
+  --extended_db          Download the extended Phold DB 3.16M including 1.8M
+                         efam and enVhog proteins without functional labels
+                         instead of the default Phold Search 1.36M. Using the
+                         extended database will likely marginally reduce
+                         functional annotation sensitivity and increase
+                         runtime, but may find more hits overall i.e.
+                         including to efam and enVhog proteins that have no
+                         functional labels.
+  -t, --threads INTEGER  Number of threads  [default: 1]
 ```
 
 # Beginner Conda Installation
