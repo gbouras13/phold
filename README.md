@@ -13,7 +13,7 @@
 
 `phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
 
-`phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to rapidly translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of over 1 million phage protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
+`phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to rapidly translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of over 1.36 million phage protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
 
 <p align="center">
   <img src="img/phold_workflow.png" alt="phold workflow" height=300>
@@ -58,7 +58,7 @@ Check out the full documentation at [https://phold.readthedocs.io](https://phold
 
 For more details (particularly if you are using a non-NVIDIA GPU), check out the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
 
-The best way to install `phold` is using [mamba](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
+The best way to install `phold` is using conda via [miniforge](https://github.com/conda-forge/miniforge), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
 
 To install `phold` using [conda](https://github.com/conda-forge/miniforge):
 
@@ -66,7 +66,7 @@ To install `phold` using [conda](https://github.com/conda-forge/miniforge):
 conda create -n pholdENV -c conda-forge -c bioconda phold 
 ```
 
-To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. By default conda/mamba will install a CPU-only version. 
+To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. By default conda will install a CPU-only version. 
 
 If you have an NVIDIA GPU, please try:
 
@@ -74,16 +74,16 @@ If you have an NVIDIA GPU, please try:
 conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 ```
 
-If you have a Mac running an Apple Silicon chip (M1/M2/M3), `phold` should be able to use the GPU. Please try:
+If you have a Mac running an Apple Silicon chip (M1/M2/M3/M4), `phold` should be able to use the GPU. Please try:
 
 ```bash
-mamba create -n pholdENV python==3.11  
+conda create -n pholdENV python==3.13  
 conda activate pholdENV
-mamba install pytorch::pytorch torchvision torchaudio -c pytorch 
-mamba install -c conda-forge -c bioconda phold 
+conda install pytorch::pytorch torchvision torchaudio -c pytorch 
+conda install -c conda-forge -c bioconda phold 
 ```
 
-If you are having trouble with `pytorch` see [this link](https://pytorch.org) for more instructions. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
+If you are have a non-NVIDIA GPU, or have trouble with `pytorch`, see [this link](https://pytorch.org) for more instructions. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
 Once `phold` is installed, to download and install the database run:
 
@@ -110,10 +110,10 @@ phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 
 * If you have an NVIDIA GPU available, add `--foldseek_gpu`
 * If you do not have any GPU available, add `--cpu`.
-* `phold run` will run in a reasonable time for small datasets with CPU only (e.g. <5 minutes for a 50kbp phage).
-* However, `phold predict` will complete much faster if a GPU is available, and is necessary for large metagenomic datasets to run in a reasonable time. 
+* `phold run` will run in a reasonable time for small datasets with CPU only (e.g. <5 minutes for a 50kbp phage). With GPU it should complete in under 1 minute.
+* `phold predict` will complete much faster if a GPU is available, and is necessary for large metagenomic datasets to run in a reasonable time. 
 
-* In a cluster environment where GPUs are scarce, it may be most efficient to run `phold` in 2 steps for optimal resource usage.
+* In a cluster environment where GPUs are scarce, for large datasets it may be most efficient to run `phold` in 2 steps for optimal resource usage.
 
 1. Predict the 3Di sequences with ProstT5 using `phold predict`. This is massively accelerated if a GPU available.
 
@@ -121,7 +121,7 @@ phold run -i tests/test_data/NC_043029.gbk  -o test_output_phold -t 8
 phold predict -i tests/test_data/NC_043029.gbk -o test_predictions 
 ```
 
-2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU . 
+2. Compare the the 3Di sequences to the `phold` structure database with Foldseek using `phold compare`. This does not utilise a GPU. 
 
 ```bash
 phold compare -i tests/test_data/NC_043029.gbk --predictions_dir test_predictions -o test_output_phold -t 8 
