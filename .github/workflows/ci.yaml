@@ -27,20 +27,19 @@ jobs:
           fetch-depth: 0
 
       # Setup env
-      - uses: "conda-incubator/setup-miniconda@v2"
+      - uses: conda-incubator/setup-miniconda@v3
         with:
+          python-version: 3.13
           activate-environment: phold_env
           environment-file: environment.yml
-          python-version: ${{ matrix.python-version }}
           auto-activate-base: false
-          miniforge-variant: Mambaforge
-          channels: conda-forge,bioconda,defaults
           channel-priority: strict
+          channels: conda-forge,bioconda,defaults
           auto-update-conda: true
       - name: Install phold 
         shell: bash -l {0}
         run: |
-          mamba install python=${{ matrix.python-version }}
+          conda install python=${{ matrix.python-version }}
           python -m pip install --upgrade pip
           pip install -e .
           pip install pytest
