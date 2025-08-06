@@ -83,7 +83,7 @@ conda install pytorch::pytorch torchvision torchaudio -c pytorch
 conda install -c conda-forge -c bioconda phold 
 ```
 
-If you are have a non-NVIDIA GPU, or have trouble with `pytorch`, see [this link](https://pytorch.org) for more instructions. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
+If you are have a different non-NVIDIA GPU, or have trouble with `pytorch`, see [this link](https://pytorch.org) for more instructions. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
 Once `phold` is installed, to download and install the database run:
 
