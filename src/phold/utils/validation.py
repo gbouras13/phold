@@ -10,7 +10,6 @@ from loguru import logger
 
 from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
 
-
 def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
     """
     Validate the input file format and retrieve genomic data.
@@ -25,7 +24,7 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
 
     # validates input
     fasta_flag = False
-    gb_dict = get_genbank(input)
+    gb_dict, method = get_genbank(input)
     if not gb_dict:
         logger.warning(f"{input} was not a Genbank format file")
         logger.warning(
@@ -58,9 +57,9 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
             )
             fasta_flag = True
     else:
-        logger.info(f"Successfully parsed input {input} as a Genbank format file")
+        logger.info(f"Successfully parsed input {input} as a {method} style Genbank file.")
 
-    return fasta_flag, gb_dict
+    return fasta_flag, gb_dict, method
 
 
 def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:
@@ -123,24 +122,21 @@ def check_dependencies() -> None:
 
     foldseek_version = foldseek_out.strip()
 
-    # conda install
-    if "." in foldseek_version:
-        foldseek_major_version = int(foldseek_version.split(".")[0])
-        foldseek_minor_version = str(foldseek_version.split(".")[1])
-    # brew install (issue #39)
-    elif "-" in foldseek_version:
-        foldseek_major_version = int(foldseek_version.split("-")[0])
-        foldseek_minor_version = str(foldseek_version.split("-")[1])
+    if "941cd33" in foldseek_version:
+        foldseek_major_version=10
+        foldseek_minor_version="941cd33"
     else:
-        logger.error("Foldseek not found. Please reinstall phold.")
+        logger.warning(f"Foldseek version found is v{foldseek_version}")
+        logger.warning(f"Phold is recommended to be run with Foldseek v10.941cd33")
+        logger.warning(f"Using a different Foldseek version is likely to work without issue, but this cannot be guaranteed.")
 
     logger.info(
         f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
     )
 
-    if foldseek_major_version != 9:
-        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
-    if foldseek_minor_version != "427df8a":
-        logger.error("Foldseek is the wrong version. Please install v9.427df8a")
+    #if foldseek_major_version != 10:
+    #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
+    #if foldseek_minor_version != "941cd33":
+    #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
 
     logger.info("Foldseek version is ok")

@@ -1,6 +1,6 @@
 # `phold` Tutorial
 
-* This tutorial assumes you have [mamba](https://github.com/conda-forge/miniforge) installed and the correct channels available. Please see the [install page](https://phold.readthedocs.io/en/latest/install/) for more details. You could also use [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html).
+* This tutorial assumes you have [conda](https://github.com/conda-forge/miniforge) installed and the correct channels available. Please see the [install page](https://phold.readthedocs.io/en/latest/install/) for more details. You could also use [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html).
 * This tutorial uses _Stenotrophomonas_ phage SMA6, accession NC_043029.
 
 ## Step 1 Get the `phold` repository and test data
@@ -20,7 +20,7 @@ cd phold
 * To install and run pharokka (change `-t 8` to the number of available threads)
 
 ```bash
-mamba create -n pharokkaENV pharokka
+conda create -n pharokkaENV pharokka
 conda activate pharokkaENV
 install_databases.py -o pharokka_db
 pharokka.py -i tests/test_data/NC_043029.fasta -d pharokka_db -o NC_043029_pharokka_output -t 8 --fast
@@ -32,21 +32,27 @@ conda deactivate
 * To install `phold` with mamba from bioconda (assuming you have an NVIDIA GPU available):
 
 ```bash
-mamba create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
+conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 conda activate pholdENV
-phold install
+phold install -t 8 --foldseek_gpu
 ```
 
-* If you do not have a GPU available, remove `pytorch=*=cuda*`
-* For more installation options, see the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
+* If you do not have an NVIDIA GPU available, remove `pytorch=*=cuda*` and `--foldseek_gpu`
+* For more installation options including non-NVIDIA GPUs, see the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
 
 ## Step 4 Running `phold`
 
 ```bash
-phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029
+phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --foldseek_gpu
 ```
 
 * If you do not have a GPU available:
+
+```bash
+phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --cpu
+```
+
+* If you have a non-NVIDIA GPU available:
 
 ```bash
 phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --cpu

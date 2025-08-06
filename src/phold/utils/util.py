@@ -174,12 +174,16 @@ def clean_up_temporary_files(output: Path) -> None:
     result_high_tsv: Path = Path(output) / "foldseek_results_high.tsv"
     result_low_tsv: Path = Path(output) / "foldseek_results_low.tsv"
     result_tsv: Path = Path(output) / "foldseek_results.tsv"
+    result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
     foldseek_db: Path = Path(output) / "foldseek_db"
     result_db_base: Path = Path(output) / "result_db"
     temp_db: Path = Path(output) / "temp_db"
+    aln_db: Path = Path(output) / "aln_db"
     remove_directory(result_db_base)
     remove_directory(temp_db)
     remove_directory(foldseek_db)
+    remove_directory(aln_db)
     remove_file(result_tsv)
+    remove_file(result_tsv_custom)
     remove_file(result_high_tsv)
     remove_file(result_low_tsv)

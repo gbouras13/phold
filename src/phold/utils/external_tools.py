@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 
 import click
 from loguru import logger
-
+ 
 
 class ExternalTool:
     def __init__(self, tool: str, input: str, output: str, params: str, logdir: Path):
@@ -44,6 +44,36 @@ class ExternalTool:
             logger.info(f"Started running {self.command_as_str} ...")
             self._run_core(self.command, stdout_fh=stdout_fh, stderr_fh=stderr_fh)
             logger.info(f"Done running {self.command_as_str}")
+
+    """
+    stream to terminal (aria2c) so the user knows how long it is taking
+    """
+
+    def run_stream(self) -> None:
+        with open(self.out_log, "w") as stdout_fh, open(self.err_log, "w") as stderr_fh:
+            print(f"Command line: {self.command_as_str}", file=stderr_fh)
+            logger.info(f"Started running {self.command_as_str} ...")
+
+            process = subprocess.Popen(
+                self.command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+                universal_newlines=True,
+            )
+
+            for line in process.stdout:
+                print(line, end="")         # Live output to terminal
+                stdout_fh.write(line)       # Also write to stdout log
+
+            process.stdout.close()
+            return_code = process.wait()
+
+            logger.info(f"Done running {self.command_as_str}")
+
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, self.command)
+
 
     @staticmethod
     def _run_core(command: List[str], stdout_fh, stderr_fh) -> None:
@@ -78,6 +108,29 @@ class ExternalTool:
     def run_tool(tool: "ExternalTool", ctx: Optional[click.Context] = None) -> None:
         try:
             tool.run()
+        except subprocess.CalledProcessError as error:
+            logger.error(
+                f"Error calling {tool.command_as_str} (return code {error.returncode})"
+            )
+            logger.error(f"Please check stdout log file: {tool.out_log}")
+            logger.error(f"Please check stderr log file: {tool.err_log}")
+            logger.error("Temporary files are preserved for debugging")
+            logger.error("Exiting...")
+
+            if ctx:
+                ctx.exit(1)
+            else:
+                sys.exit(1)
+
+
+    """
+    Only download - so can print the aria2c output to screen
+    """
+
+    @staticmethod
+    def run_download(tool: "ExternalTool", ctx: Optional[click.Context] = None) -> None:
+        try:
+            tool.run_stream()
         except subprocess.CalledProcessError as error:
             logger.error(
                 f"Error calling {tool.command_as_str} (return code {error.returncode})"

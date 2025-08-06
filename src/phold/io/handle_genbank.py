@@ -9,6 +9,8 @@ import multiprocessing.pool
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Dict, Union
+from datetime import datetime
+
 
 import pandas as pd
 import pyrodigal_gv
@@ -17,6 +19,8 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 from loguru import logger
+
+from phold.utils.util import get_version
 
 # imports
 
@@ -54,6 +58,7 @@ def is_gzip_file(f: Path) -> bool:
         return binascii.hexlify(i.read(2)) == b"1f8b"
 
 
+
 def get_genbank(genbank: Path) -> dict:
     """
     Convert a GenBank file to a dictionary.
@@ -70,29 +75,131 @@ def get_genbank(genbank: Path) -> dict:
         ValueError: If the provided file is not a GenBank file.
     """
 
-    logger.info(f"Checking if input {genbank} is a Genbank file")
-
-    if is_gzip_file(genbank.strip()):
+    logger.info(f"Checking if input {genbank} is a Genbank format file")
+    logger.info(f"If so, also detecting the likely input style out of Pharokka, Bakta and NCBI Refseq style.")
+    def parse_records(handle):
         try:
-            with gzip.open(genbank.strip(), "rt") as handle:
-                gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
-            handle.close()
-            gb_dict = identify_long_ids(gb_dict)
-        except ValueError:
-            logger.warning(f"{genbank.strip()} is not a genbank file")
-            raise
+            records = list(SeqIO.parse(handle, "gb"))
+            if not records:
+                return {}, None
+            gb_dict = {record.id: record for record in records}
+            record = records[0]
 
-    else:
-        try:
-            with open(genbank.strip(), "rt") as handle:
-                gb_dict = SeqIO.to_dict(SeqIO.parse(handle, "gb"))
-            handle.close()
-            gb_dict = identify_long_ids(gb_dict)
-        except ValueError:
+            comment = record.annotations.get("comment", "")
+            cds_feature = next((f for f in record.features if f.type == "CDS"), None)
+
+            if cds_feature is None:
+                logger.error(f"{genbank} appears to be a Genbank formatted file but no CDS was found. Please check your input.")
+                return gb_dict, None
+
+            # Check if 'Bakta' appears in the Comment - will appear there
+            if "Bakta" in comment and "locus_tag" in cds_feature.qualifiers:
+                logger.info(f"Detected Bakta style input Genbank. Using locus_tag qualifier from Bakta as the CDS IDs for Phold.")
+                method = "Bakta"
+            else:
+                if "phrog" not in cds_feature.qualifiers and "protein_id" in cds_feature.qualifiers:
+                    logger.info(f"Detected NCBI Refseq style input Genbank. Using protein_id qualifier as the CDS IDs for Phold.")
+                    method = "NCBI"
+                elif "phrog" in cds_feature.qualifiers and "ID" in cds_feature.qualifiers:
+                    logger.info(f"Detected Pharokka style input Genbank. Using ID qualifier from Pharokka as the CDS IDs for Phold.")
+                    method = "Pharokka"
+                else:
+                    logger.error(
+                                f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
+                            )
+            return identify_long_ids(gb_dict), method
+        except Exception as e:
             logger.warning(f"{genbank} is not a genbank file")
-            raise
+            return {}, None
 
-    return gb_dict
+    try:
+        if is_gzip_file(genbank.strip()):
+            with gzip.open(genbank.strip(), "rt") as handle:
+                return parse_records(handle)
+        else:
+            with open(genbank.strip(), "rt") as handle:
+                return parse_records(handle)
+    except Exception as e:
+        logger.warning(f"{genbank} is not a genbank file")
+        return {}, None
+
+
+
+
+# def get_genbank(genbank: Path) -> dict:
+#     """
+#     Convert a GenBank file to a dictionary.
+
+#     This function reads a GenBank file and converts it into a dictionary.
+
+#     Args:
+#         genbank (Path): Path to the GenBank file.
+
+#     Returns:
+#         dict: A dictionary representation of the GenBank file.
+
+#     Raises:
+#         ValueError: If the provided file is not a GenBank file.
+#     """
+
+#     logger.info(f"Checking if input {genbank} is a Genbank file")
+#     logger.info(f"If so, also detecting the likely input format out of Pharokka, Bakta and NCBI Refseq input.")
+
+#     method = "pharokka"
+
+#     if is_gzip_file(genbank.strip()):
+#         try:
+#             with gzip.open(genbank.strip(), "rt") as handle:
+#                 records = list(SeqIO.parse(handle, "gb"))
+#                 if not records:
+#                     logger.warning(f"{genbank.strip()} is not a genbank file.")
+#                     raise ValueError
+#                 gb_dict = {record.id: record for record in records}
+#                 # get the first record to check format
+#                 record = records[0]
+#             handle.close()
+#         except ValueError:
+#             logger.warning(f"{genbank.strip()} is not a genbank file.")
+#             raise
+#     else:
+#         try:
+#             with open(genbank.strip(), "rt") as handle:
+#                 records = list(SeqIO.parse(handle, "gb"))
+#                 if not records:
+#                     logger.warning(f"{genbank.strip()} is not a genbank file.")
+#                     raise ValueError
+#                 gb_dict = {record.id: record for record in records}
+#                 # get the first record to check format
+#                 record = records[0]
+#             handle.close()
+#         except (ValueError, IndexError) as e:
+#             logger.warning(f"{genbank.strip()} is not a genbank file.")
+#             raise
+       
+#     logger.info(f"{genbank} is a genbank file. Detecting likely input format.")
+#     comment = record.annotations.get("comment", "")
+#     # Find the first CDS feature
+#     cds_feature = next((f for f in record.features if f.type == "CDS"), None)
+    
+#     # Check if 'Bakta' appears in the Comment - will appear there
+#     if "Bakta" in comment and "locus_tag" in cds_feature.qualifiers:
+#         logger.info(f"Detected Bakta style input Genbank. Using locus_tag qualifier from Bakta as the CDS IDs for Phold.")
+#         method = "bakta"
+#     else:
+#         if "phrog" not in cds_feature.qualifiers and "protein_id" in cds_feature.qualifiers:
+#             logger.info(f"Detected NCBI Refseq style input Genbank. Using protein_id qualifier as the CDS IDs for Phold.")
+#             method = "ncbi"
+#         elif "phrog" in cds_feature.qualifiers and "ID" in cds_feature.qualifiers:
+#             logger.info(f"Detected Pharokka style input Genbank. Using ID qualifier from Pharokka as the CDS IDs for Phold.")
+#         else:
+#             logger.error(
+#                         f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
+#                     )
+
+#     gb_dict = identify_long_ids(gb_dict)
+
+
+#     return gb_dict, method
 
 
 def identify_long_ids(gb_dict: dict) -> dict:
@@ -264,7 +371,15 @@ def write_genbank(
     seq_records = []
     per_cds_list = []
 
+    version = get_version()
+    now = datetime.now()
+    format_time = now.strftime("%Y-%m-%d %H:%M:%S")
+
     for record_id, record in gb_dict.items():
+
+        if not proteins_flag:
+            record.annotations["comment"] = f"Annotated with Phold {version}.\nAnnotation Date: {format_time}.\nAnnotation Date: {format_time}.\nURL https://github.com/gbouras13/phold."
+        
         # Merge updated_cds_dict and non_cds_dict
         merged_dict = {
             record_id: {
@@ -308,19 +423,28 @@ def write_genbank(
                             # for older pharokka input before v1.5.0
                             transl_table = "11"
 
+
                     # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
+                    # turns out the genbank format adds 1 to the start coordinate on writing out issue #75 and #77
+                    # e.g. [SeqFeature(SimpleLocation(ExactPosition(0), ExactPosition(1056), strand=1) - will be writted as start=1 and end=1056
+                    # therefore, need to add genbank (pharokka) input by 1 for the output df
+                    # also need to subtract the start by 1 for pyrodigal/fasta input 
                     if cds_feature.location.strand == -1:  # neg strand
                         start = cds_feature.location.end
                         if fasta_flag is True:  # pyrodigal
                             end = cds_feature.location.start
-                        else:  # genbank
+                            # for the genbank - keeps the start and end sequential
+                            cds_feature.location = FeatureLocation(cds_feature.location.start - 1, cds_feature.location.end, cds_feature.location.strand)
+                        else:  # genbank/pharokka input fix the zero index issue for the df
                             end = cds_feature.location.start + 1
                     else:  # pos strand
+                        end = cds_feature.location.end
                         if fasta_flag is True:  # pyrodigal
                             start = cds_feature.location.start
-                        else:  # genbank
+                            # subtract by 1 for the start for the genbank
+                            cds_feature.location = FeatureLocation(start - 1, end, cds_feature.location.strand)
+                        else:  # genbank/pharokka input fix the zero index issue for the df
                             start = cds_feature.location.start + 1
-                        end = cds_feature.location.end
 
                     if fasta_flag is True:
                         cds_id = cds_feature.qualifiers["ID"]
@@ -357,6 +481,13 @@ def write_genbank(
                         deleted_value = cds_feature.qualifiers.pop(key, None)
                     # get dataframe
                 per_cds_list.append(cds_info)
+            elif cds_feature.type == "tRNA": # trna features - fix the issue #76 https://github.com/gbouras13/phold/issues/76 
+                if "anticodon" in cds_feature.qualifiers:
+                    del cds_feature.qualifiers["anticodon"]
+                if "trna" in cds_feature.qualifiers:
+                    cds_feature.qualifiers["product"] = cds_feature.qualifiers.pop("trna")
+
+
 
         # write out the record to GBK file
         if proteins_flag is False:

@@ -17,7 +17,7 @@ from phold.io.handle_genbank import open_protein_fasta_file
 from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
-from phold.utils.constants import DB_DIR
+from phold.utils.constants import DB_DIR, CNN_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
@@ -103,15 +103,7 @@ def predict_options(func):
         click.option(
             "--omit_probs",
             is_flag=True,
-            help="Do not output 3Di probabilities from ProstT5",
-        ),
-        click.option(
-            "--finetune",
-            is_flag=True,
-            help="Use finetuned ProstT5 model (PhrostT5). Experimental and not recommended for now",
-        ),
-        click.option(
-            "--finetune_path", help="Path to finetuned model weights", default=None
+            help="Do not output per residue 3Di probabilities from ProstT5. Mean per protein 3Di probabilities will always be output.",
         ),
         click.option(
             "--save_per_residue_embeddings",
@@ -125,11 +117,26 @@ def predict_options(func):
         ),
         click.option(
             "--mask_threshold",
-            default=50,
+            default=25,
             help="Masks 3Di residues below this value of ProstT5 confidence for Foldseek searches",
             type=float,
             show_default=True,
         ),
+        click.option(
+            "--finetune",
+            is_flag=True,
+            help="Use gbouras13/ProstT5Phold encoder + CNN model both finetuned on phage proteins",
+        ),
+        click.option(
+            "--vanilla",
+            is_flag=True,
+            help="Use vanilla CNN model (trained on CASP14) with ProstT5Phold encoder instead of the one trained on phage proteins",
+        ),
+        click.option(
+            "--hyps",
+            is_flag=True,
+            help="Use this to only annotate hypothetical proteins from a Pharokka GenBank input",
+        )
     ]
     for option in reversed(options):
         func = option(func)
@@ -169,7 +176,7 @@ def compare_options(func):
             "--card_vfdb_evalue",
             default="1e-10",
             type=float,
-            help="Stricter Evalue threshold for Foldseek CARD and VFDB hits",
+            help="Stricter E-value threshold for Foldseek CARD and VFDB hits",
             show_default=True,
         ),
         click.option(
@@ -180,20 +187,30 @@ def compare_options(func):
         click.option(
             "--max_seqs",
             type=int,
-            default=10000,
+            default=1000,
             show_default=True,
             help="Maximum results per query sequence allowed to pass the prefilter. You may want to reduce this to save disk space for enormous datasets",
-        ),
-        click.option(
-            "--only_representatives",
-            is_flag=True,
-            help="Foldseek search only against the cluster representatives (i.e. turn off --cluster-search 1 Foldseek parameter)",
         ),
         click.option(
             "--ultra_sensitive",
             is_flag=True,
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
         ),
+        click.option(
+            "--extra_foldseek_params",
+            type=str,
+            help="Extra foldseek search params"
+        ),
+        click.option(
+            "--custom_db",
+            type=str,
+            help="Path to custom database"
+        ),
+        click.option(
+            "--foldseek_gpu",
+            is_flag=True,
+            help="Use this to enable compatibility with Foldseek-GPU search acceleration",
+        )
     ]
     for option in reversed(options):
         func = option(func)
@@ -246,16 +263,19 @@ def run(
     cpu,
     omit_probs,
     keep_tmp_files,
-    finetune,
-    finetune_path,
     card_vfdb_evalue,
     separate,
     max_seqs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
-    only_representatives,
     ultra_sensitive,
     mask_threshold,
+    extra_foldseek_params,
+    custom_db,
+    foldseek_gpu,
+    hyps,
+    finetune,
+    vanilla,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -279,16 +299,19 @@ def run(
         "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune,
-        "--finetune_path": finetune_path,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
-        "--mask_threshold": mask_threshold
+        "--mask_threshold": mask_threshold,
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db,
+        "--foldseek_gpu": foldseek_gpu,
+        "--hyps": hyps,
+        "--finetune": finetune,
+        "--vanilla": vanilla,
     }
 
     # initial logging etc
@@ -298,32 +321,43 @@ def run(
     check_dependencies()
 
     # check the database is installed and return it
-    database = validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # validate input
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # phold predict
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    
+
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+
 
     subcommand_predict(
         gb_dict,
+        method,
         output,
         prefix,
         cpu,
         omit_probs,
         model_dir,
         model_name,
+        checkpoint_path,
         batch_size,
-        finetune,
-        finetune_path,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
+        hyps=hyps
     )
 
     # phold compare
@@ -347,8 +381,10 @@ def run(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db,
+        foldseek_gpu=foldseek_gpu,
     )
 
     # cleanup the temp files
@@ -389,11 +425,12 @@ def predict(
     batch_size,
     cpu,
     omit_probs,
-    finetune,
-    finetune_path,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
+    finetune,
+    vanilla,
+    hyps,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -414,43 +451,53 @@ def predict(
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune,
-        "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--mask_threshold": mask_threshold
+        "--mask_threshold": mask_threshold,
+        "--finetune": finetune,
+        "--vanilla": vanilla,
+        "--hyps": hyps
     }
 
     # initial logging etc
     start_time = begin_phold(params, "predict")
 
     # check the database is installed
-    database = validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # runs phold predict subcommand
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+
 
     subcommand_predict(
         gb_dict,
+        method,
         output,
         prefix,
         cpu,
         omit_probs,
         model_dir,
         model_name,
+        checkpoint_path,
         batch_size,
-        finetune,
-        finetune_path,
         proteins_flag=False,
         fasta_flag=fasta_flag,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
+        hyps=hyps
     )
 
     # end phold
@@ -513,8 +560,10 @@ def compare(
     card_vfdb_evalue,
     separate,
     max_seqs,
-    only_representatives,
     ultra_sensitive,
+    extra_foldseek_params,
+    custom_db,
+    foldseek_gpu,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -543,8 +592,10 @@ def compare(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
-        "--only_representatives": only_representatives,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db,
+        "--foldseek_gpu": foldseek_gpu,
     }
 
     # initial logging etc
@@ -554,10 +605,10 @@ def compare(
     check_dependencies()
 
     # check the database is installed
-    database = validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # validate fasta
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     subcommand_compare(
         gb_dict,
@@ -578,8 +629,10 @@ def compare(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db,
+        foldseek_gpu=foldseek_gpu,
     )
 
     # cleanup the temp files
@@ -620,11 +673,11 @@ def proteins_predict(
     batch_size,
     cpu,
     omit_probs,
-    finetune,
-    finetune_path,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
+    finetune,
+    vanilla,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -645,18 +698,18 @@ def proteins_predict(
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
-        "--finetune": finetune,
-        "--finetune_path": finetune_path,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
-        "--mask_threshold": mask_threshold
+        "--mask_threshold": mask_threshold,
+        "--finetune": finetune,
+        "--vanilla": vanilla
     }
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-predict")
 
     # check the database is installed
-    database = validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -695,24 +748,34 @@ def proteins_predict(
     # runs phold predict subcommand
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    success = subcommand_predict(
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+
+    method = "pharokka" # this can be whatever for proteins, it wont matter - it is for genbank input
+
+    subcommand_predict(
         cds_dict,
+        method,
         output,
         prefix,
         cpu,
         omit_probs,
         model_dir,
         model_name,
+        checkpoint_path,
         batch_size,
-        finetune,
-        finetune_path,
         proteins_flag=True,
         fasta_flag=False,
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
+        hyps=False # always False for this as no Pharokka genbank to parse on input
     )
 
     # end phold
@@ -775,11 +838,12 @@ def proteins_compare(
     filter_structures,
     keep_tmp_files,
     card_vfdb_evalue,
-    separate,
     max_seqs,
-    only_representatives,
     ultra_sensitive,
-    **kwargs,
+    extra_foldseek_params,
+    custom_db,
+    foldseek_gpu,
+    **kwargs
 ):
     """Runs Foldseek vs phold db on proteins input"""
 
@@ -806,8 +870,10 @@ def proteins_compare(
         "--keep_tmp_files": keep_tmp_files,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--max_seqs": max_seqs,
-        "--only_representatives": only_representatives,
         "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db,
+        "--foldseek_gpu": foldseek_gpu,
     }
 
     # initial logging etc
@@ -817,7 +883,7 @@ def proteins_compare(
     check_dependencies()
 
     # check the database is installed
-    database = validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR, foldseek_gpu)
 
     # Dictionary to store the records
     cds_dict = {}
@@ -871,8 +937,10 @@ def proteins_compare(
         fasta_flag=False,
         separate=False,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db,
+        foldseek_gpu=foldseek_gpu,
     )
 
     # cleanup the temp files
@@ -915,9 +983,10 @@ def remote(
     card_vfdb_evalue,
     separate,
     max_seqs,
-    only_representatives,
     ultra_sensitive,
-    **kwargs,
+    extra_foldseek_params,
+    custom_db,
+    **kwargs
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
 
@@ -940,8 +1009,9 @@ def remote(
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
         "--max_seqs": max_seqs,
-        "--only_representatives": only_representatives,
-        "--ultra_sensitive": ultra_sensitive
+        "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db
     }
 
     # initial logging etc
@@ -951,10 +1021,10 @@ def remote(
     check_dependencies()
 
     # check the database is installed
-    database = validate_db(database, DB_DIR)
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # Create a nested dictionary to store CDS features by contig ID
     cds_dict = {}
@@ -1018,8 +1088,10 @@ def remote(
         fasta_flag=fasta_flag,
         separate=separate,
         max_seqs=max_seqs,
-        only_representatives=only_representatives,
-        ultra_sensitive=ultra_sensitive
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db,
+        foldseek_gpu=False, # doesn't make sense for remote to do this as you wouldn't probably have a GPU
     )
 
     # cleanup the temp files
@@ -1150,9 +1222,36 @@ install command
     default=None,
     help="Specific path to install the phold database",
 )
+@click.option(
+    "--foldseek_gpu",
+    is_flag=True,
+    help="Use this to enable compatibility with Foldseek-GPU acceleration",
+)
+@click.option(
+    "--extended_db",
+    is_flag=True,
+    help=(
+        "Download the extended Phold DB 3.16M including 1.8M efam and enVhog proteins without functional labels\n"
+        "instead of the default Phold Search 1.36M. Using the extended database will likely marginally reduce\n"
+        "functional annotation sensitivity and increase runtime, but may find more hits overall\n"
+        "i.e. including to efam and enVhog proteins that have no functional labels."
+    )
+)
+@click.option(
+            "-t",
+            "--threads",
+            help="Number of threads",
+            default=1,
+            type=int,
+            show_default=True,
+)
+
 def install(
     ctx,
     database,
+    foldseek_gpu,
+    extended_db,
+    threads,
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
@@ -1181,11 +1280,10 @@ def install(
     model, vocab = get_T5_model(database, model_name, cpu, threads=1)
     del model
     del vocab
-
-    logger.info(f"ProstT5 model downloaded.")
+    logger.info(f"ProstT5 model downloaded")
 
     # will check if db is present, and if not, download it
-    install_database(database)
+    install_database(database, foldseek_gpu, extended_db, threads)
 
 
 @main_cli.command()
@@ -1331,7 +1429,7 @@ def plot(
     # single threaded plots
     threads = 1
 
-    fasta_flag, gb_dict = validate_input(input, threads)
+    fasta_flag, gb_dict, method = validate_input(input, threads)
 
     gbk = Genbank(input)
 
