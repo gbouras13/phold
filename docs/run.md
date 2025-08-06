@@ -4,7 +4,7 @@
 
 The reason `phold` has been split as such is to enable optimal resource usage between GPU and CPU in cluster environments.
 
-If you have a local workstation with an NVIDIA GPU, please use `phold run`, which combines both in one.
+If you have a local workstation with GPU, please use `phold run`, which combines both in one.
 
 If you have a local workstation without a GPU, please use `phold run` with `--cpu`.
 
@@ -89,6 +89,15 @@ Example usage if you have `.pdb` or `.cif` format structures available for your 
 ```bash
 phold compare -i pharokka.gbk -o phold_compare_output_pdb  --pdb --pdb_dir directory_with_pdbs  -t 8
 ```
+
+If you have a custom database of protein structures would would additionally like to search against, Phold will support this using `--custom_db`, with the 
+You will first need to use `foldseek createdb` first to create a Foldseek compatible database. For example, assuming you have protein structures in a directory called `custom_structures`
+
+```bash
+foldseek createdb custom_structures/ mycustomdb
+phold compare -i pharokka.gbk -o phold_compare_output_with_custom_db  --custom_db mycustomdb    -t 8
+```
+
 
 ```bash
 Usage: phold compare [OPTIONS]

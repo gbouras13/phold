@@ -11,8 +11,7 @@ readme = "README.md"
 requires-python = ">=3.8, <4"
 license = {file = "MIT"}
 authors = [
-    {name = "George Bouras", email = "george.bouras@adelaide.edu.au"},
-    {name = "Susanna Grigson", email = "susie.grigson@gmail.com"}
+    {name = "George Bouras", email = "george.bouras@adelaide.edu.au"}
 ]
 keywords = ["keyword", "are", "cool"]
 
