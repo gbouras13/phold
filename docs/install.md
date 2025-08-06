@@ -2,7 +2,7 @@
 
 The best way to install `phold` is using [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), as this will install [Foldseek](https://github.com/steineggerlab/foldseek) (the only non-Python dependency) along with the Python dependencies.
 
-We would highly recommend [miniforge](https://github.com/conda-forge/miniforge).
+We would highly recommend installing conda via [miniforge](https://github.com/conda-forge/miniforge).
 
 To install `phold`:
 
@@ -20,17 +20,17 @@ conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 
 ## Pip
 
-You can also install the `phold` using pip.
+You can also install `phold` using pip.
 
 ```bash
 pip install phold
 ```
 
-You will need to have [Foldseek](https://github.com/steineggerlab/foldseek) v10.941cd33 installed and available in the $PATH.
+You will need to have [Foldseek](https://github.com/steineggerlab/foldseek) (ideally v10.941cd33) installed and available in the $PATH.
 
 ## Source
 
-You can install the latest version of `phold` with potentially untested and unreleased changes into a conda environment using [mamba](https://github.com/conda-forge/miniforge) as follows:
+You can install the latest version of `phold` with potentially untested and unreleased changes into a conda environment using [conda](https://github.com/conda-forge/miniforge) as follows:
 
 ```bash
 conda create -n pholdENV pip foldseek python=3.13
@@ -119,7 +119,7 @@ If you are new to using the command-line, please install conda using the followi
 
 First install some flavour of [Anaconda](https://www.anaconda.com/products/distribution). 
 
-There are lots of options but the best in our opinion is miniforge as this will automatically install mamba, which is much faster than base conda:
+There are lots of options but the best in our opinion is miniforge as this will automatically use the mamba solver, which has now been integrated into conda:
 
    * [miniforge](https://github.com/conda-forge/miniforge).
   

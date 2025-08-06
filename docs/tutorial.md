@@ -14,8 +14,7 @@ cd phold
 
 ## Step 2 Installing and Running `Pharokka`
 
-* Feel free to skip this step if you only want phage CDS annotations from `phold` - Pharokka also gives you tRNA, tmRNAs and CRISPRs and other summary features `phold` lacks (at least for now).
-
+* Feel free to skip this step if you only want phage CDS annotations from `phold` - Pharokka also gives you tRNA, tmRNAs and CRISPRs and other summary features `phold` lacks.
 
 * To install and run pharokka (change `-t 8` to the number of available threads)
 
@@ -29,7 +28,7 @@ conda deactivate
 
 ## Step 3 Installing `phold`
 
-* To install `phold` with mamba from bioconda (assuming you have an NVIDIA GPU available):
+* To install `phold` with conda from bioconda (assuming you have an NVIDIA GPU available):
 
 ```bash
 conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
@@ -38,7 +37,7 @@ phold install -t 8 --foldseek_gpu
 ```
 
 * If you do not have an NVIDIA GPU available, remove `pytorch=*=cuda*` and `--foldseek_gpu`
-* For more installation options including non-NVIDIA GPUs, see the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
+* For more installation options including non-NVIDIA GPUs including Mac Mseries laptops, see the [installation documentation](https://phold.readthedocs.io/en/latest/install/).
 
 ## Step 4 Running `phold`
 
@@ -52,10 +51,10 @@ phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t
 phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --cpu
 ```
 
-* If you have a non-NVIDIA GPU available:
+* If you have a non-NVIDIA GPU available (e.g. Mac Mseries) and have installed the correct compatible version of PyTorch:
 
 ```bash
-phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029 --cpu
+phold run -i NC_043029_pharokka_output/pharokka.gbk -o NC_043029_phold_output -t 8 -p NC_043029
 ```
 
 * If you skipped step 2, replace `NC_043029_pharokka_output/pharokka.gbk` with `tests/test_data/NC_043029.fasta`
