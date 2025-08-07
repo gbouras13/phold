@@ -45,7 +45,7 @@ pip install -e .
 If you have a Mac that runs Apple Silicon (M1/M2/M3), please try:
 
 ```bash
-mamba create -n pholdENV python==3.13
+mamba create -n pholdENV python==3.10
 conda activate pholdENV
 mamba install pytorch::pytorch torchvision torchaudio -c pytorch 
 mamba install -c conda-forge -c bioconda phold 

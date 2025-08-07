@@ -14,9 +14,9 @@ The `phold` databse consists of over 1.36 million protein structures generated u
 * [enVhogs](http://envhog.u-ga.fr/envhog/) — 562,369 proteins from the ~2.2M ENVHOGs <3000AA that were assigned a PHROG.
 * [efam](https://doi.org/10.1093/bioinformatics/btab451) - 233,181 efam "extra conservative" proteins that were assigned a PHROG.
 * [DGRs](https://doi.org/10.1038/s41467-021-23402-7) - 12,683 extra diversity generating element proteins from [Roux et al 2021](https://doi.org/10.1038/s41467-021-23402-7).
-* [VFDB](http://www.mgc.ac.cn/VFs/main.htm) — over 27,823 structures of putative bacterial virulence factors from the VFDB.
-* [CARD](https://card.mcmaster.ca) — nearly 4,804 structures of anitbiotic resistant proteins from CARD.
-* [acrDB](https://bcb.unl.edu/AcrDB/) - nearly 3,652 anti-crispr proteins predicted in this [study](https://doi.org/10.1089/crispr.2023.0011).
+* [VFDB](http://www.mgc.ac.cn/VFs/main.htm) —  27,823 structures of putative bacterial virulence factors from the VFDB.
+* [CARD](https://card.mcmaster.ca) —  4,804 structures of anitbiotic resistant proteins from CARD.
+* [acrDB](https://bcb.unl.edu/AcrDB/) -  3,652 anti-crispr proteins predicted in this [study](https://doi.org/10.1089/crispr.2023.0011).
 * [Defensefinder](https://defensefinder.mdmlab.fr) - 408 monomer prokaryotic defense proteins.
 * [Netflax](https://doi.org/10.1073/pnas.2305393120) - 7,152 toxin-antitoxin proteins.
 
