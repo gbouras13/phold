@@ -79,7 +79,7 @@ conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 If you have a Mac running an Apple Silicon chip (M1/M2/M3/M4), `phold` should be able to use the GPU. Please try:
 
 ```bash
-conda create -n pholdENV python==3.13  
+conda create -n pholdENV python==3.10  
 conda activate pholdENV
 conda install pytorch::pytorch torchvision torchaudio -c pytorch 
 conda install -c conda-forge -c bioconda phold 
