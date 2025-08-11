@@ -86,6 +86,8 @@ def get_genbank(genbank: Path) -> dict:
                 )
         handle.seek(0)
 
+
+
     logger.info(f"Checking if input {genbank} is a Genbank format file")
     logger.info(f"If so, also detecting the likely input style out of Pharokka, Bakta and NCBI Refseq style.")
     def parse_records(handle):
@@ -142,6 +144,8 @@ def identify_long_ids(gb_dict: dict) -> dict:
 
     Checks all feature IDs in gb_dict. If longer than 54 chars (line break from Pharokka/biopython reading GBK files), removes the space
 
+    Also check if it contains "|" or "__PIPE__"
+
     Args:
         dict: A dictionary representation of the GenBank file.
 
@@ -170,6 +174,8 @@ def identify_long_ids(gb_dict: dict) -> dict:
                 # will be GenBank/NCBI formatted
                 # ID isn't a field and should be properly formatted - famous last words probably
                 continue
+
+
 
     return gb_dict
 
@@ -210,6 +216,14 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
                 f"Your input {input} is neither Genbank nor FASTA format. Please check your input"
             )
             raise
+
+    # check for colons in the header
+
+    for header in fasta_dict.keys():
+        if ":" in header:
+            logger.error(
+                f"FASTA header in {input} contains a colon ':': '{header}'. Please remove ':' from all input FASTA headers before running Phold (or Pharokka beforehand)."
+            )
 
     # then run pyrodigal
 

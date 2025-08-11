@@ -19,7 +19,7 @@ from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
                                        calculate_qcov_tcov,
                                        get_topfunctions)
-
+from phold.utils.util import replace_pipe_in_fastq
 
 def subcommand_compare(
     gb_dict: Dict[str, Dict[str, Union[SeqRecord, SeqFeature]]],
@@ -320,6 +320,16 @@ def subcommand_compare(
        
     create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads)
 
+
+    ######
+    # remove pipe in AA and 3Di FASTA (issue #86)
+    ######
+
+    fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
+    fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+
+    replace_pipe_in_fastq(fasta_aa)
+    replace_pipe_in_fastq(fasta_3di)
 
     ########
     # get topfunction

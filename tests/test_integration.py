@@ -45,6 +45,7 @@ run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_bakta: Path = f"{output_dir}/run_gbk_ncbi_bakta"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
+run_gbk_pharokka_pipe: Path = f"{output_dir}/pipe.gbk"
 run_gbk_pharokka_1_4_1_dir_extra: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
 run_gbk_pharokka_1_4_1_dir_custom: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
@@ -129,6 +130,15 @@ def test_run_genbank(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_run_genbank(gpu_available, threads):
+    """test phold run with pipe in header (i.e. issue #86 GenBank format genome)"""
+    input_gbk: Path = f"{test_data}/pipe_pharokka.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_pipe} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
 def test_run_hyps(gpu_available, threads):
     """test phold run with --hyps"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
@@ -201,7 +211,7 @@ def test_run_fasta_long_header(gpu_available, threads):
 
 
 def test_run_fasta(gpu_available, threads):
-    """test phold run with genbank input"""
+    """test phold run with FASTA input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
@@ -358,16 +368,26 @@ def test_remote_fasta(run_remote, threads):
         exec_command(cmd)
 
 
-# class testFails(unittest.TestCase):
-#     """Tests for fails"""
+class testFails(unittest.TestCase):
+    """Tests for fails"""
    
-#     def test_run_hyps_ncbi(gpu_available, threads):
-#         """test phold run with --hyps but not pharokka input"""
-#         input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
-#         cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hpys"
-#         if gpu_available is False:
-#             cmd = f"{cmd} --cpu"
-#         exec_command(cmd)
+    def test_run_genbank_colon(gpu_available, threads):
+        """test phold run with genbank input with colon in header"""
+        input_gbk: Path = f"{test_data}/colon.gbk"
+        cmd = (
+            f"phold run -i {input_gbk} -o {run_gbk_bakta} -t {threads} -d {database_dir} -f"
+        )
+        if gpu_available is False:
+            cmd = f"{cmd} --cpu"
+        exec_command(cmd)
+
+    def test_run_fasta_colon(gpu_available, threads):
+        """test phold run with FASTA input colon in header"""
+        input_fasta: Path = f"{test_data}/colon.fasta"
+        cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
+        if gpu_available is False:
+            cmd = f"{cmd} --cpu"
+        exec_command(cmd)
 
 
 remove_directory(output_dir)
