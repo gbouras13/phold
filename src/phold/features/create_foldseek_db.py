@@ -87,7 +87,6 @@ def generate_foldseek_db_from_aa_3di(
 
 
     # create foldseek db names
-
     short_db_name = f"{prefix}"
     aa_db_name: Path = Path(foldseek_db_path) / short_db_name
     tsv_db_name: Path = Path(foldseek_db_path) / f"{short_db_name}_ss"

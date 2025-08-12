@@ -210,6 +210,14 @@ def test_run_fasta_long_header(gpu_available, threads):
     exec_command(cmd)
 
 
+def test_run_fasta_pipe(gpu_available, threads):
+    """test phold run with pipe in FASTA header"""
+    input_fasta: Path = f"{test_data}/pipe.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_long_header_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
 def test_run_fasta(gpu_available, threads):
     """test phold run with FASTA input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
