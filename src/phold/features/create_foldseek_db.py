@@ -67,27 +67,24 @@ def generate_foldseek_db_from_aa_3di(
                 if id in sequences_3di
             }
 
-    # generate TSV file contents
-    tsv_aa = ""
-    tsv_3di = ""
-    tsv_header = ""
-    for i, id in enumerate(sequences_aa.keys()):
-        tsv_aa += "{}\t{}\n".format(str(i + 1), sequences_aa[id])
-        tsv_3di += "{}\t{}\n".format(str(i + 1), sequences_3di[id])
-        tsv_header += "{}\t{}\n".format(str(i + 1), id)
+    # https://github.com/mheinzinger/ProstT5/issues/41
 
+    temp_aa_tsv: Path = Path(foldseek_db_path) / "aa.tsv"
+    with open(temp_aa_tsv, "w") as f:
+        for i,id in enumerate(sequences_aa.keys()):
+            f.write("{}\t{}\n".format(str(i+1), sequences_aa[id]))
+
+    temp_3di_tsv: Path = Path(foldseek_db_path) / "3di.tsv"
+    with open(temp_3di_tsv, "w") as f:
+        for i,id in enumerate(sequences_aa.keys()):
+            f.write("{}\t{}\n".format(str(i+1), sequences_3di[id]))
+
+    temp_header_tsv: Path = Path(foldseek_db_path) / "header.tsv"
+    with open(temp_header_tsv, "w") as f:
+        for i,id in enumerate(sequences_aa.keys()):
+            f.write("{}\t{}\n".format(str(i+1), id))
     #### write temp tsv files
 
-    # write TSV files
-    temp_aa_tsv: Path = Path(foldseek_db_path) / "aa.tsv"
-    temp_3di_tsv: Path = Path(foldseek_db_path) / "3di.tsv"
-    temp_header_tsv: Path = Path(foldseek_db_path) / "header.tsv"
-    with open(temp_aa_tsv, "w") as f:
-        f.write(tsv_aa)
-    with open(temp_3di_tsv, "w") as f:
-        f.write(tsv_3di)
-    with open(temp_header_tsv, "w") as f:
-        f.write(tsv_header)
 
     # create foldseek db names
 
