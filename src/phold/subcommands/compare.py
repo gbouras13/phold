@@ -323,13 +323,15 @@ def subcommand_compare(
 
     ######
     # remove pipe in AA and 3Di FASTA (issue #86)
+    # Won't exist if structures are used
     ######
+    
+    if not structures:
+        fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
+        fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
-    fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
-    fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
-
-    replace_pipe_in_fastq(fasta_aa)
-    replace_pipe_in_fastq(fasta_3di)
+        replace_pipe_in_fastq(fasta_aa)
+        replace_pipe_in_fastq(fasta_3di)
 
     ########
     # get topfunction
