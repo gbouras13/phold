@@ -392,7 +392,7 @@ def write_genbank(
 
         if not proteins_flag:
             record.annotations["comment"] = (
-                f"Annotated with Phold {version}.\nAnnotation Date: {format_time}.\nAnnotation Date: {format_time}.\nURL https://github.com/gbouras13/phold."
+                f"Annotated with Phold {version}.\nAnnotation Date: {format_time}.\nURL https://github.com/gbouras13/phold."
             )
 
         # Merge updated_cds_dict and non_cds_dict
