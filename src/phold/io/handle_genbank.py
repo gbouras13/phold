@@ -6,6 +6,7 @@ some taken from phynteny https://github.com/susiegriggo/Phynteny
 import binascii
 import gzip
 import multiprocessing.pool
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Dict, Union
@@ -386,6 +387,7 @@ def write_genbank(
     now = datetime.now()
     format_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
+    anticodon_warning = 0
     for record_id, record in gb_dict.items():
 
         if not proteins_flag:
@@ -502,6 +504,16 @@ def write_genbank(
             elif (
                 cds_feature.type == "tRNA"
             ):  # trna features - fix the issue #76 https://github.com/gbouras13/phold/issues/76
+                if "anticodon" in cds_feature.qualifiers:
+                    # Example value from the feature
+                    anticodon = cds_feature.qualifiers.get("anticodon", [""])[0]
+
+                    # Define the expected format using regex
+                    pattern = r"^[atgcnATGCN]{3}$"
+
+                    if re.match(pattern, anticodon):
+                        anticodon_warning += 1
+
                 if "trna" in cds_feature.qualifiers:
                     cds_feature.qualifiers["product"] = cds_feature.qualifiers.pop(
                         "trna"
@@ -529,6 +541,11 @@ def write_genbank(
             output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
             with open(output_gbk_path, "w") as output_file:
                 SeqIO.write(seq_record, output_file, "genbank")
+
+    if anticodon_warning > 0:
+        logger.warning(
+            f"You used Pharokka < v1.8.0 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.0."
+        )
 
     per_cds_df = pd.DataFrame(per_cds_list)
 
