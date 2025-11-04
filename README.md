@@ -50,6 +50,7 @@ If you don't want to install `phold` locally, you can run it without any code us
 - [Output](#output)
 - [Usage](#usage)
 - [Plotting](#plotting)
+- [GenBank submission](#genbank-submission)
 - [Citation](#citation)
 
 # Documentation
@@ -228,6 +229,9 @@ phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plo
 <p align="center">
   <img src="img/NC_043029.png" alt="NC_043029" height=600>
 </p>
+
+# GenBank submission
+From `phold` v1.1.0, the `phold` .gbk output can be used in combination with [`suvtk gbk2tbl`](https://github.com/LanderDC/suvtk) for the submission of phage genomes to GenBank.
 
 # Citation
 
