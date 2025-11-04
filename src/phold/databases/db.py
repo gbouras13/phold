@@ -28,7 +28,6 @@ VERSION_DICTIONARY = {
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     },
-
     "0.2.0": {
         "md5": "99ed8b4bcc41ca6e05e8690ba7e85197",
         "major": 0,
@@ -45,14 +44,14 @@ VERSION_DICTIONARY = {
         "md5": "ddbe0d94b1d94a392cfeb4ec113f4362",
         "major": 1,
         "minor": 0,
-        "minorest": 0, 
+        "minorest": 0,
         "db_url": "https://zenodo.org/records/16741548/files/phold_search_db_v_1_0_0.tar.gz",
         "dir_name": "phold_search_db_v_1_0_0",
         "tarball": "phold_search_db_v_1_0_0.tar.gz",
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
-    }
+    },
 }
 
 # for the extended DB
@@ -71,7 +70,6 @@ VERSION_DICTIONARY_3M16 = {
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
     }
 }
-
 
 
 PHOLD_DB_NAMES = [
@@ -94,7 +92,7 @@ PHOLD_DB_NAMES = [
     "defensefinder_plddt_over_70_metadata.tsv",
     "netflax_annotation_table.tsv",
     "vfdb_description_output.csv",
-    "phold_annots.tsv"
+    "phold_annots.tsv",
 ]
 
 
@@ -119,18 +117,18 @@ PROSTT5_FINETUNE_MD5_DICTIONARY = {
         "74da7b4afcde53faa570114b530c726135bdfcdb813dec3abfb27f9d44db7324": "6ad28d9980aaec37d3935072d204e520",
         "7b4566bb3be907e8bba6c764ecd41d3388b81b79": "67183db6031983c323e7fbb0ae7dac57",
         "a45ead5f5f3e3b842f660aa8e7ab2d66cbb959ad743f8677d0559c13f7f4a0c4": "b7cb2d32552a3d3cabf4db25e54fdb44",
-        "c72eadd6ad03b26932928906cd12a29586b9fd7217775cd8207fa38cd52ebaaf" : "5cacb3a7b9789143e6a28279a25a0bad",
-        "d91b97e1ea1225fcbc4e5ee14c09bb196251cee9" : "ce3c5c2e2e583314c72b3a5c823118f8"
+        "c72eadd6ad03b26932928906cd12a29586b9fd7217775cd8207fa38cd52ebaaf": "5cacb3a7b9789143e6a28279a25a0bad",
+        "d91b97e1ea1225fcbc4e5ee14c09bb196251cee9": "ce3c5c2e2e583314c72b3a5c823118f8",
     },
 }
 
 
-PHOLD_DB_FOLDSEEK_GPU_NAMES = [
-    "all_phold_structures_gpu"
-]
+PHOLD_DB_FOLDSEEK_GPU_NAMES = ["all_phold_structures_gpu"]
 
 
-def install_database(db_dir: Path, foldseek_gpu: bool, extended_db: bool, threads: int) -> None:
+def install_database(
+    db_dir: Path, foldseek_gpu: bool, extended_db: bool, threads: int
+) -> None:
     """
     Install the Phold database.
 
@@ -162,7 +160,6 @@ def install_database(db_dir: Path, foldseek_gpu: bool, extended_db: bool, thread
         requiredmd5 = DICT[CURRENT_DB_VERSION]["md5"]
         tarball = DICT[CURRENT_DB_VERSION]["tarball"]
 
-        
         tarball_path = Path(f"{db_dir}/{tarball}")
         logdir = Path(db_dir) / "logdir"
 
@@ -185,12 +182,15 @@ def install_database(db_dir: Path, foldseek_gpu: bool, extended_db: bool, thread
 
     if foldseek_gpu:
         if gpu_flag:
-            logger.info("All Phold database files compatible with Foldseek-GPU are present")
+            logger.info(
+                "All Phold database files compatible with Foldseek-GPU are present"
+            )
         else:
-            logger.info("Some Phold database files compatible with Foldseek-GPU are missing")
+            logger.info(
+                "Some Phold database files compatible with Foldseek-GPU are missing"
+            )
             logger.info("Creating them")
             foldseek_makepaddedseqdb(db_dir)
-
 
 
 """
@@ -226,6 +226,7 @@ lots of this code from the marvellous bakta https://github.com/oschwengers/bakta
 aria2c bottlenecked by Zenodo but still faster
 """
 
+
 def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> None:
     """
     Download the database from the given URL using aria2c.
@@ -249,7 +250,9 @@ def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> Non
     try:
         ExternalTool.run_download(download_db)
     except:
-        logger.warning("Downloading the database with aria2c failed. Trying now without.")
+        logger.warning(
+            "Downloading the database with aria2c failed. Trying now without."
+        )
         try:
             with tarball_path.open("wb") as fh_out, requests.get(
                 db_url, stream=True
@@ -265,10 +268,6 @@ def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> Non
             logger.error(
                 f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
             )
-
-
-
-
 
 
 #     try:
@@ -354,12 +353,9 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
         model_sub_dir = "models--gbouras13--ProstT5Phold"
         DICT = PROSTT5_FINETUNE_MD5_DICTIONARY
 
-
     for key in DICT:
         for nested_key in DICT[key]:
-            file_path = Path(
-                f"{model_dir}/{model_sub_dir}/{key}/{nested_key}"
-            )
+            file_path = Path(f"{model_dir}/{model_sub_dir}/{key}/{nested_key}")
 
             # check file exists
             if file_path.exists():
@@ -372,7 +368,7 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
             else:
                 logger.warning(f"Model file {file_path} does not exist.")
                 download = True
-    
+
     return download
 
 
@@ -447,7 +443,7 @@ def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
             logger.warning(f"Phold Database file {path} is missing")
             downloaded_flag = False
             break
-    
+
     gpu_flag = True
     if foldseek_gpu:
         for file_name in PHOLD_DB_FOLDSEEK_GPU_NAMES:
@@ -455,7 +451,7 @@ def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
             if not path.is_file():
                 logger.warning(f"Phold Foldseek-GPU Database file {path} is missing")
                 gpu_flag = False
-                break 
+                break
 
     return downloaded_flag, gpu_flag
 
@@ -494,14 +490,16 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
             )
     if foldseek_gpu:
         if gpu_flag:
-            logger.info("All Phold database files compatible with Foldseek-GPU are present")
+            logger.info(
+                "All Phold database files compatible with Foldseek-GPU are present"
+            )
         else:
             logger.error(
                 f"Phold database files compatible with Foldseek-GPU not found. Please run phold install -d {database} --foldseek_gpu"
             )
 
-
     return database
+
 
 # for now, until we have a better confidence metric, use PyTorch
 # def foldseek_gpu_prostt5_download(db_dir: Path) -> None:
@@ -521,6 +519,7 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
 #     ExternalTool.run_tool(foldseek_createdb_gpu)
 #     remove_directory(tmp_dir)
 
+
 def foldseek_makepaddedseqdb(db_dir: Path) -> None:
 
     phold_db_search = Path(db_dir) / "all_phold_structures"
@@ -536,7 +535,3 @@ def foldseek_makepaddedseqdb(db_dir: Path) -> None:
     )
 
     ExternalTool.run_tool(foldseek_makepaddedseqdb)
-
-
-
-    

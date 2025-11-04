@@ -18,7 +18,7 @@ def run_foldseek_search(
     extra_foldseek_params: str,
     foldseek_gpu: bool,
     structures: bool,
-    clustered_db: bool
+    clustered_db: bool,
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -43,8 +43,6 @@ def run_foldseek_search(
         None
     """
 
-    
-
     if ultra_sensitive:
         cmd = f"search {query_db} {target_db} {result_db} {temp_db} --threads {str(threads)} -e {evalue} -s {sensitivity} --exhaustive-search"
     else:
@@ -62,8 +60,7 @@ def run_foldseek_search(
         cmd += f" -a 1"
 
     if clustered_db:
-       cmd += f" --cluster-search 1"
-
+        cmd += f" --cluster-search 1"
 
     foldseek_search = ExternalTool(
         tool="foldseek",
@@ -74,7 +71,6 @@ def run_foldseek_search(
     )
 
     ExternalTool.run_tool(foldseek_search)
-
 
 
 # def run_foldseek_align(
@@ -126,8 +122,16 @@ def run_foldseek_search(
 
 #     ExternalTool.run_tool(foldseek_search)
 
+
 def create_result_tsv(
-    query_db: Path, target_db: Path, result_db: Path, result_tsv: Path, logdir: Path, foldseek_gpu: bool, structures: bool, threads: int
+    query_db: Path,
+    target_db: Path,
+    result_db: Path,
+    result_tsv: Path,
+    logdir: Path,
+    foldseek_gpu: bool,
+    structures: bool,
+    threads: int,
 ) -> None:
     """
     Create a TSV file containing the results of a Foldseek search.
@@ -146,13 +150,12 @@ def create_result_tsv(
         None
     """
     if structures:
-        format_string= "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen,alntmscore,lddt"
+        format_string = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen,alntmscore,lddt"
     else:
         format_string = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen"
     if foldseek_gpu:
         target_db = f"{target_db}_gpu"
 
-    
     cmd = f"convertalis {query_db} {target_db} {result_db} {result_tsv} {format_string} --threads {threads}"
 
     foldseek_createtsv = ExternalTool(
@@ -162,6 +165,5 @@ def create_result_tsv(
         params=f"{cmd}",
         logdir=logdir,
     )
-
 
     ExternalTool.run_tool(foldseek_createtsv)

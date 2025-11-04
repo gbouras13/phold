@@ -6,6 +6,7 @@ from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
 
+
 def mask_low_confidence_aa(sequence, scores, threshold=0.5):
     """
     Masks all low confidence AA to X if their corresponding ProstT5 confidence score is below the given threshold.
@@ -18,8 +19,10 @@ def mask_low_confidence_aa(sequence, scores, threshold=0.5):
     Returns:
     str: The modified amino acid sequence with low-confidence residues in lowercase.
     """
-    return "".join('X' if float(score) < threshold else aa 
-                   for aa, score in zip(sequence, *scores))
+    return "".join(
+        "X" if float(score) < threshold else aa for aa, score in zip(sequence, *scores)
+    )
+
 
 def subcommand_predict(
     gb_dict: dict,
@@ -38,7 +41,7 @@ def subcommand_predict(
     save_per_protein_embeddings: bool,
     threads: int,
     mask_threshold: float,
-    hyps: bool
+    hyps: bool,
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -70,12 +73,19 @@ def subcommand_predict(
 
     if hyps:
         if method == "Pharokka":
-            logger.info(f"You have used --hyps and a Pharokka style input Genbank was detected.")
-            logger.info("Only unknown function proteins from your Pharokka input Genbank will be extracted and annotated with Phold.")
+            logger.info(
+                f"You have used --hyps and a Pharokka style input Genbank was detected."
+            )
+            logger.info(
+                "Only unknown function proteins from your Pharokka input Genbank will be extracted and annotated with Phold."
+            )
         else:
-            logger.warning("You can specified --hyps but your input Genbank file is not a Pharokka style input Genbank file.")
-            logger.warning("Ignoring --hyps: all input CDS will be annotated with Phold.")
-
+            logger.warning(
+                "You can specified --hyps but your input Genbank file is not a Pharokka style input Genbank file."
+            )
+            logger.warning(
+                "Ignoring --hyps: all input CDS will be annotated with Phold."
+            )
 
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
@@ -94,7 +104,8 @@ def subcommand_predict(
                     if fasta_flag is False:
 
                         cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
-                            "translation"][0]
+                            "translation"
+                        ][0]
 
                         if method == "Pharokka":
                             try:
@@ -102,9 +113,14 @@ def subcommand_predict(
                                     0
                                 ]  # if this breaks, will mean not Pharokka input
 
-                                if hyps:  
-                                    if cds_feature.qualifiers["function"][0] != "unknown function":
-                                        logger.info(f"Skipping {cds_id} as it has a known function from Pharokka")
+                                if hyps:
+                                    if (
+                                        cds_feature.qualifiers["function"][0]
+                                        != "unknown function"
+                                    ):
+                                        logger.info(
+                                            f"Skipping {cds_id} as it has a known function from Pharokka"
+                                        )
                                         continue
                             except:
                                 logger.error(
@@ -115,9 +131,9 @@ def subcommand_predict(
                             if method == "NCBI":
                                 try:
                                     # add these extra fields to make it all play nice
-                                    cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
-                                        "protein_id"
-                                    ]
+                                    cds_feature.qualifiers["ID"] = (
+                                        cds_feature.qualifiers["protein_id"]
+                                    )
                                     cds_feature.qualifiers["function"] = []
                                     cds_feature.qualifiers["function"].append(
                                         "unknown function"
@@ -134,13 +150,13 @@ def subcommand_predict(
                                     logger.error(
                                         f"Feature {cds_feature} has no 'protein_ID' qualifier in the Genbank file despite being detected as being likely NCBI Refseq style. Please add one in."
                                     )
-                             # finally try bakta (use locus_tag)
+                            # finally try bakta (use locus_tag)
                             if method == "Bakta":
                                 try:
                                     # add these extra fields to make it all play nice
-                                    cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
-                                        "locus_tag"
-                                    ]
+                                    cds_feature.qualifiers["ID"] = (
+                                        cds_feature.qualifiers["locus_tag"]
+                                    )
                                     cds_feature.qualifiers["function"] = []
                                     cds_feature.qualifiers["function"].append(
                                         "unknown function"
@@ -163,12 +179,9 @@ def subcommand_predict(
                     else:
                         cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
 
-
     ############
     # prostt5
     ############
-   
-
 
     fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
     # embeddings h5 - will only be generated if flag is true
@@ -205,12 +218,10 @@ def subcommand_predict(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
-        mask_threshold=mask_threshold
+        mask_threshold=mask_threshold,
     )
 
-    mask_prop_threshold = mask_threshold/100
-
-
+    mask_prop_threshold = mask_threshold / 100
 
     ########
     ## write the AA CDS to file
@@ -229,12 +240,16 @@ def subcommand_predict(
                 else:
                     out_f.write(f">{contig_id}:{seq_id}\n")
 
-                prot_seq = cds_feature.qualifiers['translation']
+                prot_seq = cds_feature.qualifiers["translation"]
                 # prediction_contig_dict[seq_id][2] these are teh ProstT5 confidence scores from 0-1 - need to convert to list
 
                 try:
                     # this will fail if ProstT5 OOM fails (or fails for some other reason)
-                    prot_seq = mask_low_confidence_aa(prot_seq, prediction_contig_dict[seq_id][2].tolist(), threshold=mask_prop_threshold)
+                    prot_seq = mask_low_confidence_aa(
+                        prot_seq,
+                        prediction_contig_dict[seq_id][2].tolist(),
+                        threshold=mask_prop_threshold,
+                    )
                 except (KeyError, IndexError):
                     # in that case, just return 'X' aka masked proteins
                     prot_seq = "X" * len(prot_seq)

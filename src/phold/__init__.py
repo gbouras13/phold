@@ -18,10 +18,14 @@ from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import DB_DIR, CNN_DIR
-from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
-                              get_version, print_citation)
-from phold.utils.validation import (check_dependencies, instantiate_dirs,
-                                    validate_input)
+from phold.utils.util import (
+    begin_phold,
+    clean_up_temporary_files,
+    end_phold,
+    get_version,
+    print_citation,
+)
+from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -136,7 +140,7 @@ def predict_options(func):
             "--hyps",
             is_flag=True,
             help="Use this to only annotate hypothetical proteins from a Pharokka GenBank input",
-        )
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -197,20 +201,14 @@ def compare_options(func):
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
         ),
         click.option(
-            "--extra_foldseek_params",
-            type=str,
-            help="Extra foldseek search params"
+            "--extra_foldseek_params", type=str, help="Extra foldseek search params"
         ),
-        click.option(
-            "--custom_db",
-            type=str,
-            help="Path to custom database"
-        ),
+        click.option("--custom_db", type=str, help="Path to custom database"),
         click.option(
             "--foldseek_gpu",
             is_flag=True,
             help="Use this to enable compatibility with Foldseek-GPU search acceleration",
-        )
+        ),
     ]
     for option in reversed(options):
         func = option(func)
@@ -220,7 +218,6 @@ def compare_options(func):
 """
 compare only options used for genbank/genome FASTA input (i.e. not proteins-compare)
 """
-
 
 
 @click.group()
@@ -331,14 +328,13 @@ def run(
     model_name = "Rostlab/ProstT5_fp16"
     checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    
-
     if finetune:
         model_name = "gbouras13/ProstT5Phold"
         checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
         if vanilla:
-            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
-
+            checkpoint_path = (
+                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+            )
 
     subcommand_predict(
         gb_dict,
@@ -357,7 +353,7 @@ def run(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
-        hyps=hyps
+        hyps=hyps,
     )
 
     # phold compare
@@ -456,7 +452,7 @@ def predict(
         "--mask_threshold": mask_threshold,
         "--finetune": finetune,
         "--vanilla": vanilla,
-        "--hyps": hyps
+        "--hyps": hyps,
     }
 
     # initial logging etc
@@ -477,8 +473,9 @@ def predict(
         model_name = "gbouras13/ProstT5Phold"
         checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
         if vanilla:
-            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
-
+            checkpoint_path = (
+                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+            )
 
     subcommand_predict(
         gb_dict,
@@ -497,7 +494,7 @@ def predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
-        hyps=hyps
+        hyps=hyps,
     )
 
     # end phold
@@ -702,7 +699,7 @@ def proteins_predict(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--mask_threshold": mask_threshold,
         "--finetune": finetune,
-        "--vanilla": vanilla
+        "--vanilla": vanilla,
     }
 
     # initial logging etc
@@ -754,9 +751,11 @@ def proteins_predict(
         model_name = "gbouras13/ProstT5Phold"
         checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
         if vanilla:
-            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+            checkpoint_path = (
+                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+            )
 
-    method = "pharokka" # this can be whatever for proteins, it wont matter - it is for genbank input
+    method = "pharokka"  # this can be whatever for proteins, it wont matter - it is for genbank input
 
     subcommand_predict(
         cds_dict,
@@ -775,7 +774,7 @@ def proteins_predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
-        hyps=False # always False for this as no Pharokka genbank to parse on input
+        hyps=False,  # always False for this as no Pharokka genbank to parse on input
     )
 
     # end phold
@@ -843,7 +842,7 @@ def proteins_compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
-    **kwargs
+    **kwargs,
 ):
     """Runs Foldseek vs phold db on proteins input"""
 
@@ -986,7 +985,7 @@ def remote(
     ultra_sensitive,
     extra_foldseek_params,
     custom_db,
-    **kwargs
+    **kwargs,
 ):
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
 
@@ -1011,7 +1010,7 @@ def remote(
         "--max_seqs": max_seqs,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
-        "--custom_db": custom_db
+        "--custom_db": custom_db,
     }
 
     # initial logging etc
@@ -1091,7 +1090,7 @@ def remote(
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
-        foldseek_gpu=False, # doesn't make sense for remote to do this as you wouldn't probably have a GPU
+        foldseek_gpu=False,  # doesn't make sense for remote to do this as you wouldn't probably have a GPU
     )
 
     # cleanup the temp files
@@ -1235,17 +1234,16 @@ install command
         "instead of the default Phold Search 1.36M. Using the extended database will likely marginally reduce\n"
         "functional annotation sensitivity and increase runtime, but may find more hits overall\n"
         "i.e. including to efam and enVhog proteins that have no functional labels."
-    )
+    ),
 )
 @click.option(
-            "-t",
-            "--threads",
-            help="Number of threads",
-            default=1,
-            type=int,
-            show_default=True,
+    "-t",
+    "--threads",
+    help="Number of threads",
+    default=1,
+    type=int,
+    show_default=True,
 )
-
 def install(
     ctx,
     database,

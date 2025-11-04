@@ -50,7 +50,7 @@ def generate_foldseek_db_from_aa_3di(
                 )
             )
         else:
-            sequences_3di[record.id] = str(record.seq)  #no upper if masked
+            sequences_3di[record.id] = str(record.seq)  # no upper if masked
 
     # assert that we parsed 3Di strings for all sequences in the amino-acid FASTA file
     for id in sequences_aa.keys():
@@ -250,7 +250,7 @@ def generate_foldseek_db_from_structures(
     ExternalTool.run_tool(foldseek_createdb_from_structures)
 
 
-#### foldseek_gpu 
+#### foldseek_gpu
 
 
 def create_foldseek_prostt5_gpu_db(
@@ -269,7 +269,7 @@ def create_foldseek_prostt5_gpu_db(
     """
 
     prostt5_db_path = Path(db_dir) / "prostt5_weights"
-    
+
     foldseek_createdb_prostt5 = ExternalTool(
         tool="foldseek",
         input=f"",
