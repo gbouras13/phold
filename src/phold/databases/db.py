@@ -8,8 +8,8 @@ import requests
 from alive_progress import alive_bar
 from loguru import logger
 
-from phold.utils.util import remove_directory
 from phold.utils.external_tools import ExternalTool
+from phold.utils.util import remove_directory
 
 # set this if changes
 CURRENT_DB_VERSION: str = "1.0.0"

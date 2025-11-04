@@ -17,15 +17,11 @@ from phold.io.handle_genbank import open_protein_fasta_file
 from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
-from phold.utils.constants import DB_DIR, CNN_DIR
-from phold.utils.util import (
-    begin_phold,
-    clean_up_temporary_files,
-    end_phold,
-    get_version,
-    print_citation,
-)
-from phold.utils.validation import check_dependencies, instantiate_dirs, validate_input
+from phold.utils.constants import CNN_DIR, DB_DIR
+from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
+                              get_version, print_citation)
+from phold.utils.validation import (check_dependencies, instantiate_dirs,
+                                    validate_input)
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "

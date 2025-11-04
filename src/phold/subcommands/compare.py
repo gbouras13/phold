@@ -11,18 +11,13 @@ from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di,
-    generate_foldseek_db_from_structures,
-)
+    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_structures)
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
-from phold.results.topfunction import (
-    calculate_topfunctions_results,
-    get_topcustom_hits,
-    calculate_qcov_tcov,
-    get_topfunctions,
-)
+from phold.results.topfunction import (calculate_qcov_tcov,
+                                       calculate_topfunctions_results,
+                                       get_topcustom_hits, get_topfunctions)
 
 
 def subcommand_compare(

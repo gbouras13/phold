@@ -11,7 +11,6 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 import csv
 import json
 from pathlib import Path
-from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import h5py
@@ -20,6 +19,7 @@ import torch
 import torch.nn.functional as F
 from loguru import logger
 from torch import nn
+from tqdm import tqdm
 from transformers import T5EncoderModel, T5Tokenizer
 
 from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
