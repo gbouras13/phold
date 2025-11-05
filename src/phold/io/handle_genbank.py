@@ -544,7 +544,7 @@ def write_genbank(
 
     if anticodon_warning > 0:
         logger.warning(
-            f"You used Pharokka < v1.8.0 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.0."
+            f"You used Pharokka < v1.8.2 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.2."
         )
 
     per_cds_df = pd.DataFrame(per_cds_list)
