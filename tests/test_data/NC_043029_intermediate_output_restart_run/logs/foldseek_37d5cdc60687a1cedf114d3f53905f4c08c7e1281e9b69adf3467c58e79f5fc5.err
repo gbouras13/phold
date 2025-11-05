@@ -1,0 +1,1 @@
+Command line: foldseek search tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/phold ../phold_v1_db_creation/phold_search_db_v_1_0_0/all_phold_structures_gpu tests/test_data/NC_043029_intermediate_output_restart/result_db/result_db tests/test_data/NC_043029_intermediate_output_restart/temp_db --threads 8 -e 0.001 --gpu 1 --prefilter-mode 1 --max-seqs 1000

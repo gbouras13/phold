@@ -1,0 +1,18 @@
+convertalis tests/test_data/NC_043029_intermediate_output_proteins/foldseek_db/phold ../phold_v1_db_creation/phold_db_v_1_0_0_prod/all_phold_structures tests/test_data/NC_043029_intermediate_output_proteins/result_db/result_db tests/test_data/NC_043029_intermediate_output_proteins/foldseek_results.tsv --format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen --threads 8 
+
+MMseqs Version:        	10.941cd33
+Substitution matrix    	aa:3di.out,nucl:3di.out
+Alignment format       	0
+Format alignment output	query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen
+Gap open cost          	aa:10,nucl:10
+Gap extension cost     	aa:1,nucl:1
+Database output        	false
+Preload mode           	0
+Threads                	8
+Compressed             	0
+Verbosity              	3
+Exact TMscore          	0
+
+[=================================================================] 115 0s 1ms
+Time for merging to foldseek_results.tsv: 0h 0m 0s 9ms
+Time for processing: 0h 0m 0s 176ms

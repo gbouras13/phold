@@ -44,6 +44,7 @@ def subcommand_compare(
     extra_foldseek_params: str,
     custom_db: str,
     foldseek_gpu: bool,
+    restart: bool = False,
     clustered_db=False # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
 ) -> bool:
     """
@@ -72,6 +73,7 @@ def subcommand_compare(
         extra_foldseek_params (str): Extra foldseek search parameters
         custom_db (str): Custom foldseek database
         foldseek_gpu (bool): Use Foldseek-GPU acceleration and ungappedprefilter
+        restart (bool): Restart from foldseek_results.tsv
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -182,144 +184,149 @@ def subcommand_compare(
                         ] = non_cds_feature
                         i += 1
 
-    # input predictions or structures
-    if structures is False:
-        # prostT5
-        fasta_aa_input: Path = Path(predictions_dir) / f"{prefix}_aa.fasta"
-        fasta_3di_input: Path = Path(predictions_dir) / f"{prefix}_3di.fasta"
+    if not restart:
 
-    fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
-    fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+        # input predictions or structures
+        if structures is False:
+            # prostT5
+            fasta_aa_input: Path = Path(predictions_dir) / f"{prefix}_aa.fasta"
+            fasta_3di_input: Path = Path(predictions_dir) / f"{prefix}_3di.fasta"
 
-    ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
-    if structures is False:
-        # if remote, these will not exist
-        if remote_flag is False:
-            if fasta_3di_input.exists():
+        fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
+        fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+
+        ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
+        if structures is False:
+            # if remote, these will not exist
+            if remote_flag is False:
+                if fasta_3di_input.exists():
+                    logger.info(
+                        f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict"
+                    )
+                    shutil.copyfile(fasta_3di_input, fasta_3di)
+                else:
+                    logger.error(
+                        f"The 3Di CDS file {fasta_3di_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
+                    )
+                # copy the aa to file
+                if fasta_aa_input.exists():
+                    logger.info(
+                        f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict."
+                    )
+                    shutil.copyfile(fasta_aa_input, fasta_aa)
+                else:
+                    logger.error(
+                        f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
+                    )
+        ## write the AAs to file if structures is true because can't just copy from prediction_dir
+        else:
+            ## write the CDS to file
+            logger.info(f"Writing the AAs to file {fasta_aa}.")
+            with open(fasta_aa, "w+") as out_f:
+                for record_id, rest in cds_dict.items():
+                    aa_contig_dict = cds_dict[record_id]
+
+                    # writes the CDS to file
+                    for seq_id, cds_feature in aa_contig_dict.items():
+                        # if proteins, don't want the 'proteins:' as CDS id
+                        if proteins_flag:
+                            header = f">{seq_id}\n"
+                            seq = f"{cds_feature.qualifiers['translation']}\n"
+                        else:  # if genbank entry need to take the first seq as it is parsed as a list
+                            header = f">{record_id}:{seq_id}\n"
+                            seq = f"{cds_feature.qualifiers['translation'][0]}\n"
+                        out_f.write(header)
+                        out_f.write(seq)
+
+        ############
+        # create foldseek db
+        ############
+
+        foldseek_query_db_path: Path = Path(output) / "foldseek_db"
+        foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
+
+        if structures is True:
+            logger.info("Creating a foldseek query database from structures.")
+
+            filtered_structures_path: Path = Path(output) / "filtered_structures"
+            if filter_structures is True:
                 logger.info(
-                    f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict"
+                    f"--filter_structures is {filter_structures}. Therefore only the .pdb or .cif structure files with matching CDS ids will be copied and compared."
                 )
-                shutil.copyfile(fasta_3di_input, fasta_3di)
-            else:
-                logger.error(
-                    f"The 3Di CDS file {fasta_3di_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
-                )
-            # copy the aa to file
-            if fasta_aa_input.exists():
-                logger.info(
-                    f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict."
-                )
-                shutil.copyfile(fasta_aa_input, fasta_aa)
-            else:
-                logger.error(
-                    f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
-                )
-    ## write the AAs to file if structures is true because can't just copy from prediction_dir
-    else:
-        ## write the CDS to file
-        logger.info(f"Writing the AAs to file {fasta_aa}.")
-        with open(fasta_aa, "w+") as out_f:
-            for record_id, rest in cds_dict.items():
-                aa_contig_dict = cds_dict[record_id]
+                filtered_structures_path.mkdir(parents=True, exist_ok=True)
 
-                # writes the CDS to file
-                for seq_id, cds_feature in aa_contig_dict.items():
-                    # if proteins, don't want the 'proteins:' as CDS id
-                    if proteins_flag:
-                        header = f">{seq_id}\n"
-                        seq = f"{cds_feature.qualifiers['translation']}\n"
-                    else:  # if genbank entry need to take the first seq as it is parsed as a list
-                        header = f">{record_id}:{seq_id}\n"
-                        seq = f"{cds_feature.qualifiers['translation'][0]}\n"
-                    out_f.write(header)
-                    out_f.write(seq)
-
-    ############
-    # create foldseek db
-    ############
-
-    foldseek_query_db_path: Path = Path(output) / "foldseek_db"
-    foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
-
-    if structures is True:
-        logger.info("Creating a foldseek query database from structures.")
-
-        filtered_structures_path: Path = Path(output) / "filtered_structures"
-        if filter_structures is True:
-            logger.info(
-                f"--filter_structures is {filter_structures}. Therefore only the .pdb or .cif structure files with matching CDS ids will be copied and compared."
+            generate_foldseek_db_from_structures(
+                fasta_aa,
+                foldseek_query_db_path,
+                structure_dir,
+                filtered_structures_path,
+                logdir,
+                prefix,
+                filter_structures,
+                proteins_flag,
             )
-            filtered_structures_path.mkdir(parents=True, exist_ok=True)
+        else:
+            generate_foldseek_db_from_aa_3di(
+                fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+            )
 
-        generate_foldseek_db_from_structures(
-            fasta_aa,
-            foldseek_query_db_path,
-            structure_dir,
-            filtered_structures_path,
+        short_db_name = prefix
+
+        # #  db search - not clustered
+
+        database_name = "all_phold_structures"
+
+        if clustered_db:
+            database_name = "all_phold_structures_clustered_searchDB"
+
+
+        if short_db_name == database_name:
+            logger.error(
+                f"Please choose a different {prefix} as this conflicts with the {database_name}"
+            )
+
+        #####
+        # foldseek search
+        #####
+
+        query_db: Path = Path(foldseek_query_db_path) / short_db_name
+        target_db: Path = Path(database) / database_name
+
+        # make result and temp dirs
+        result_db_base: Path = Path(output) / "result_db"
+        result_db_base.mkdir(parents=True, exist_ok=True)
+        result_db: Path = Path(result_db_base) / "result_db"
+
+        temp_db: Path = Path(output) / "temp_db"
+        temp_db.mkdir(parents=True, exist_ok=True)
+
+        # make result tsv
+        result_tsv: Path = Path(output) / "foldseek_results.tsv"
+
+        # run foldseek search
+        run_foldseek_search(
+            query_db,
+            target_db,
+            result_db,
+            temp_db,
+            threads,
             logdir,
-            prefix,
-            filter_structures,
-            proteins_flag,
-        )
-    else:
-        generate_foldseek_db_from_aa_3di(
-            fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
-        )
-
-    short_db_name = prefix
-
-    # #  db search - not clustered
-
-    database_name = "all_phold_structures"
-
-    if clustered_db:
-        database_name = "all_phold_structures_clustered_searchDB"
-
-
-    if short_db_name == database_name:
-        logger.error(
-            f"Please choose a different {prefix} as this conflicts with the {database_name}"
+            evalue,
+            sensitivity,
+            max_seqs,
+            ultra_sensitive,
+            extra_foldseek_params,
+            foldseek_gpu,
+            structures,
+            clustered_db
         )
 
-    #####
-    # foldseek search
-    #####
+        
+        create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads)
 
-    query_db: Path = Path(foldseek_query_db_path) / short_db_name
-    target_db: Path = Path(database) / database_name
 
-    # make result and temp dirs
-    result_db_base: Path = Path(output) / "result_db"
-    result_db_base.mkdir(parents=True, exist_ok=True)
-    result_db: Path = Path(result_db_base) / "result_db"
 
-    temp_db: Path = Path(output) / "temp_db"
-    temp_db.mkdir(parents=True, exist_ok=True)
-
-    # make result tsv
-    result_tsv: Path = Path(output) / "foldseek_results.tsv"
-
-    # run foldseek search
-    run_foldseek_search(
-        query_db,
-        target_db,
-        result_db,
-        temp_db,
-        threads,
-        logdir,
-        evalue,
-        sensitivity,
-        max_seqs,
-        ultra_sensitive,
-        extra_foldseek_params,
-        foldseek_gpu,
-        structures,
-        clustered_db
-    )
-
-       
-    create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads)
-
+   # restart
 
     ######
     # remove pipe in AA and 3Di FASTA (issue #86)
@@ -339,6 +346,11 @@ def subcommand_compare(
 
     # get top hit with non-unknown function for each CDS
     # also calculate the weighted bitscore df
+
+    result_tsv: Path = Path(output) / "foldseek_results.tsv"
+    database_name = "all_phold_structures"
+    if clustered_db:
+        database_name = "all_phold_structures_clustered_searchDB"
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
         result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag

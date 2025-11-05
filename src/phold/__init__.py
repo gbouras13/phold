@@ -210,7 +210,12 @@ def compare_options(func):
             "--foldseek_gpu",
             is_flag=True,
             help="Use this to enable compatibility with Foldseek-GPU search acceleration",
-        )
+        ),
+        click.option(
+            "--restart",
+            is_flag=True,
+            help="Use this to restart phold from 'Processing Foldseek output' after foldseek_results.tsv is generated",
+)
     ]
     for option in reversed(options):
         func = option(func)
@@ -276,12 +281,13 @@ def run(
     hyps,
     finetune,
     vanilla,
+    restart,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"
@@ -312,6 +318,7 @@ def run(
         "--hyps": hyps,
         "--finetune": finetune,
         "--vanilla": vanilla,
+        "--restart": restart
     }
 
     # initial logging etc
@@ -326,39 +333,42 @@ def run(
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
 
-    # phold predict
-    model_dir = database
-    model_name = "Rostlab/ProstT5_fp16"
-    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    if not restart:
+
+        # phold predict
+        model_dir = database
+        model_name = "Rostlab/ProstT5_fp16"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
     
+    
+        if finetune:
+            model_name = "gbouras13/ProstT5Phold"
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+            if vanilla:
+                checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
 
-    if finetune:
-        model_name = "gbouras13/ProstT5Phold"
-        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
-        if vanilla:
-            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
 
-
-    subcommand_predict(
-        gb_dict,
-        method,
-        output,
-        prefix,
-        cpu,
-        omit_probs,
-        model_dir,
-        model_name,
-        checkpoint_path,
-        batch_size,
-        proteins_flag=False,
-        fasta_flag=fasta_flag,
-        save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads,
-        mask_threshold=mask_threshold,
-        hyps=hyps
-    )
+        subcommand_predict(
+            gb_dict,
+            method,
+            output,
+            prefix,
+            cpu,
+            omit_probs,
+            model_dir,
+            model_name,
+            checkpoint_path,
+            batch_size,
+            proteins_flag=False,
+            fasta_flag=fasta_flag,
+            save_per_residue_embeddings=save_per_residue_embeddings,
+            save_per_protein_embeddings=save_per_protein_embeddings,
+            threads=threads,
+            mask_threshold=mask_threshold,
+            hyps=hyps
+        )
 
     # phold compare
     # predictions_dir is output as this will be where it lives
@@ -385,6 +395,7 @@ def run(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
+        restart=restart
     )
 
     # cleanup the temp files
@@ -436,7 +447,7 @@ def predict(
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart=False)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"
@@ -564,13 +575,14 @@ def compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    restart,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
 
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"
@@ -596,6 +608,7 @@ def compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--restart": restart
     }
 
     # initial logging etc
@@ -633,6 +646,7 @@ def compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
+        restart=restart
     )
 
     # cleanup the temp files
@@ -683,7 +697,7 @@ def proteins_predict(
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
 
     # validates the directory  (need to before phold starts or else no log file is written)
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart=False)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"
@@ -843,13 +857,14 @@ def proteins_compare(
     extra_foldseek_params,
     custom_db,
     foldseek_gpu,
+    restart,
     **kwargs
 ):
     """Runs Foldseek vs phold db on proteins input"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
 
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"
@@ -874,6 +889,7 @@ def proteins_compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--restart": restart
     }
 
     # initial logging etc
@@ -941,6 +957,7 @@ def proteins_compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
+        restart=restart
     )
 
     # cleanup the temp files
@@ -991,7 +1008,7 @@ def remote(
     """Uses Foldseek API to run ProstT5 then Foldseek locally"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart=False)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"
@@ -1166,7 +1183,7 @@ def createdb(
     """Creates foldseek DB from AA FASTA and 3Di FASTA input files"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
-    instantiate_dirs(output, force)
+    instantiate_dirs(output, force, restart=False)
 
     output: Path = Path(output)
     logdir: Path = Path(output) / "logs"

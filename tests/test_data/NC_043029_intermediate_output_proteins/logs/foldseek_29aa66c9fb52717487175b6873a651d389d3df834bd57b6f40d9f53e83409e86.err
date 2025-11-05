@@ -1,0 +1,1 @@
+Command line: foldseek search tests/test_data/NC_043029_intermediate_output_proteins/foldseek_db/phold ../phold_v1_db_creation/phold_db_v_1_0_0_prod/all_phold_structures tests/test_data/NC_043029_intermediate_output_proteins/result_db/result_db tests/test_data/NC_043029_intermediate_output_proteins/temp_db --threads 8 -e 0.001 -s 9.5 --max-seqs 1000

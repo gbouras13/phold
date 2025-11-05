@@ -73,6 +73,9 @@ proteins_compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare
 proteins_compare_cif_dir_custom: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif_custom_db"
 plots_dir: Path = f"{output_dir}/plot_output"
 
+restart_intermediate_dir_run: Path = f"{test_data}/NC_043029_intermediate_output_run"
+restart_intermediate_dir_compare: Path = f"{test_data}/NC_043029_intermediate_output_compare"
+restart_intermediate_dir_proteins: Path = f"{test_data}/NC_043029_intermediate_output_proteins"
 
 logger.add(lambda _: sys.exit(1), level="ERROR")
 # threads = 1
@@ -374,6 +377,39 @@ def test_remote_fasta(run_remote, threads):
     if run_remote is True:
         cmd = f"phold remote -i {input_fasta} -o {remote_fasta_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
+
+"""
+restart
+"""
+
+def test_run_restart(gpu_available, threads):
+    """test phold run with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029.gbk"
+    cmd = f"phold run -i {input_gbk} -o {restart_intermediate_dir_run} -t {threads} -d {database_dir}  --restart"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+def test_compare_restart(gpu_available, threads):
+    """test phold compare with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029.gbk"
+    cmd = f"phold compare -i {input_gbk} -o {restart_intermediate_dir_compare} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir}  --restart"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
+def test_proteins_compare_restart(gpu_available, threads):
+    """test phold proteins-compare with genbank input"""
+    input_fasta: Path = f"{test_data}/phanotate.faa"
+    cmd = f"phold proteins-compare -i {input_fasta} -o {restart_intermediate_dir_proteins} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir}  --restart"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
+
+
+
+
 
 
 class testFails(unittest.TestCase):
