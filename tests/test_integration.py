@@ -208,7 +208,7 @@ def test_run_custom_db(gpu_available, threads, nvidia):
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-def test_run_genbank_old_pharokka(gpu_available, threadsm nvidia):
+def test_run_genbank_old_pharokka(gpu_available, threads, nvidia):
     """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
