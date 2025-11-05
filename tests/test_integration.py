@@ -437,7 +437,16 @@ restart
 def test_run_restart(gpu_available, threads, nvidia):
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
-    cmd = f"phold run -i {input_gbk} -o {restart_intermediate_dir_run} -t {threads} -d {database_dir}  --restart"
+
+    restart_intermediate_dir_run_tmp: Path = f"{output_dir}/NC_043029_intermediate_output_run_tmp"
+
+    if Path(restart_intermediate_dir_run_tmp).exists():
+        shutil.rmtree(restart_intermediate_dir_run_tmp)
+
+    # Copy recursively
+    shutil.copytree(restart_intermediate_dir_run, restart_intermediate_dir_run_tmp)
+
+    cmd = f"phold run -i {input_gbk} -o {restart_intermediate_dir_run_tmp} -t {threads} -d {database_dir}  --restart"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     if nvidia:
@@ -447,7 +456,16 @@ def test_run_restart(gpu_available, threads, nvidia):
 def test_compare_restart(gpu_available, threads, nvidia):
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
-    cmd = f"phold compare -i {input_gbk} -o {restart_intermediate_dir_compare} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir}  --restart"
+
+    restart_intermediate_dir_compare_tmp: Path = f"{output_dir}/NC_043029_intermediate_output_compare_tmp"
+
+    if Path(restart_intermediate_dir_compare_tmp).exists():
+        shutil.rmtree(restart_intermediate_dir_compare_tmp)
+
+    # Copy recursively
+    shutil.copytree(restart_intermediate_dir_compare, restart_intermediate_dir_compare_tmp)
+
+    cmd = f"phold compare -i {input_gbk} -o {restart_intermediate_dir_compare_tmp} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir}  --restart"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     if nvidia:
@@ -458,14 +476,21 @@ def test_compare_restart(gpu_available, threads, nvidia):
 def test_proteins_compare_restart(gpu_available, threads, nvidia):
     """test phold proteins-compare with genbank input"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
-    cmd = f"phold proteins-compare -i {input_fasta} -o {restart_intermediate_dir_proteins} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir}  --restart"
+
+    restart_intermediate_dir_proteins_tmp: Path = f"{output_dir}/NC_043029_intermediate_output_proteins_tmp"
+
+    if Path(restart_intermediate_dir_proteins_tmp).exists():
+        shutil.rmtree(restart_intermediate_dir_proteins_tmp)
+
+    # Copy recursively
+    shutil.copytree(restart_intermediate_dir_proteins, restart_intermediate_dir_proteins_tmp)
+
+    cmd = f"phold proteins-compare -i {input_fasta} -o {restart_intermediate_dir_proteins_tmp} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir}  --restart"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
-
-
 
 
 class testFails(unittest.TestCase):
