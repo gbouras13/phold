@@ -298,7 +298,7 @@ def test_predict_save_embeddings(gpu_available, threads):
     exec_command(cmd)
 
 
-def test_compare_genbank(threadsm nvidia):
+def test_compare_genbank(threads, nvidia):
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir} -f"
