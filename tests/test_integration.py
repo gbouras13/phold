@@ -73,9 +73,9 @@ proteins_compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare
 proteins_compare_cif_dir_custom: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif_custom_db"
 plots_dir: Path = f"{output_dir}/plot_output"
 
-restart_intermediate_dir_run: Path = f"{test_data}/NC_043029_intermediate_output_run"
-restart_intermediate_dir_compare: Path = f"{test_data}/NC_043029_intermediate_output_compare"
-restart_intermediate_dir_proteins: Path = f"{test_data}/NC_043029_intermediate_output_proteins"
+restart_intermediate_dir_run: Path = f"{test_data}/NC_043029_intermediate_output_restart_run"
+restart_intermediate_dir_compare: Path = f"{test_data}/NC_043029_intermediate_output_restart_compare"
+restart_intermediate_dir_proteins: Path = f"{test_data}/NC_043029_intermediate_output_restart_proteins"
 
 logger.add(lambda _: sys.exit(1), level="ERROR")
 # threads = 1
@@ -496,7 +496,7 @@ def test_proteins_compare_restart(gpu_available, threads, nvidia):
 class testFails(unittest.TestCase):
     """Tests for fails"""
    
-    def test_run_genbank_colon(gpu_available, threads):
+    def test_run_genbank_colon(gpu_available, threads, nvidia):
         """test phold run with genbank input with colon in header"""
         input_gbk: Path = f"{test_data}/colon.gbk"
         cmd = (
@@ -506,7 +506,7 @@ class testFails(unittest.TestCase):
             cmd = f"{cmd} --cpu"
         exec_command(cmd)
 
-    def test_run_fasta_colon(gpu_available, threads):
+    def test_run_fasta_colon(gpu_available, threads, nvidia):
         """test phold run with FASTA input colon in header"""
         input_fasta: Path = f"{test_data}/colon.fasta"
         cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
