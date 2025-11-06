@@ -327,33 +327,39 @@ def run(
     fasta_flag, gb_dict, method = validate_input(input, threads)
 
 
-    if finetune:
-        model_name = "gbouras13/ProstT5Phold"
-        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
-        if vanilla:
-            checkpoint_path = (
-                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
-            )
+    if not restart:
+        # phold predict
+        model_dir = database
+        model_name = "Rostlab/ProstT5_fp16"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
-    subcommand_predict(
-        gb_dict,
-        method,
-        output,
-        prefix,
-        cpu,
-        omit_probs,
-        model_dir,
-        model_name,
-        checkpoint_path,
-        batch_size,
-        proteins_flag=False,
-        fasta_flag=fasta_flag,
-        save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads,
-        mask_threshold=mask_threshold,
-        hyps=hyps,
-    )
+        if finetune:
+            model_name = "gbouras13/ProstT5Phold"
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+            if vanilla:
+                checkpoint_path = (
+                    Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+                )
+
+        subcommand_predict(
+            gb_dict,
+            method,
+            output,
+            prefix,
+            cpu,
+            omit_probs,
+            model_dir,
+            model_name,
+            checkpoint_path,
+            batch_size,
+            proteins_flag=False,
+            fasta_flag=fasta_flag,
+            save_per_residue_embeddings=save_per_residue_embeddings,
+            save_per_protein_embeddings=save_per_protein_embeddings,
+            threads=threads,
+            mask_threshold=mask_threshold,
+            hyps=hyps,
+        )
 
     # phold compare
     # predictions_dir is output as this will be where it lives
