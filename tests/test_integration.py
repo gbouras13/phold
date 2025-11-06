@@ -45,6 +45,7 @@ run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_bakta: Path = f"{output_dir}/run_gbk_ncbi_bakta"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
+run_gbk_pharokka_pipe: Path = f"{output_dir}/pipe.gbk"
 run_gbk_pharokka_1_4_1_dir_extra: Path = (
     f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
 )
