@@ -496,23 +496,21 @@ def test_proteins_compare_restart(gpu_available, threads, nvidia):
 class testFails(unittest.TestCase):
     """Tests for fails"""
    
-    def test_run_genbank_colon(gpu_available, threads, nvidia):
+    def test_run_genbank_colon(self):
         """test phold run with genbank input with colon in header"""
-        input_gbk: Path = f"{test_data}/colon.gbk"
-        cmd = (
-            f"phold run -i {input_gbk} -o {run_gbk_bakta} -t {threads} -d {database_dir} -f"
-        )
-        if gpu_available is False:
-            cmd = f"{cmd} --cpu"
-        exec_command(cmd)
+        with self.assertRaises(RuntimeError):
+            input_gbk: Path = f"{test_data}/colon.gbk"
+            cmd = (
+                f"phold run -i {input_gbk} -o {run_gbk_bakta} -t 2 -d {database_dir} -f"
+            )
+            exec_command(cmd)
 
-    def test_run_fasta_colon(gpu_available, threads, nvidia):
+    def test_run_fasta_colon(self):
         """test phold run with FASTA input colon in header"""
-        input_fasta: Path = f"{test_data}/colon.fasta"
-        cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
-        if gpu_available is False:
-            cmd = f"{cmd} --cpu"
-        exec_command(cmd)
+        with self.assertRaises(RuntimeError):
+            input_fasta: Path = f"{test_data}/colon.fasta"
+            cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t 2 -d {database_dir} -f"
+            exec_command(cmd)
 
 
 remove_directory(output_dir)
