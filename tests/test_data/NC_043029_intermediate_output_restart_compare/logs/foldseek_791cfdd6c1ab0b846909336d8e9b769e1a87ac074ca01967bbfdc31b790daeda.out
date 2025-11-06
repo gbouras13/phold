@@ -1,0 +1,10 @@
+tsv2db tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/header.tsv tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/phold_h --output-dbtype 12 
+
+MMseqs Version:           	10.941cd33
+Output database type      	12
+Compressed                	0
+Verbosity                 	3
+
+Output database type: Generic
+Time for merging to phold_h: 0h 0m 0s 0ms
+Time for processing: 0h 0m 0s 0ms

@@ -73,12 +73,26 @@ def get_genbank(genbank: Path) -> dict:
         ValueError: If the provided file is not a GenBank file.
     """
 
+    def precheck_for_colons(handle):
+        """Checks whether there is a colon in LOCUS/DEFINITION/ACCESSION/VERSION fields."""
+        suspicious_fields = ("LOCUS", "DEFINITION", "ACCESSION", "VERSION")
+        handle.seek(0)
+        for line in handle:
+            if any(line.startswith(field) and ":" in line for field in suspicious_fields):
+                logger.error(
+                    f"{genbank} contains a colon ':' in a {line.split()[0]} line: '{line.strip()}'. Please remove ':' from all input FASTA headers before running Phold (or Pharokka beforehand)."
+                )
+        handle.seek(0)
+
+
+
     logger.info(f"Checking if input {genbank} is a Genbank format file")
     logger.info(
         f"If so, also detecting the likely input style out of Pharokka, Bakta and NCBI Refseq style."
     )
 
     def parse_records(handle):
+        precheck_for_colons(handle)
         try:
             records = list(SeqIO.parse(handle, "gb"))
             if not records:
@@ -137,87 +151,12 @@ def get_genbank(genbank: Path) -> dict:
         logger.warning(f"{genbank} is not a genbank file")
         return {}, None
 
-
-# def get_genbank(genbank: Path) -> dict:
-#     """
-#     Convert a GenBank file to a dictionary.
-
-#     This function reads a GenBank file and converts it into a dictionary.
-
-#     Args:
-#         genbank (Path): Path to the GenBank file.
-
-#     Returns:
-#         dict: A dictionary representation of the GenBank file.
-
-#     Raises:
-#         ValueError: If the provided file is not a GenBank file.
-#     """
-
-#     logger.info(f"Checking if input {genbank} is a Genbank file")
-#     logger.info(f"If so, also detecting the likely input format out of Pharokka, Bakta and NCBI Refseq input.")
-
-#     method = "pharokka"
-
-#     if is_gzip_file(genbank.strip()):
-#         try:
-#             with gzip.open(genbank.strip(), "rt") as handle:
-#                 records = list(SeqIO.parse(handle, "gb"))
-#                 if not records:
-#                     logger.warning(f"{genbank.strip()} is not a genbank file.")
-#                     raise ValueError
-#                 gb_dict = {record.id: record for record in records}
-#                 # get the first record to check format
-#                 record = records[0]
-#             handle.close()
-#         except ValueError:
-#             logger.warning(f"{genbank.strip()} is not a genbank file.")
-#             raise
-#     else:
-#         try:
-#             with open(genbank.strip(), "rt") as handle:
-#                 records = list(SeqIO.parse(handle, "gb"))
-#                 if not records:
-#                     logger.warning(f"{genbank.strip()} is not a genbank file.")
-#                     raise ValueError
-#                 gb_dict = {record.id: record for record in records}
-#                 # get the first record to check format
-#                 record = records[0]
-#             handle.close()
-#         except (ValueError, IndexError) as e:
-#             logger.warning(f"{genbank.strip()} is not a genbank file.")
-#             raise
-
-#     logger.info(f"{genbank} is a genbank file. Detecting likely input format.")
-#     comment = record.annotations.get("comment", "")
-#     # Find the first CDS feature
-#     cds_feature = next((f for f in record.features if f.type == "CDS"), None)
-
-#     # Check if 'Bakta' appears in the Comment - will appear there
-#     if "Bakta" in comment and "locus_tag" in cds_feature.qualifiers:
-#         logger.info(f"Detected Bakta style input Genbank. Using locus_tag qualifier from Bakta as the CDS IDs for Phold.")
-#         method = "bakta"
-#     else:
-#         if "phrog" not in cds_feature.qualifiers and "protein_id" in cds_feature.qualifiers:
-#             logger.info(f"Detected NCBI Refseq style input Genbank. Using protein_id qualifier as the CDS IDs for Phold.")
-#             method = "ncbi"
-#         elif "phrog" in cds_feature.qualifiers and "ID" in cds_feature.qualifiers:
-#             logger.info(f"Detected Pharokka style input Genbank. Using ID qualifier from Pharokka as the CDS IDs for Phold.")
-#         else:
-#             logger.error(
-#                         f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
-#                     )
-
-#     gb_dict = identify_long_ids(gb_dict)
-
-
-#     return gb_dict, method
-
-
 def identify_long_ids(gb_dict: dict) -> dict:
     """
 
     Checks all feature IDs in gb_dict. If longer than 54 chars (line break from Pharokka/biopython reading GBK files), removes the space
+
+    Also check if it contains "|" or "__PIPE__"
 
     Args:
         dict: A dictionary representation of the GenBank file.
@@ -247,6 +186,8 @@ def identify_long_ids(gb_dict: dict) -> dict:
                 # will be GenBank/NCBI formatted
                 # ID isn't a field and should be properly formatted - famous last words probably
                 continue
+
+
 
     return gb_dict
 
@@ -287,6 +228,14 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
                 f"Your input {input} is neither Genbank nor FASTA format. Please check your input"
             )
             raise
+
+    # check for colons in the header
+
+    for header in fasta_dict.keys():
+        if ":" in header:
+            logger.error(
+                f"FASTA header in {input} contains a colon ':': '{header}'. Please remove ':' from all input FASTA headers before running Phold (or Pharokka beforehand)."
+            )
 
     # then run pyrodigal
 

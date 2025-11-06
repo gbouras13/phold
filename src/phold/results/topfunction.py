@@ -77,6 +77,10 @@ def get_topfunctions(
             "Foldseek found no hits whatsoever - please check whether your input is really phage-like"
         )
 
+    # issue #86 - convert all ~PIPE~ back to |
+
+    foldseek_df["query"] = foldseek_df["query"].str.replace("~PIPE~", "|", regex=False)
+
     foldseek_df["annotation_source"] = "foldseek"
 
     # gets the cds
@@ -297,6 +301,8 @@ def calculate_topfunctions_results(
     cds_record_dict = {}
 
     for record_id, cds_entries in cds_dict.items():
+        # issue 86 
+        record_id = record_id.replace("~PIPE~", "|")
         result_dict[record_id] = {}
         for cds_id, cds_info in cds_entries.items():
             result_dict[record_id][cds_id] = {}
@@ -585,6 +591,9 @@ def get_topcustom_hits(
             "Foldseek found no custom hits whatsoever - please check your custom database and input."
         )
         logger.warning("Phold will continue using only the default databases.")
+
+    # issue #86 - convert all ~PIPE~ back to |
+    foldseek_df["query"] = foldseek_df["query"].str.replace("~PIPE~", "|", regex=False)
 
     # gets the cds
     if structures is False and proteins_flag is False:

@@ -89,6 +89,7 @@ def subcommand_predict(
 
     fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
 
+
     # if proteins, already done and passed as gb_dict
     if proteins_flag is True:
         cds_dict = gb_dict
@@ -179,9 +180,23 @@ def subcommand_predict(
                     else:
                         cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
 
-    ############
-    # prostt5
-    ############
+    # issue #86 with GenBank format
+
+    new_cds_dict = {}
+    for record_id, record in cds_dict.items():
+        if "~PIPE~" in record_id:
+            logger.error(
+                f"Your FASTA header {record_id} has __PIPE__ in the header. "
+                "Please remove all instances of __PIPE__ in the header before running Phold "
+                "(or Pharokka before Phold)"
+            )
+        else:
+            record_id = record_id.replace("|", "~PIPE~")
+        new_cds_dict[record_id] = record
+
+    cds_dict = new_cds_dict
+    del new_cds_dict
+
 
     fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
     # embeddings h5 - will only be generated if flag is true

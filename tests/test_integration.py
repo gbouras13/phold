@@ -10,8 +10,8 @@ pytest --run_remote .
 # to run with remote and with gpu
 pytest --run_remote  --gpu_available .
 
-# to run with 8 threads 
-pytest --run_remote  --gpu_available --threads 8 .
+# to run with NVIDIA gpu and 8 threads
+pytest  --gpu_available --nvidia --threads 8 .
 
 """
 
@@ -78,6 +78,9 @@ proteins_compare_cif_dir_custom: Path = (
 )
 plots_dir: Path = f"{output_dir}/plot_output"
 
+restart_intermediate_dir_run: Path = f"{test_data}/NC_043029_intermediate_output_restart_run"
+restart_intermediate_dir_compare: Path = f"{test_data}/NC_043029_intermediate_output_restart_compare"
+restart_intermediate_dir_proteins: Path = f"{test_data}/NC_043029_intermediate_output_restart_proteins"
 
 logger.add(lambda _: sys.exit(1), level="ERROR")
 # threads = 1
@@ -102,6 +105,9 @@ def run_remote(pytestconfig):
 def threads(pytestconfig):
     return pytestconfig.getoption("threads")
 
+@pytest.fixture(scope="session")
+def nvidia(pytestconfig):
+    return pytestconfig.getoption("nvidia")
 
 def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
     """executes shell command and returns stdout if completes exit code 0
@@ -120,37 +126,56 @@ def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
     return out.decode("utf8") if out is not None else None
 
 
-def test_install(threads):
+def test_install(threads, nvidia):
     """test phold install"""
     cmd = f"phold install -d {database_dir} -t {threads}"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu" 
     exec_command(cmd)
 
-
-def test_install_extended(threads):
+def test_install_extended(threads, nvidia):
     """test phold install"""
     cmd = f"phold install -d {ext_database_dir} -t {threads} --extended_db"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
-def test_run_genbank(gpu_available, threads):
+
+def test_run_genbank(gpu_available, threads, nvidia):
+
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
+def test_run_genbank(gpu_available, threads, nvidia):
+    """test phold run with pipe in header (i.e. issue #86 GenBank format genome)"""
+    input_gbk: Path = f"{test_data}/pipe_pharokka.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_pipe} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
-def test_run_hyps(gpu_available, threads):
+
+def test_run_hyps(gpu_available, threads, nvidia):
     """test phold run with --hyps"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hyps"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_run_genbank_ncbi(gpu_available, threads):
+def test_run_genbank_ncbi(gpu_available, threads, nvidia):
     """test phold run with genbank input from NCBI"""
     input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
     cmd = (
@@ -158,10 +183,11 @@ def test_run_genbank_ncbi(gpu_available, threads):
     )
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_run_genbank_bakta(gpu_available, threads):
+def test_run_genbank_bakta(gpu_available, threads, nvidia):
     """test phold run with genbank input from bakta"""
     input_gbk: Path = f"{test_data}/NC_043029_bakta.gbk"
     cmd = (
@@ -169,56 +195,75 @@ def test_run_genbank_bakta(gpu_available, threads):
     )
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_run_genbank_extra_foldseek_params(gpu_available, threads):
+def test_run_genbank_extra_foldseek_params(gpu_available, threads, nvidia):
     """test phold run with --extra_foldseek_params"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f'phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_extra} -t {threads} -d {database_dir} --extra_foldseek_params "--cov-mode 2" -f '
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_run_custom_db(gpu_available, threads):
+def test_run_custom_db(gpu_available, threads, nvidia):
     """test phold run with --custom_db"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_custom} -t {threads} -d {database_dir} --custom_db {dummy_custom_db} -f "
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_run_genbank_old_pharokka(gpu_available, threads):
+def test_run_genbank_old_pharokka(gpu_available, threads, nvidia):
     """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
-def test_run_genbank_long_header(gpu_available, threads):
+def test_run_genbank_long_header(gpu_available, threads, nvidia):
     """test phold run with pharokka genbank with large ID/locus tag (over 54 chars)"""
     input_gbk: Path = f"{test_data}/long_header.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_long_header_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
-def test_run_fasta_long_header(gpu_available, threads):
+def test_run_fasta_long_header(gpu_available, threads, nvidia):
     """test phold run with FASTA with large header"""
     input_fasta: Path = f"{test_data}/long_header.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_long_header_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
+def test_run_fasta_pipe(gpu_available, threads, nvidia):
+    """test phold run with pipe in FASTA header"""
+    input_fasta: Path = f"{test_data}/pipe.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_long_header_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
 def test_run_fasta(gpu_available, threads):
-    """test phold run with genbank input"""
+    """test phold run with FASTA input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
@@ -235,12 +280,14 @@ def test_run_efam(gpu_available, threads):
     exec_command(cmd)
 
 
-def test_run_netflax(gpu_available, threads):
+def test_run_netflax(gpu_available, threads, nvidia):
     """test phold run with a tophit to netflax"""
     input_fasta: Path = f"{test_data}/WP_006719989_subset_test.fasta "
     cmd = f"phold run -i {input_fasta} -o {run_fasta_netflax_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
@@ -262,52 +309,61 @@ def test_predict_save_embeddings(gpu_available, threads):
     exec_command(cmd)
 
 
-def test_compare_genbank(threads):
+def test_compare_genbank(threads, nvidia):
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir} -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
-def test_compare_pdb(threads):
+def test_compare_pdb(threads, nvidia):
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"    
     exec_command(cmd)
 
-
-def test_compare_pdb_custom(threads):
+def test_compare_pdb_custom(threads, nvidia):
     """test phold compare with pdbs input with custom db"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir_custom} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} --custom_db {dummy_custom_db}  -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_compare_cif(threads):
+def test_compare_cif(threads, nvidia):
     """test phold compare with AF3 cif input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_proteins_compare_pdb(threads):
+def test_proteins_compare_pdb(threads, nvidia):
     """test phold proteins-compare with cifs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_proteins_compare_cifs_custom_db(threads):
+def test_proteins_compare_cifs_custom_db(threads, nvidia):
     """test phold proteins-compare with cifs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_cif_dir_custom} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} --custom_db {dummy_custom_db}  -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-
-def test_proteins_compare_cif(threads):
+def test_proteins_compare_cif(threads, nvidia):
     """test phold proteins-compare with AF3 cif input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
@@ -320,10 +376,12 @@ def test_predict_fasta(gpu_available, threads):
     exec_command(cmd)
 
 
-def test_compare_fasta(threads):
+def test_compare_fasta(threads, nvidia):
     """test phold compare with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold compare -i {input_fasta} -o {compare_fasta_dir} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir} -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
@@ -344,18 +402,21 @@ def test_proteins_predict_gzip(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
-
-def test_proteins_compare(threads):
+def test_proteins_compare(threads, nvidia):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
-def test_proteins_compare_gzip(threads):
+def test_proteins_compare_gzip(threads, nvidia):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa.gz"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 
@@ -381,17 +442,87 @@ def test_remote_fasta(run_remote, threads):
         cmd = f"phold remote -i {input_fasta} -o {remote_fasta_dir} -t {threads} -d {database_dir} -f"
         exec_command(cmd)
 
+"""
+restart
+"""
 
-# class testFails(unittest.TestCase):
-#     """Tests for fails"""
+def test_run_restart(gpu_available, threads, nvidia):
+    """test phold run with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029.gbk"
 
-#     def test_run_hyps_ncbi(gpu_available, threads):
-#         """test phold run with --hyps but not pharokka input"""
-#         input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
-#         cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hpys"
-#         if gpu_available is False:
-#             cmd = f"{cmd} --cpu"
-#         exec_command(cmd)
+    restart_intermediate_dir_run_tmp: Path = f"{output_dir}/NC_043029_intermediate_output_run_tmp"
+
+    if Path(restart_intermediate_dir_run_tmp).exists():
+        shutil.rmtree(restart_intermediate_dir_run_tmp)
+
+    # Copy recursively
+    shutil.copytree(restart_intermediate_dir_run, restart_intermediate_dir_run_tmp)
+
+    cmd = f"phold run -i {input_gbk} -o {restart_intermediate_dir_run_tmp} -t {threads} -d {database_dir}  --restart"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
+def test_compare_restart(gpu_available, threads, nvidia):
+    """test phold compare with genbank input"""
+    input_gbk: Path = f"{test_data}/NC_043029.gbk"
+
+    restart_intermediate_dir_compare_tmp: Path = f"{output_dir}/NC_043029_intermediate_output_compare_tmp"
+
+    if Path(restart_intermediate_dir_compare_tmp).exists():
+        shutil.rmtree(restart_intermediate_dir_compare_tmp)
+
+    # Copy recursively
+    shutil.copytree(restart_intermediate_dir_compare, restart_intermediate_dir_compare_tmp)
+
+    cmd = f"phold compare -i {input_gbk} -o {restart_intermediate_dir_compare_tmp} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir}  --restart"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
+
+def test_proteins_compare_restart(gpu_available, threads, nvidia):
+    """test phold proteins-compare with genbank input"""
+    input_fasta: Path = f"{test_data}/phanotate.faa"
+
+    restart_intermediate_dir_proteins_tmp: Path = f"{output_dir}/NC_043029_intermediate_output_proteins_tmp"
+
+    if Path(restart_intermediate_dir_proteins_tmp).exists():
+        shutil.rmtree(restart_intermediate_dir_proteins_tmp)
+
+    # Copy recursively
+    shutil.copytree(restart_intermediate_dir_proteins, restart_intermediate_dir_proteins_tmp)
+
+    cmd = f"phold proteins-compare -i {input_fasta} -o {restart_intermediate_dir_proteins_tmp} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir}  --restart"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
+
+class testFails(unittest.TestCase):
+    """Tests for fails"""
+   
+    def test_run_genbank_colon(self):
+        """test phold run with genbank input with colon in header"""
+        with self.assertRaises(RuntimeError):
+            input_gbk: Path = f"{test_data}/colon.gbk"
+            cmd = (
+                f"phold run -i {input_gbk} -o {run_gbk_bakta} -t 2 -d {database_dir} -f"
+            )
+            exec_command(cmd)
+
+    def test_run_fasta_colon(self):
+        """test phold run with FASTA input colon in header"""
+        with self.assertRaises(RuntimeError):
+            input_fasta: Path = f"{test_data}/colon.fasta"
+            cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t 2 -d {database_dir} -f"
+            exec_command(cmd)
 
 
 remove_directory(output_dir)

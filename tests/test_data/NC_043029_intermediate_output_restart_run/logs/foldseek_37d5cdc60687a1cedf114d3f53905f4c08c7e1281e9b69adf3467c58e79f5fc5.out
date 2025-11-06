@@ -1,0 +1,87 @@
+search tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/phold ../phold_v1_db_creation/phold_search_db_v_1_0_0/all_phold_structures_gpu tests/test_data/NC_043029_intermediate_output_restart/result_db/result_db tests/test_data/NC_043029_intermediate_output_restart/temp_db --threads 8 -e 0.001 --gpu 1 --prefilter-mode 1 --max-seqs 1000 
+
+MMseqs Version:                    	10.941cd33
+Seq. id. threshold                 	0
+Coverage threshold                 	0
+Coverage mode                      	0
+Max reject                         	2147483647
+Max accept                         	2147483647
+Add backtrace                      	false
+TMscore threshold                  	0
+TMscore threshold mode             	0
+TMalign hit order                  	0
+TMalign fast                       	1
+Preload mode                       	0
+Threads                            	8
+Verbosity                          	3
+LDDT threshold                     	0
+Sort by structure bit score        	1
+Alignment type                     	2
+Exact TMscore                      	0
+Substitution matrix                	aa:3di.out,nucl:3di.out
+Alignment mode                     	3
+Alignment mode                     	0
+E-value threshold                  	0.001
+Min alignment length               	0
+Seq. id. mode                      	0
+Alternative alignments             	0
+Max sequence length                	65535
+Compositional bias                 	1
+Compositional bias                 	1
+Gap open cost                      	aa:10,nucl:10
+Gap extension cost                 	aa:1,nucl:1
+Compressed                         	0
+Seed substitution matrix           	aa:3di.out,nucl:3di.out
+Sensitivity                        	9.5
+k-mer length                       	0
+Target search mode                 	0
+k-score                            	seq:2147483647,prof:2147483647
+Max results per query              	1000
+Split database                     	0
+Split mode                         	2
+Split memory limit                 	0
+Diagonal scoring                   	true
+Exact k-mer matching               	0
+Mask residues                      	0
+Mask residues probability          	0.999995
+Mask lower case residues           	1
+Mask lower letter repeating N times	6
+Minimum diagonal score             	30
+Selected taxa                      	
+Spaced k-mers                      	1
+Spaced k-mer pattern               	
+Local temporary path               	
+Use GPU                            	1
+Use GPU server                     	0
+Wait for GPU server                	600
+Prefilter mode                     	1
+Exhaustive search mode             	false
+Search iterations                  	1
+Remove temporary files             	true
+MPI runner                         	
+Force restart with latest tmp      	false
+Cluster search                     	0
+
+ungappedprefilter tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/phold_ss ../phold_v1_db_creation/phold_search_db_v_1_0_0/all_phold_structures_gpu_ss tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/pref --sub-mat 'aa:3di.out,nucl:3di.out' -c 0 -e 1.79769e+308 --cov-mode 0 --comp-bias-corr 1 --comp-bias-corr-scale 0.15 --min-ungapped-score 30 --max-seqs 1000 --db-load-mode 0 --gpu 1 --gpu-server 0 --gpu-server-wait-timeout 600 --prefilter-mode 1 --threads 8 --compressed 0 -v 3 
+
+[=================================================================] 15 0s 741ms
+Time for merging to pref: 0h 0m 0s 0ms
+Time for processing: 0h 0m 1s 115ms
+structurealign tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/phold ../phold_v1_db_creation/phold_search_db_v_1_0_0/all_phold_structures_gpu tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/pref tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/strualn --tmscore-threshold 0 --tmscore-threshold-mode 0 --lddt-threshold 0 --sort-by-structure-bits 1 --alignment-type 2 --exact-tmscore 0 --sub-mat 'aa:3di.out,nucl:3di.out' -a 0 --alignment-mode 3 --alignment-output-mode 0 --wrapped-scoring 0 -e 0.001 --min-seq-id 0 --min-aln-len 0 --seq-id-mode 0 --alt-ali 0 -c 0 --cov-mode 0 --max-seq-len 65535 --comp-bias-corr 1 --comp-bias-corr-scale 0.5 --max-rejected 2147483647 --max-accept 2147483647 --add-self-matches 0 --db-load-mode 0 --pca substitution:1.100,context:1.400 --pcb substitution:4.100,context:5.800 --score-bias 0 --realign 0 --realign-score-bias -0.2 --realign-max-seqs 2147483647 --corr-score-weight 0 --gap-open aa:10,nucl:10 --gap-extend aa:1,nucl:1 --zdrop 40 --threads 8 --compressed 0 -v 3 
+
+Cannot find phold C-alpha or all_phold_structures_gpu C-alpha database
+Disabling --sort-by-structure-bits
+This impacts the final score and ranking of hits, but not E-values themselves. Ranking alterations primarily occur for E-values < 10^-1.
+[=================================================================] 15 0s 72ms
+Time for merging to strualn: 0h 0m 0s 1ms
+Time for processing: 0h 0m 0s 408ms
+mvdb tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/strualn tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/aln -v 3 
+
+Time for processing: 0h 0m 0s 0ms
+mvdb tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/aln tests/test_data/NC_043029_intermediate_output_restart/result_db/result_db -v 3 
+
+Time for processing: 0h 0m 0s 0ms
+Removing temporary files
+rmdb tests/test_data/NC_043029_intermediate_output_restart/temp_db/12238294553495473419/pref -v 3 
+
+Time for processing: 0h 0m 0s 0ms

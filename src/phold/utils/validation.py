@@ -65,7 +65,7 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
     return fasta_flag, gb_dict, method
 
 
-def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:
+def instantiate_dirs(output_dir: Union[str, Path], force: bool, restart: bool = False) -> Path:
     """
     Checks and instantiates the output directory.
 
@@ -80,24 +80,44 @@ def instantiate_dirs(output_dir: Union[str, Path], force: bool) -> Path:
     # Checks the output directory
     # remove outdir on force
     logger.add(lambda _: sys.exit(1), level="ERROR")
-    logger.info(f"Checking the output directory {output_dir}")
-    if force is True:
-        if Path(output_dir).exists():
-            logger.info(f"Removing {output_dir} because --force was specified")
-            shutil.rmtree(output_dir)
-        else:
-            logger.info(
-                "--force was specified even though the output directory does not already exist. Continuing"
-            )
-    else:
-        if Path(output_dir).exists():
-            logger.error(
-                "Output directory already exists and force was not specified. Please specify -f or --force to overwrite the output directory"
-            )
 
-    # instantiate outdir
-    if Path(output_dir).exists() is False:
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
+    if restart and force:
+        logger.warning(f"You have specified --restart and --force")
+        logger.warning(f"This conflicts: proceeding assuming you want --restart and not --force")
+        force = False
+
+
+    if restart:
+        logger.info(f"You have specified --restart")
+        logger.info(f"Checking the output directory {output_dir} exists and contains foldseek_results.tsv")
+        if Path(output_dir).exists() is False:
+            logger.error(f"The output directory {output_dir} does not exist!")
+        foldseek_results_path = Path(output_dir) / "foldseek_results.tsv"
+        if Path(foldseek_results_path).exists() is False:
+            logger.error(f"The foldseek_results.tsv file {foldseek_results_path} does not exist!")
+
+        logger.info(f"The output directory {output_dir} exists and contains foldseek_results.tsv")
+
+    else:
+
+        logger.info(f"Checking the output directory {output_dir}")
+        if force is True:
+            if Path(output_dir).exists():
+                logger.info(f"Removing {output_dir} because --force was specified")
+                shutil.rmtree(output_dir)
+            else:
+                logger.info(
+                    "--force was specified even though the output directory does not already exist. Continuing"
+                )
+        else:
+            if Path(output_dir).exists():
+                logger.error(
+                    "Output directory already exists and force was not specified. Please specify -f or --force to overwrite the output directory"
+                )
+
+        # instantiate outdir
+        if Path(output_dir).exists() is False:
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
 def check_dependencies() -> None:
