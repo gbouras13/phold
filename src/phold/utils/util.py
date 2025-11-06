@@ -4,7 +4,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict
-
+from Bio import SeqIO
 import click
 from loguru import logger
 
@@ -160,6 +160,20 @@ def touch_file(path: Path) -> None:
     with open(path, "a"):
         os.utime(path, None)
 
+
+def replace_pipe_in_fastq(input_path):
+    """
+    Solves issue #86 with the genbank format headers
+    Reads a FASTA with Biopython, replace '~PIPE~' with '|' in headers, and write the result.
+    """
+    records = []
+    for record in SeqIO.parse(input_path, "fasta"):
+        record.id = record.id.replace("~PIPE~", "|")
+        record.description = record.description.replace("~PIPE~", "|")
+        records.append(record)
+    
+    # overwrites
+    SeqIO.write(records, input_path, "fasta")
 
 def clean_up_temporary_files(output: Path) -> None:
     """

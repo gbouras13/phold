@@ -1,0 +1,10 @@
+tsv2db tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/aa.tsv tests/test_data/NC_043029_intermediate_output_restart/foldseek_db/phold --output-dbtype 0 
+
+MMseqs Version:           	10.941cd33
+Output database type      	0
+Compressed                	0
+Verbosity                 	3
+
+Output database type: Aminoacid
+Time for merging to phold: 0h 0m 0s 0ms
+Time for processing: 0h 0m 0s 0ms

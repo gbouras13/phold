@@ -1,0 +1,1 @@
+Command line: foldseek tsv2db tests/test_data/NC_043029_intermediate_output_proteins/foldseek_db/aa.tsv tests/test_data/NC_043029_intermediate_output_proteins/foldseek_db/phold --output-dbtype 0
