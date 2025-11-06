@@ -45,9 +45,12 @@ run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_bakta: Path = f"{output_dir}/run_gbk_ncbi_bakta"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
-run_gbk_pharokka_pipe: Path = f"{output_dir}/pipe.gbk"
-run_gbk_pharokka_1_4_1_dir_extra: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
-run_gbk_pharokka_1_4_1_dir_custom: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
+run_gbk_pharokka_1_4_1_dir_extra: Path = (
+    f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
+)
+run_gbk_pharokka_1_4_1_dir_custom: Path = (
+    f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
+)
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_long_header_dir: Path = f"{output_dir}/long_header_fasta"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
@@ -70,7 +73,9 @@ proteins_predict_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_pr
 proteins_compare_dir: Path = f"{output_dir}/combined_truncated_phold_proteins_compare"
 proteins_compare_pdb_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_pdb"
 proteins_compare_cif_dir: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif"
-proteins_compare_cif_dir_custom: Path = f"{output_dir}/NC_043029_phold_proteins_compare_cif_custom_db"
+proteins_compare_cif_dir_custom: Path = (
+    f"{output_dir}/NC_043029_phold_proteins_compare_cif_custom_db"
+)
 plots_dir: Path = f"{output_dir}/plot_output"
 
 restart_intermediate_dir_run: Path = f"{test_data}/NC_043029_intermediate_output_restart_run"
@@ -80,13 +85,16 @@ restart_intermediate_dir_proteins: Path = f"{test_data}/NC_043029_intermediate_o
 logger.add(lambda _: sys.exit(1), level="ERROR")
 # threads = 1
 
+
 def remove_directory(dir_path):
     if os.path.exists(dir_path):
         shutil.rmtree(dir_path)
 
+
 @pytest.fixture(scope="session")
 def gpu_available(pytestconfig):
     return pytestconfig.getoption("gpu_available")
+
 
 @pytest.fixture(scope="session")
 def run_remote(pytestconfig):
@@ -133,7 +141,9 @@ def test_install_extended(threads, nvidia):
     exec_command(cmd)
 
 
+
 def test_run_genbank(gpu_available, threads, nvidia):
+
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir} -t {threads} -d {database_dir} -f"
@@ -152,6 +162,7 @@ def test_run_genbank(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+
 
 
 def test_run_hyps(gpu_available, threads, nvidia):
@@ -191,7 +202,7 @@ def test_run_genbank_bakta(gpu_available, threads, nvidia):
 def test_run_genbank_extra_foldseek_params(gpu_available, threads, nvidia):
     """test phold run with --extra_foldseek_params"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
-    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_extra} -t {threads} -d {database_dir} --extra_foldseek_params \"--cov-mode 2\" -f "
+    cmd = f'phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_extra} -t {threads} -d {database_dir} --extra_foldseek_params "--cov-mode 2" -f '
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     if nvidia:
@@ -381,6 +392,7 @@ def test_proteins_predict(gpu_available, threads):
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+
 
 def test_proteins_predict_gzip(gpu_available, threads):
     """test phold proteins-predict with gzip"""

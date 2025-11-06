@@ -11,7 +11,6 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 import csv
 import json
 from pathlib import Path
-from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import h5py
@@ -20,6 +19,7 @@ import torch
 import torch.nn.functional as F
 from loguru import logger
 from torch import nn
+from tqdm import tqdm
 from transformers import T5EncoderModel, T5Tokenizer
 
 from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
@@ -147,11 +147,11 @@ def get_T5_model(
             force_download=download,
             local_files_only=localfile,
         ).to(device)
-        
+
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
-        download_zenodo_prostT5(model_dir, logdir, threads )
+        download_zenodo_prostT5(model_dir, logdir, threads)
 
         model = T5EncoderModel.from_pretrained(
             model_name,
@@ -202,7 +202,7 @@ def write_predictions(
     predictions: Dict[str, Dict[str, Tuple[List[str], Any, Any]]],
     out_path: Path,
     proteins_flag: bool,
-    mask_threshold: float
+    mask_threshold: float,
 ) -> None:
     """
     Write predictions to an output file.
@@ -238,7 +238,7 @@ def write_predictions(
         17: "V",
         18: "W",
         19: "Y",
-        20: "X" # fully mask the low confidence 3Di residues with X not lower case (not working for Foldseek v10, but X does)
+        20: "X",  # fully mask the low confidence 3Di residues with X not lower case (not working for Foldseek v10, but X does)
         # 20: "a",
         # 21: "c",
         # 22: "d",
@@ -261,7 +261,7 @@ def write_predictions(
         # 39: "y"
     }
 
-    mask_prop_threshold = mask_threshold/100
+    mask_prop_threshold = mask_threshold / 100
 
     with open(out_path, "w+") as out_f:
         for contig_id, rest in predictions.items():
@@ -272,7 +272,6 @@ def write_predictions(
             prediction_contig_dict = {
                 k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
             }
-
 
             # masking - make the 3Di X=20
             for key, (pred, mean_prob, all_prob) in prediction_contig_dict.items():
@@ -339,7 +338,7 @@ def write_probs(
 
             for seq_id, (N, mean_prob, N) in prediction_contig_dict.items():
                 out_f.write("{},{}\n".format(seq_id, mean_prob))
-        
+
     if output_path_all is not None:
         with open(output_path_all, "w+") as out_f:
             for contig_id, rest in predictions.items():
@@ -365,7 +364,9 @@ def write_probs(
                     json_data = json.dumps(per_residue_probs)
 
                     # Write the JSON string to the file
-                    out_f.write(json_data + "\n")  # Add a newline after each JSON object
+                    out_f.write(
+                        json_data + "\n"
+                    )  # Add a newline after each JSON object
 
     return None
 
@@ -403,13 +404,12 @@ def load_predictor(checkpoint_path: Union[str, Path]) -> CNN:
 
     state = torch.load(checkpoint_path, map_location=device)
 
-    # regular ProstT5 CNN 
-    if checkpoint_path.suffix == '.pt':
+    # regular ProstT5 CNN
+    if checkpoint_path.suffix == ".pt":
         model.load_state_dict(state["state_dict"])
     # finetuned
     else:
         model.load_state_dict(state)
-
 
     model = model.eval()
     model = model.to(device)
@@ -437,7 +437,7 @@ def get_embeddings(
     save_per_residue_embeddings: bool = False,
     save_per_protein_embeddings: bool = False,
     threads: int = 1,
-    mask_threshold: float = 0
+    mask_threshold: float = 0,
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -477,7 +477,6 @@ def get_embeddings(
 
     prostt5_prefix = "<AA2fold>"
 
-
     model, vocab = get_T5_model(model_dir, model_name, cpu, threads)
     predictor = load_predictor(checkpoint_path)
 
@@ -516,8 +515,12 @@ def get_embeddings(
         )
 
         batch = list()
-        for seq_idx, (pdb_id, seq) in tqdm(enumerate(seq_dict.items(), 1), total=len(seq_dict), desc=f"Predicting 3Di for {record_id}"):
-        # for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
+        for seq_idx, (pdb_id, seq) in tqdm(
+            enumerate(seq_dict.items(), 1),
+            total=len(seq_dict),
+            desc=f"Predicting 3Di for {record_id}",
+        ):
+            # for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)
@@ -561,8 +564,6 @@ def get_embeddings(
                         fail_ids.append(id)
                     continue
 
-                
-
                 # ProtT5 appends a special tokens at the end of each sequence
                 # Mask this also out during inference while taking into account the prostt5 prefix
                 try:
@@ -580,39 +581,35 @@ def get_embeddings(
                     residue_embedding = residue_embedding[:, 1:]
                     prediction = predictor(residue_embedding)
 
-
                     # compute max probabilities per token/residue
                     probabilities = toCPU(
-                        torch.max(
-                            F.softmax(prediction, dim=1), dim=1, keepdim=True
-                        )[0]
+                        torch.max(F.softmax(prediction, dim=1), dim=1, keepdim=True)[0]
                     )
 
                     prediction = toCPU(
                         torch.max(prediction, dim=1, keepdim=True)[1]
                     ).astype(np.byte)
 
-
-                     # to get logits
-                    # t = prediction.transpose(1, 2)  # changes ( B x L x N ) to ( B x N x L ) 
+                    # to get logits
+                    # t = prediction.transpose(1, 2)  # changes ( B x L x N ) to ( B x N x L )
                     # logits = t.detach().cpu().numpy()
                     # print(logits[0])
                     # print(logits[0].shape)
 
-                     # prob_tensor = F.softmax(prediction, dim=1).cpu()
-                     # #print(prob_tensor.shape)
-                     # prob_matrix = prob_tensor.squeeze(0).transpose(0, 1)
-                     # #print(prob_matrix.shape)
-                     # all_sampled_states = {}
-                     # i = 1
-                     # while i < 11:
-                     #     all_sampled_states[i] = torch.multinomial(prob_matrix, 1).squeeze(1)
-                     #     i += 1
+                    # prob_tensor = F.softmax(prediction, dim=1).cpu()
+                    # #print(prob_tensor.shape)
+                    # prob_matrix = prob_tensor.squeeze(0).transpose(0, 1)
+                    # #print(prob_matrix.shape)
+                    # all_sampled_states = {}
+                    # i = 1
+                    # while i < 11:
+                    #     all_sampled_states[i] = torch.multinomial(prob_matrix, 1).squeeze(1)
+                    #     i += 1
 
-                     #sampled_states = torch.multinomial(prob_matrix, 1).squeeze(1)
-                     #sampled_states = torch.multinomial(prob_matrix, 100, replacement=True)
-                     #print(sampled_states)
-                     #print(sampled_states.shape)
+                    # sampled_states = torch.multinomial(prob_matrix, 1).squeeze(1)
+                    # sampled_states = torch.multinomial(prob_matrix, 100, replacement=True)
+                    # print(sampled_states)
+                    # print(sampled_states.shape)
 
                     # batch-size x seq_len x embedding_dim
                     # extra token is added at the end of the seq
@@ -647,8 +644,8 @@ def get_embeddings(
 
                         # always return the mean probs
                         mean_prob = round(
-                                100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2
-                            )
+                            100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2
+                        )
 
                         if output_probs:  # if you want the per-residue probs
                             all_prob = probabilities[batch_idx, :, 0:s_len]
@@ -717,7 +714,6 @@ def get_embeddings(
     else:
         all_probs_out_path = None
 
-    
     write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
     return predictions

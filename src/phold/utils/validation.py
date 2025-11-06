@@ -10,6 +10,7 @@ from loguru import logger
 
 from phold.io.handle_genbank import get_fasta_run_pyrodigal_gv, get_genbank
 
+
 def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
     """
     Validate the input file format and retrieve genomic data.
@@ -57,7 +58,9 @@ def validate_input(input: Path, threads: int) -> Dict[str, Union[bool, Dict]]:
             )
             fasta_flag = True
     else:
-        logger.info(f"Successfully parsed input {input} as a {method} style Genbank file.")
+        logger.info(
+            f"Successfully parsed input {input} as a {method} style Genbank file."
+        )
 
     return fasta_flag, gb_dict, method
 
@@ -143,20 +146,22 @@ def check_dependencies() -> None:
     foldseek_version = foldseek_out.strip()
 
     if "941cd33" in foldseek_version:
-        foldseek_major_version=10
-        foldseek_minor_version="941cd33"
+        foldseek_major_version = 10
+        foldseek_minor_version = "941cd33"
     else:
         logger.warning(f"Foldseek version found is v{foldseek_version}")
         logger.warning(f"Phold is recommended to be run with Foldseek v10.941cd33")
-        logger.warning(f"Using a different Foldseek version is likely to work without issue, but this cannot be guaranteed.")
+        logger.warning(
+            f"Using a different Foldseek version is likely to work without issue, but this cannot be guaranteed."
+        )
 
     logger.info(
         f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
     )
 
-    #if foldseek_major_version != 10:
+    # if foldseek_major_version != 10:
     #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
-    #if foldseek_minor_version != "941cd33":
+    # if foldseek_minor_version != "941cd33":
     #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
 
     logger.info("Foldseek version is ok")

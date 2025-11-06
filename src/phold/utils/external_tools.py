@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 
 import click
 from loguru import logger
- 
+
 
 class ExternalTool:
     def __init__(self, tool: str, input: str, output: str, params: str, logdir: Path):
@@ -63,8 +63,8 @@ class ExternalTool:
             )
 
             for line in process.stdout:
-                print(line, end="")         # Live output to terminal
-                stdout_fh.write(line)       # Also write to stdout log
+                print(line, end="")  # Live output to terminal
+                stdout_fh.write(line)  # Also write to stdout log
 
             process.stdout.close()
             return_code = process.wait()
@@ -73,7 +73,6 @@ class ExternalTool:
 
             if return_code != 0:
                 raise subprocess.CalledProcessError(return_code, self.command)
-
 
     @staticmethod
     def _run_core(command: List[str], stdout_fh, stderr_fh) -> None:
@@ -121,7 +120,6 @@ class ExternalTool:
                 ctx.exit(1)
             else:
                 sys.exit(1)
-
 
     """
     Only download - so can print the aria2c output to screen

@@ -49,7 +49,7 @@ def get_topfunctions(
             "tEnd",
             "tLen",
             "alntmscore",
-            "lddt"
+            "lddt",
         ]
     else:
 
@@ -139,7 +139,6 @@ def get_topfunctions(
     foldseek_df["product"] = foldseek_df["product"].fillna("hypothetical protein")
     foldseek_df["function"] = foldseek_df["function"].fillna("unknown function")
 
-
     # filter out rows of foldseek_df where vfdb or card - stricter threshold due to Enault et al
     # https://www.nature.com/articles/ismej201690
     # defaults to 1e-10
@@ -148,7 +147,6 @@ def get_topfunctions(
         & (foldseek_df["evalue"].astype(float) < float(card_vfdb_evalue))
         | ((foldseek_df["phrog"] != "vfdb") & (foldseek_df["phrog"] != "card"))
     ]
-
 
     def custom_nsmallest(group):
         # where all the
@@ -355,7 +353,6 @@ def calculate_topfunctions_results(
             "tStart": row["tStart"],
             "tEnd": row["tEnd"],
             "tLen": row["tLen"],
-            
         }
 
         # nan on record_id -> means the structure in the structure_dir has a foldseek hit but can't be matched up to a contig
@@ -422,11 +419,11 @@ def calculate_topfunctions_results(
                 # same phrog as pharokka - only update the function with new annots in v1 in case users have older pharokka
                 if foldseek_phrog == cds_feature.qualifiers["phrog"][0]:
                     updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
-                            result_dict[record_id][cds_id]["product"]
-                        )
-                    updated_cds_dict[record_id][cds_id].qualifiers["function"][
-                            0
-                        ] = result_dict[record_id][cds_id]["function"]
+                        result_dict[record_id][cds_id]["product"]
+                    )
+                    updated_cds_dict[record_id][cds_id].qualifiers["function"][0] = (
+                        result_dict[record_id][cds_id]["function"]
+                    )
 
                 # different phrog as pharokka
                 else:
@@ -544,7 +541,8 @@ def initialize_function_counts_dict(
 
 #####
 # custom db
-##### 
+#####
+
 
 def get_topcustom_hits(
     result_tsv: Path,
@@ -592,9 +590,7 @@ def get_topcustom_hits(
         logger.warning(
             "Foldseek found no custom hits whatsoever - please check your custom database and input."
         )
-        logger.warning(
-            "Phold will continue using only the default databases."
-        )
+        logger.warning("Phold will continue using only the default databases.")
 
     # issue #86 - convert all ~PIPE~ back to |
     foldseek_df["query"] = foldseek_df["query"].str.replace("~PIPE~", "|", regex=False)
@@ -606,7 +602,7 @@ def get_topcustom_hits(
             ":", expand=True, n=1
         )
         # dont need it
-        foldseek_df.drop(columns=['contig_id'], inplace=True)
+        foldseek_df.drop(columns=["contig_id"], inplace=True)
     # structures or proteins_flag or both
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
@@ -617,18 +613,19 @@ def get_topcustom_hits(
     foldseek_df["target"] = foldseek_df["target"].str.replace(".cif", "")
     # split the target column as this will have phrog:protein
 
-    tophit_custom_df = foldseek_df.loc[foldseek_df.groupby("query")["evalue"].idxmin()].reset_index(drop=True)
+    tophit_custom_df = foldseek_df.loc[
+        foldseek_df.groupby("query")["evalue"].idxmin()
+    ].reset_index(drop=True)
 
     # dont need query or contig_id any more
-    tophit_custom_df.drop(columns=['query'], inplace=True)
+    tophit_custom_df.drop(columns=["query"], inplace=True)
 
     return tophit_custom_df
 
 
-
 def calculate_qcov_tcov(merged_df):
     """
-    calculates and adds qCov and tCov to tophit foldseek pandas dataframe 
+    calculates and adds qCov and tCov to tophit foldseek pandas dataframe
 
     Args:
         merged_df (pd.DataFrame): tophits foldseek pandas dataframe
@@ -637,11 +634,14 @@ def calculate_qcov_tcov(merged_df):
         pd.DataFrame: DataFrame containing the merged tophits with qCov and tCov columns
     """
 
+    # add qcov and tcov
+    merged_df["qCov"] = (
+        (merged_df["qEnd"] - merged_df["qStart"]) / merged_df["qLen"]
+    ).round(2)
+    merged_df["tCov"] = (
+        (merged_df["tEnd"] - merged_df["tStart"]) / merged_df["tLen"]
+    ).round(2)
 
-    # add qcov and tcov 
-    merged_df["qCov"] = ((merged_df["qEnd"] - merged_df["qStart"] ) / merged_df["qLen"]).round(2)
-    merged_df["tCov"] = ((merged_df["tEnd"] - merged_df["tStart"] ) / merged_df["tLen"]).round(2)
-    
     # reorder
     qLen_index = merged_df.columns.get_loc("qLen")
     tLen_index = merged_df.columns.get_loc("tLen")
@@ -651,15 +651,15 @@ def calculate_qcov_tcov(merged_df):
             [
                 col
                 for col in merged_df.columns[: qLen_index + 1]
-                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+                if col not in ["qCov", "tStart", "tEnd", "tLen", "tCov"]
             ]
         )
-        + ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+        + ["qCov", "tStart", "tEnd", "tLen", "tCov"]
         + list(
             [
                 col
                 for col in merged_df.columns[tLen_index + 1 :]
-                if col not in ["qCov", "tStart","tEnd",	"tLen", "tCov"]
+                if col not in ["qCov", "tStart", "tEnd", "tLen", "tCov"]
             ]
         )
     )

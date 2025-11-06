@@ -6,11 +6,10 @@ some taken from phynteny https://github.com/susiegriggo/Phynteny
 import binascii
 import gzip
 import multiprocessing.pool
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Dict, Union
-from datetime import datetime
-
 
 import pandas as pd
 import pyrodigal_gv
@@ -58,7 +57,6 @@ def is_gzip_file(f: Path) -> bool:
         return binascii.hexlify(i.read(2)) == b"1f8b"
 
 
-
 def get_genbank(genbank: Path) -> dict:
     """
     Convert a GenBank file to a dictionary.
@@ -89,7 +87,10 @@ def get_genbank(genbank: Path) -> dict:
 
 
     logger.info(f"Checking if input {genbank} is a Genbank format file")
-    logger.info(f"If so, also detecting the likely input style out of Pharokka, Bakta and NCBI Refseq style.")
+    logger.info(
+        f"If so, also detecting the likely input style out of Pharokka, Bakta and NCBI Refseq style."
+    )
+
     def parse_records(handle):
         precheck_for_colons(handle)
         try:
@@ -103,24 +104,37 @@ def get_genbank(genbank: Path) -> dict:
             cds_feature = next((f for f in record.features if f.type == "CDS"), None)
 
             if cds_feature is None:
-                logger.error(f"{genbank} appears to be a Genbank formatted file but no CDS was found. Please check your input.")
+                logger.error(
+                    f"{genbank} appears to be a Genbank formatted file but no CDS was found. Please check your input."
+                )
                 return gb_dict, None
 
             # Check if 'Bakta' appears in the Comment - will appear there
             if "Bakta" in comment and "locus_tag" in cds_feature.qualifiers:
-                logger.info(f"Detected Bakta style input Genbank. Using locus_tag qualifier from Bakta as the CDS IDs for Phold.")
+                logger.info(
+                    f"Detected Bakta style input Genbank. Using locus_tag qualifier from Bakta as the CDS IDs for Phold."
+                )
                 method = "Bakta"
             else:
-                if "phrog" not in cds_feature.qualifiers and "protein_id" in cds_feature.qualifiers:
-                    logger.info(f"Detected NCBI Refseq style input Genbank. Using protein_id qualifier as the CDS IDs for Phold.")
+                if (
+                    "phrog" not in cds_feature.qualifiers
+                    and "protein_id" in cds_feature.qualifiers
+                ):
+                    logger.info(
+                        f"Detected NCBI Refseq style input Genbank. Using protein_id qualifier as the CDS IDs for Phold."
+                    )
                     method = "NCBI"
-                elif "phrog" in cds_feature.qualifiers and "ID" in cds_feature.qualifiers:
-                    logger.info(f"Detected Pharokka style input Genbank. Using ID qualifier from Pharokka as the CDS IDs for Phold.")
+                elif (
+                    "phrog" in cds_feature.qualifiers and "ID" in cds_feature.qualifiers
+                ):
+                    logger.info(
+                        f"Detected Pharokka style input Genbank. Using ID qualifier from Pharokka as the CDS IDs for Phold."
+                    )
                     method = "Pharokka"
                 else:
                     logger.error(
-                                f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
-                            )
+                        f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
+                    )
             return identify_long_ids(gb_dict), method
         except Exception as e:
             logger.warning(f"{genbank} is not a genbank file")
@@ -136,8 +150,6 @@ def get_genbank(genbank: Path) -> dict:
     except Exception as e:
         logger.warning(f"{genbank} is not a genbank file")
         return {}, None
-
-
 
 def identify_long_ids(gb_dict: dict) -> dict:
     """
@@ -324,11 +336,14 @@ def write_genbank(
     now = datetime.now()
     format_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
+    anticodon_warning = 0
     for record_id, record in gb_dict.items():
 
         if not proteins_flag:
-            record.annotations["comment"] = f"Annotated with Phold {version}.\nAnnotation Date: {format_time}.\nAnnotation Date: {format_time}.\nURL https://github.com/gbouras13/phold."
-        
+            record.annotations["comment"] = (
+                f"Annotated with Phold {version}.\nAnnotation Date: {format_time}.\nURL https://github.com/gbouras13/phold."
+            )
+
         # Merge updated_cds_dict and non_cds_dict
         merged_dict = {
             record_id: {
@@ -372,18 +387,21 @@ def write_genbank(
                             # for older pharokka input before v1.5.0
                             transl_table = "11"
 
-
                     # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
                     # turns out the genbank format adds 1 to the start coordinate on writing out issue #75 and #77
                     # e.g. [SeqFeature(SimpleLocation(ExactPosition(0), ExactPosition(1056), strand=1) - will be writted as start=1 and end=1056
                     # therefore, need to add genbank (pharokka) input by 1 for the output df
-                    # also need to subtract the start by 1 for pyrodigal/fasta input 
+                    # also need to subtract the start by 1 for pyrodigal/fasta input
                     if cds_feature.location.strand == -1:  # neg strand
                         start = cds_feature.location.end
                         if fasta_flag is True:  # pyrodigal
                             end = cds_feature.location.start
                             # for the genbank - keeps the start and end sequential
-                            cds_feature.location = FeatureLocation(cds_feature.location.start - 1, cds_feature.location.end, cds_feature.location.strand)
+                            cds_feature.location = FeatureLocation(
+                                cds_feature.location.start - 1,
+                                cds_feature.location.end,
+                                cds_feature.location.strand,
+                            )
                         else:  # genbank/pharokka input fix the zero index issue for the df
                             end = cds_feature.location.start + 1
                     else:  # pos strand
@@ -391,7 +409,9 @@ def write_genbank(
                         if fasta_flag is True:  # pyrodigal
                             start = cds_feature.location.start
                             # subtract by 1 for the start for the genbank
-                            cds_feature.location = FeatureLocation(start - 1, end, cds_feature.location.strand)
+                            cds_feature.location = FeatureLocation(
+                                start - 1, end, cds_feature.location.strand
+                            )
                         else:  # genbank/pharokka input fix the zero index issue for the df
                             start = cds_feature.location.start + 1
 
@@ -430,13 +450,23 @@ def write_genbank(
                         deleted_value = cds_feature.qualifiers.pop(key, None)
                     # get dataframe
                 per_cds_list.append(cds_info)
-            elif cds_feature.type == "tRNA": # trna features - fix the issue #76 https://github.com/gbouras13/phold/issues/76 
+            elif (
+                cds_feature.type == "tRNA"
+            ):  # trna features - fix the issue #76 https://github.com/gbouras13/phold/issues/76
                 if "anticodon" in cds_feature.qualifiers:
-                    del cds_feature.qualifiers["anticodon"]
+                    # Example value from the feature
+                    anticodon = cds_feature.qualifiers.get("anticodon", [""])[0]
+
+                    # Define the expected format using regex
+                    pattern = r"^[atgcnATGCN]{3}$"
+
+                    if re.match(pattern, anticodon):
+                        anticodon_warning += 1
+
                 if "trna" in cds_feature.qualifiers:
-                    cds_feature.qualifiers["product"] = cds_feature.qualifiers.pop("trna")
-
-
+                    cds_feature.qualifiers["product"] = cds_feature.qualifiers.pop(
+                        "trna"
+                    )
 
         # write out the record to GBK file
         if proteins_flag is False:
@@ -460,6 +490,11 @@ def write_genbank(
             output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
             with open(output_gbk_path, "w") as output_file:
                 SeqIO.write(seq_record, output_file, "genbank")
+
+    if anticodon_warning > 0:
+        logger.warning(
+            f"You used Pharokka < v1.8.2 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.2."
+        )
 
     per_cds_df = pd.DataFrame(per_cds_list)
 

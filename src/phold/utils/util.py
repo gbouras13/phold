@@ -49,7 +49,7 @@ begin and end functions
 """
 
 
-def begin_phold(params: Dict[str, Any], subcommand: str) -> int:
+def begin_phold(params: Dict[str, Any], subcommand: str) -> float:
     """
     Begin Phold process.
 
@@ -58,7 +58,7 @@ def begin_phold(params: Dict[str, Any], subcommand: str) -> int:
         subcommand (str): Subcommand indicating the Phold operation.
 
     Returns:
-        int: Start time of the Phold process.
+        float: Start time of the Phold process.
     """
     # get start time
     start_time = time.time()
@@ -105,17 +105,17 @@ def end_phold(start_time: float, subcommand: str) -> None:
 # need the logo here eventually
 def print_splash():
     click.echo(
-        """\b
+        r"""
 
-.______    __    __    ______    __       _______  
-|   _  \  |  |  |  |  /  __  \  |  |     |       \ 
-|  |_)  | |  |__|  | |  |  |  | |  |     |  .--.  |
-|   ___/  |   __   | |  |  |  | |  |     |  |  |  |
-|  |      |  |  |  | |  `--'  | |  `----.|  '--'  |
-| _|      |__|  |__|  \______/  |_______||_______/ 
-                                                   
+        .______    __    __    ______    __       _______  
+        |   _  \  |  |  |  |  /  __  \  |  |     |       \ 
+        |  |_)  | |  |__|  | |  |  |  | |  |     |  .--.  |
+        |   ___/  |   __   | |  |  |  | |  |     |  |  |  |
+        |  |      |  |  |  | |  `--'  | |  `----.|  '--'  |
+        | _|      |__|  |__|  \______/  |_______||_______/ 
 
-"""
+
+        """
     )
 
 
