@@ -29,5 +29,5 @@ Pharokka, Phold and Phynteny are complimentary tools and when used together, the
 Specifically, the final Phynteny plots combine the benefits of annotation with Pharokka (with HMM, the second violin) followed by Phold (with structures, the fourth violin) followed by Phynteny
 
 <p align="center">
-  <img src="Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=300>
+  <img src="Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=1200>
 </p>

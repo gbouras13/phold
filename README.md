@@ -43,7 +43,7 @@ If you don't want to install `phold` locally, you can run it without any code us
 * The final Phynteny plots combine the benefits of annotation with Pharokka (with HMM, the second violin) followed by Phold (with structures, the fourth violin) followed by Phynteny
 
 <p align="center">
-  <img src="img/Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=300>
+  <img src="img/Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=1200>
 </p>
 
 
