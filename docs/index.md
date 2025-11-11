@@ -22,5 +22,12 @@ The `phold` databse consists of over 1.36 million protein structures generated u
 
 # Google Colab Notebook
 
-If you don't want to install `phold` locally, you can run it without any code using one [this Google Colab notebook](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb)
+If you don't want to install `phold` locally, you can run it without any code using one [this Google Colab notebook](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb). 
 
+Pharokka, Phold and Phynteny are complimentary tools and when used together, they substantially increase the annotation rate of your phage genome. The below plot shows the annotation rate of different tools across 4 benchmarked datasets ((a) INPHARED 1419, (b) Cook, (c) Crass and (d) Tara - see the [Phold preprint]((https://www.biorxiv.org/content/10.1101/2025.08.05.668817v1)) for more information)
+
+Specifically, the final Phynteny plots combine the benefits of annotation with Pharokka (with HMM, the second violin) followed by Phold (with structures, the fourth violin) followed by Phynteny
+
+<p align="center">
+  <img src="Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=1200>
+</p>

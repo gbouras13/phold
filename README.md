@@ -38,6 +38,15 @@ If you don't want to install `phold` locally, you can run it without any code us
 * To run `pharokka` + `phold` + `phynteny` use [this link](https://colab.research.google.com/github/gbouras13/phold/blob/main/run_pharokka_and_phold_and_phynteny.ipynb)
     * [phynteny](https://github.com/susiegriggo/Phynteny_transformer) uses phage synteny (the conserved gene order across phages) to assign hypothetical phage proteins to a PHROG category - it might help you add extra PHROG category annotations to hypothetical genes remaining after you run `phold`. 
   
+* Pharokka, Phold and Phynteny are complimentary tools and when used together, they substantially increase the annotation rate of your phage genome
+* The below plot shows the annotation rate of different tools across 4 benchmarked datasets ((a) INPHARED 1419, (b) Cook, (c) Crass and (d) Tara - see the [Phold preprint]((https://www.biorxiv.org/content/10.1101/2025.08.05.668817v1)) for more information)
+* The final Phynteny plots combine the benefits of annotation with Pharokka (with HMM, the second violin) followed by Phold (with structures, the fourth violin) followed by Phynteny
+
+<p align="center">
+  <img src="img/Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=1200>
+</p>
+
+
 # Table of Contents
 
 - [phold - Phage Annotation using Protein Structures](#phold---phage-annotation-using-protein-structures)
@@ -50,7 +59,6 @@ If you don't want to install `phold` locally, you can run it without any code us
 - [Output](#output)
 - [Usage](#usage)
 - [Plotting](#plotting)
-- [GenBank submission](#genbank-submission)
 - [Citation](#citation)
 
 # Documentation
@@ -80,7 +88,7 @@ conda create -n pholdENV -c conda-forge -c bioconda phold pytorch=*=cuda*
 If you have a Mac running an Apple Silicon chip (M1/M2/M3/M4), `phold` should be able to use the GPU. Please try:
 
 ```bash
-conda create -n pholdENV python==3.10  
+conda create -n pholdENV python==3.13  
 conda activate pholdENV
 conda install pytorch::pytorch torchvision torchaudio -c pytorch 
 conda install -c conda-forge -c bioconda phold 
@@ -230,15 +238,11 @@ phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plo
   <img src="img/NC_043029.png" alt="NC_043029" height=600>
 </p>
 
-# GenBank submission
-From `phold` v1.1.0, the `phold` .gbk output can be used in combination with [`suvtk gbk2tbl`](https://github.com/LanderDC/suvtk) for the submission of phage genomes to GenBank.
-
 # Citation
 
 Please cite our preprint:
 
 * Bouras G, Grigson SR, Mirdita M, Heinzinger M, Papudeshi B, Mallawaarachchi V, Green R, Kim SR, Mihalia V, Psaltis AJ, Wormald P-J, Vreugde S, Steinegger M, Edwards RA: "Protein Structure Informed Bacteriophage Genome Annotation with Phold" bioRxiv (2025) [https://doi.org/10.1101/2025.08.05.668817]( https://doi.org/10.1101/2025.08.05.668817)
-
 
 Please be sure to cite the following core dependencies and PHROGs database - citing all bioinformatics tools that you use helps us, so helps you get better bioinformatics tools:
 
