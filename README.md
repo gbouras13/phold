@@ -46,12 +46,19 @@ If you don't want to install `phold` locally, you can run it without any code us
   <img src="img/Pharokka_Phold_Phynteny.png" alt="pharokka plus phold plus phynteny" height=1200>
 </p>
 
+# Phold plot Wasm App
+
+* We recommending running the web app to generate `phold plot` genomic maps using WebAssembly (Wasm) in your broswer  - no data ever leaves your machine!
+* Please go to [https://gbouras13.github.io/phold-plot-wasm-app/](https://gbouras13.github.io/phold-plot-wasm-app/) to use it
+* You will need to first run Phold and upload the GenBank file via the button.
+* This was built during the WebAssembly workshop at ABACBS2025 - for more, you can find the website [here](https://wasmodic.github.io)
 
 # Table of Contents
 
 - [phold - Phage Annotation using Protein Structures](#phold---phage-annotation-using-protein-structures)
 - [Tutorial](#tutorial)
 - [Google Colab Notebooks](#google-colab-notebooks)
+- [Phold plot Wasm App](#phold-plot-wasm-app)
 - [Table of Contents](#table-of-contents)
 - [Documentation](#documentation)
 - [Installation](#installation)
