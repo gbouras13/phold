@@ -18,6 +18,7 @@ from loguru import logger
 
 class ExternalTool:
     def __init__(self, tool: str, input: str, output: str, params: str, logdir: Path):
+        logdir = Path(logdir)   # <-- ensure Path
         self.command: List[str] = self._build_command(tool, input, output, params)
         logdir.mkdir(parents=True, exist_ok=True)
         command_hash = hashlib.sha256(self.command_as_str.encode("utf-8")).hexdigest()
