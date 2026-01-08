@@ -1,23 +1,12 @@
 
 # autobatch
 
-from phold.features.predict_3Di import device, get_T5_model
-import csv
-import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from phold.features.predict_3Di import  get_T5_model
 import random
-import h5py
-import numpy as np
 import torch
 import torch.nn.functional as F
 from loguru import logger
-from torch import nn
-from tqdm import tqdm
-from transformers import T5EncoderModel, T5Tokenizer
 import time
-from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
-from phold.utils.constants import CNN_DIR
 import math
 
 
@@ -71,6 +60,22 @@ def autotune_batching_real_data(
 
     bs = start_bs
     results = []
+
+    # get device
+    device = None
+
+    if cpu is True:
+        device = torch.device("cpu")
+    else:
+        # check for NVIDIA/cuda
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+        # check for apple silicon/metal
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+
 
     while bs <= max_bs:
         try:
