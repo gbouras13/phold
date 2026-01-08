@@ -57,7 +57,6 @@ def autotune_batching_real_data(
 ):
     
     model, tokenizer = get_T5_model(model_dir, model_name, cpu, threads)
-
     model.eval()
     model.half()
 

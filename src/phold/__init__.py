@@ -94,7 +94,7 @@ def predict_options(func):
         click.option(
             "--autotune",
             is_flag=True,
-            help="Run autotuning to detect and automatically use best batch size for your hardware. Recommended only if you have a large dataset (minimum thousands of proteins), or else autotuning will add rather than save runtime.",
+            help="Run autotuning to detect and automatically use best batch size for your hardware. Recommended only if you have a large dataset (e.g. thousands of proteins), or else autotuning will add rather than save runtime.",
         ),
         click.option(
             "--batch_size",
@@ -356,7 +356,7 @@ def run(
 
             step = 20
             min_batch = 1
-            max_batch = 1000
+            max_batch = 1001
             sample_seqs = 500
 
             batch_size = run_autotune(
@@ -520,7 +520,7 @@ def predict(
 
         step = 20
         min_batch = 1
-        max_batch = 1000
+        max_batch = 1001
         sample_seqs = 500
 
         batch_size = run_autotune(
@@ -825,7 +825,7 @@ def proteins_predict(
         input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
         step = 20
         min_batch = 1
-        max_batch = 1000
+        max_batch = 1001
         sample_seqs = 500
 
         batch_size = run_autotune(

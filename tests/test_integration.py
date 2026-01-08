@@ -44,11 +44,12 @@ run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
 run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
 run_gbk_bakta: Path = f"{output_dir}/run_gbk_ncbi_bakta"
-run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_gbk"
+run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_dir"
 run_gbk_pharokka_pipe: Path = f"{output_dir}/pipe.gbk"
 run_gbk_pharokka_1_4_1_dir_extra: Path = (
     f"{output_dir}/NC_043029_pharokka1.4.1_gbk_extra"
 )
+run_gbk_pharokka_autotune: Path = f"{output_dir}/NC_043029_pharokka1.4.1_autotune"
 run_gbk_pharokka_1_4_1_dir_custom: Path = (
     f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
 )
@@ -142,7 +143,6 @@ def test_install_extended(threads, nvidia):
     exec_command(cmd)
 
 
-
 def test_run_genbank(gpu_available, threads, nvidia):
 
     """test phold run with genbank input"""
@@ -154,7 +154,7 @@ def test_run_genbank(gpu_available, threads, nvidia):
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
-def test_run_genbank(gpu_available, threads, nvidia):
+def test_run_genbank_pipe(gpu_available, threads, nvidia):
     """test phold run with pipe in header (i.e. issue #86 GenBank format genome)"""
     input_gbk: Path = f"{test_data}/pipe_pharokka.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_pipe} -t {threads} -d {database_dir} -f"
@@ -164,6 +164,15 @@ def test_run_genbank(gpu_available, threads, nvidia):
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
+def test_run_autotune(gpu_available, threads, nvidia):
+    """test phold run with --autotune"""
+    input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_autotune} -t {threads} -d {database_dir} -f --autotune"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
 
 
 def test_run_hyps(gpu_available, threads, nvidia):
@@ -300,6 +309,13 @@ def test_predict_genbank(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_predict_genbank_autotune(gpu_available, threads):
+    """test phold predict with --autotune"""
+    input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
+    cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  -d {database_dir} -f --autotune"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_predict_save_embeddings(gpu_available, threads):
     """test phold predict with genbank input and save embeddings"""
@@ -394,6 +410,13 @@ def test_proteins_predict(gpu_available, threads):
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
+def test_proteins_predict_autotune(gpu_available, threads):
+    """test phold proteins-predict"""
+    input_fasta: Path = f"{test_data}/phanotate.faa"
+    cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f --autotune"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    exec_command(cmd)
 
 def test_proteins_predict_gzip(gpu_available, threads):
     """test phold proteins-predict with gzip"""
@@ -505,6 +528,48 @@ def test_proteins_compare_restart(gpu_available, threads, nvidia):
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
+
+def test_autotune(gpu_available, threads, nvidia):
+    """test autotune"""
+
+    if gpu_available:
+        min_batch = 1
+        sample_seqs = 500
+        max_batch = 501
+        step = 25
+    else:
+        min_batch = 1
+        sample_seqs = 10
+        max_batch = 10
+        step = 9
+
+    cmd = f"phold autotune -t {threads} -d {database_dir}  --min_batch {min_batch}  --sample_seqs {sample_seqs} --max_batch {max_batch} --step {step}"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+
+    exec_command(cmd)
+
+def test_autotune_w_input(gpu_available, threads, nvidia):
+    """test autotune"""
+
+    input_fasta: Path = f"{test_data}/phanotate.faa"
+
+    if gpu_available:
+        min_batch = 1
+        sample_seqs = 500
+        max_batch = 101
+        step = 25
+    else:
+        min_batch = 1
+        sample_seqs = 10
+        max_batch = 10
+        step = 9
+
+    cmd = f"phold autotune -i {input_fasta} -t {threads} -d {database_dir}  --min_batch {min_batch}  --sample_seqs {sample_seqs} --max_batch {max_batch} --step {step}"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+
+    exec_command(cmd)
 
 class testFails(unittest.TestCase):
     """Tests for fails"""
