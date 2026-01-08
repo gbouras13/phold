@@ -148,6 +148,9 @@ def check_dependencies() -> None:
     if "941cd33" in foldseek_version:
         foldseek_major_version = 10
         foldseek_minor_version = "941cd33"
+        logger.info(
+        f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
+    )
     else:
         logger.warning(f"Foldseek version found is v{foldseek_version}")
         logger.warning(f"Phold is recommended to be run with Foldseek v10.941cd33")
@@ -155,9 +158,7 @@ def check_dependencies() -> None:
             f"Using a different Foldseek version is likely to work without issue, but this cannot be guaranteed."
         )
 
-    logger.info(
-        f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
-    )
+
 
     # if foldseek_major_version != 10:
     #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")

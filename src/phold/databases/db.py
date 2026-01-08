@@ -254,8 +254,11 @@ def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> Non
             "Downloading the database with aria2c failed. Trying now without."
         )
         try:
+            headers = {
+                "User-Agent": f"phold/{CURRENT_DB_VERSION} (contact: george.bouras@adelaide.edu.au)"
+            }
             with tarball_path.open("wb") as fh_out, requests.get(
-                db_url, stream=True
+                db_url, stream=True, headers=headers
             ) as resp:
                 total_length = resp.headers.get("content-length")
                 if total_length is not None:  # content length header is set
@@ -269,22 +272,6 @@ def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> Non
                 f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
             )
 
-
-#     try:
-#         with tarball_path.open("wb") as fh_out, requests.get(
-#             db_url, stream=True
-#         ) as resp:
-#             total_length = resp.headers.get("content-length")
-#             if total_length is not None:  # content length header is set
-#                 total_length = int(total_length)
-#             with alive_bar(total=total_length, scale="SI") as bar:
-#                 for data in resp.iter_content(chunk_size=1024 * 1024):
-#                     fh_out.write(data)
-#                     bar(count=len(data))
-#     except IOError:
-#         logger.error(
-#             f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
-#         )
 
 
 def download_zenodo_prostT5(model_dir, logdir, threads):

@@ -428,9 +428,9 @@ def get_embeddings(
     output_h5_per_residue: Path,
     output_h5_per_protein: Path,
     half_precision: bool,
-    max_residues: int = 3000,
-    max_seq_len: int = 1000,
-    max_batch: int = 100,
+    max_residues: int = 100000,
+    max_seq_len: int = 30000,
+    max_batch: int = 10000,
     cpu: bool = False,
     output_probs: bool = True,
     proteins_flag: bool = False,
@@ -491,35 +491,40 @@ def get_embeddings(
 
     # loop over each record in the cds dict
     fail_ids = []
-    for record_id, cds_records in cds_dict.items():
+    for record_id, seq_record_dict in cds_dict.items():
         # instantiate the nested dict
         predictions[record_id] = {}
+        batch_predictions = {}
 
         # embeddings
         if save_per_residue_embeddings:
-            embeddings_per_residue[record_id] = {}
+            batch_embeddings_per_residue = {}
         if save_per_protein_embeddings:
-            embeddings_per_protein[record_id] = {}
+            batch_embeddings_per_protein = {}
 
-        seq_record_dict = cds_dict[record_id]
-        seq_dict = {}
+        seq_dict = []
+        for k, feat in seq_record_dict.items():
+            v = feat.qualifiers.get("translation")
+            if v and isinstance(v, str):
+                seq = v.replace("U", "X").replace("Z", "X").replace("O", "X")
+                seq_dict.append((k, seq, len(seq)))
+            else:
+                logger.warning(f"Protein header {k} is corrupt. It will be saved in fails.tsv")
+                fail_ids.append(k)
 
-        # gets the seq_dict with key for id and the translation
-        for key, seq_feature in seq_record_dict.items():
-            # get the protein seq for normal
-            seq_dict[key] = seq_feature.qualifiers["translation"]
+        original_keys = list(seq_record_dict.keys())
+        # --- sort once ---
+        seq_dict.sort(key=lambda x: x[2], reverse=True)
 
-        # sort sequences by length to trigger OOM at the beginning
-        seq_dict = dict(
-            sorted(seq_dict.items(), key=lambda kv: len(kv[1][0]), reverse=True)
-        )
 
         batch = list()
-        for seq_idx, (pdb_id, seq) in tqdm(
-            enumerate(seq_dict.items(), 1),
-            total=len(seq_dict),
-            desc=f"Predicting 3Di for {record_id}",
-        ):
+        for seq_idx, (pdb_id, seq, slen) in enumerate(tqdm(seq_dict, desc=f"Predicting 3Di for {record_id}"), 1):
+
+        # for seq_idx, (pdb_id, seq) in tqdm(
+        #     enumerate(seq_dict.items(), 1),
+        #     total=len(seq_dict),
+        #     desc=f"Predicting 3Di for {record_id}",
+        # ):
             # for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
@@ -625,12 +630,12 @@ def get_embeddings(
                                 ]
 
                                 if save_per_residue_embeddings:
-                                    embeddings_per_residue[record_id][identifier] = (
+                                    batch_embeddings_per_residue[identifier] = (
                                         emb.detach().cpu().numpy().squeeze()
                                     )
 
                                 if save_per_protein_embeddings:
-                                    embeddings_per_protein[record_id][identifier] = (
+                                    batch_embeddings_per_protein[identifier] = (
                                         emb.mean(dim=0).detach().cpu().numpy().squeeze()
                                     )
 
@@ -649,16 +654,16 @@ def get_embeddings(
 
                         if output_probs:  # if you want the per-residue probs
                             all_prob = probabilities[batch_idx, :, 0:s_len]
-                            predictions[record_id][identifier] = (
+                            batch_predictions[identifier] = (
                                 pred,
                                 mean_prob,
                                 all_prob,
                             )
                         else:
-                            predictions[record_id][identifier] = (pred, mean_prob, None)
+                            batch_predictions[identifier] = (pred, mean_prob, None)
 
                         try:
-                            len(predictions[record_id][identifier][0])
+                            len(batch_predictions[identifier][0])
                         except:
                             logger.warning(
                                 f"{identifier} {record_id} prediction has length 0"
@@ -666,10 +671,30 @@ def get_embeddings(
                             fail_ids.append(identifier)
                             continue
 
-                        if s_len != len(predictions[record_id][identifier][0]):
+                        if s_len != len(batch_predictions[identifier][0]):
                             logger.warning(
-                                f"Length mismatch for {identifier}: is:{len(predictions[record_id][identifier][0])} vs should:{s_len}"
+                                f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
                             )
+
+                        # reorder to match the original FASTA
+                        predictions[record_id] = {}
+
+                        for k in original_keys:
+                            if k in batch_predictions:
+                                predictions[record_id][k] = batch_predictions[k]
+                        
+                        if save_per_residue_embeddings:
+                            embeddings_per_residue[record_id] = {}
+                            for k in original_keys:
+                                if k in batch_predictions:
+                                    embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
+
+                        if save_per_protein_embeddings:
+                            embeddings_per_protein[record_id] = {}
+                            for k in original_keys:
+                                if k in batch_predictions:
+                                    embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
+
 
                 except IndexError:
                     logger.warning(
@@ -717,3 +742,4 @@ def get_embeddings(
     write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
     return predictions
+

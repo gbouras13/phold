@@ -63,9 +63,10 @@ def begin_phold(params: Dict[str, Any], subcommand: str) -> float:
     # get start time
     start_time = time.time()
     # initial logging stuff
-    log_file = os.path.join(params["--output"], f"phold_{subcommand}_{start_time}.log")
-    # adds log file
-    logger.add(log_file)
+    if subcommand != "autotune":
+        log_file = os.path.join(params["--output"], f"phold_{subcommand}_{start_time}.log")
+        # adds log file
+        logger.add(log_file)
     logger.add(lambda _: sys.exit(1), level="ERROR")
 
     print_splash()

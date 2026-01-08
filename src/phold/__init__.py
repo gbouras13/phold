@@ -22,6 +22,8 @@ from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
                                     validate_input)
+from phold.features.autotune import run_autotune
+from importlib.resources import files
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -90,9 +92,14 @@ def predict_options(func):
     """predict command line args"""
     options = [
         click.option(
+            "--autotune",
+            is_flag=True,
+            help="Run autotuning to detect and automatically use best batch size for your hardware. Recommended only if you have a large dataset (e.g. thousands of proteins), or else autotuning will add rather than save runtime.",
+        ),
+        click.option(
             "--batch_size",
             default=1,
-            help="batch size for ProstT5. 1 is usually fastest.",
+            help="batch size for ProstT5.",
             show_default=True,
         ),
         click.option(
@@ -256,6 +263,7 @@ def run(
     evalue,
     force,
     database,
+    autotune,
     batch_size,
     sensitivity,
     cpu,
@@ -293,6 +301,7 @@ def run(
         "--prefix": prefix,
         "--evalue": evalue,
         "--database": database,
+        "--autotune": autotune,
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
@@ -340,6 +349,26 @@ def run(
                 checkpoint_path = (
                     Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
                 )
+
+        if autotune:
+
+            input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+
+            step = 20
+            min_batch = 1
+            max_batch = 1001
+            sample_seqs = 500
+
+            batch_size = run_autotune(
+                input_path,
+                model_dir,
+                model_name,
+                cpu,
+                threads,
+                step, 
+                min_batch,
+                max_batch, 
+                sample_seqs)
 
         subcommand_predict(
             gb_dict,
@@ -424,6 +453,7 @@ def predict(
     prefix,
     force,
     database,
+    autotune,
     batch_size,
     cpu,
     omit_probs,
@@ -450,6 +480,7 @@ def predict(
         "--force": force,
         "--prefix": prefix,
         "--database": database,
+        "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -482,6 +513,26 @@ def predict(
             checkpoint_path = (
                 Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
             )
+
+    if autotune:
+
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+
+        step = 20
+        min_batch = 1
+        max_batch = 1001
+        sample_seqs = 500
+
+        batch_size = run_autotune(
+            input_path,
+            model_dir,
+            model_name,
+            cpu,
+            threads,
+            step, 
+            min_batch,
+            max_batch, 
+            sample_seqs)
 
     subcommand_predict(
         gb_dict,
@@ -676,6 +727,7 @@ def proteins_predict(
     prefix,
     force,
     database,
+    autotune,
     batch_size,
     cpu,
     omit_probs,
@@ -701,6 +753,7 @@ def proteins_predict(
         "--force": force,
         "--prefix": prefix,
         "--database": database,
+        "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -765,6 +818,26 @@ def proteins_predict(
             )
 
     method = "pharokka"  # this can be whatever for proteins, it wont matter - it is for genbank input
+
+
+    if autotune:
+
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+        step = 20
+        min_batch = 1
+        max_batch = 1001
+        sample_seqs = 500
+
+        batch_size = run_autotune(
+            input_path,
+            model_dir,
+            model_name,
+            cpu,
+            threads,
+            step, 
+            min_batch,
+            max_batch, 
+            sample_seqs)
 
     subcommand_predict(
         cds_dict,
@@ -1516,6 +1589,115 @@ def plot(
             remove_other_features_labels,
             label_force_list,
         )
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Optional path to input file of proteins if you do not want to use the default sample of 5000 Phold DB proteins",
+    type=click.Path()
+)
+@click.option(
+    "--cpu",
+    is_flag=True,
+    help="Use cpus only.",
+)
+@click.option(
+    "-t",
+    "--threads",
+    help="Number of threads",
+    default=1,
+    type=int,
+    show_default=True,
+)
+@click.option(
+    "-d",
+    "--database",
+    type=str,
+    default=None,
+    help="Specific path to installed phold database",
+)
+@click.option(
+    "--min_batch",
+    show_default=True,
+    type=int,
+    default=1,
+    help="Minimum batch size to test",
+)
+@click.option(
+    "--step",
+    show_default=True,
+    type=int,
+    default=10,
+    help="Controls batch size step increment",
+)
+@click.option(
+    "--max_batch",
+    default=251,
+    show_default=True,
+    type=int,
+    help="Maximum batch size to test",
+)
+@click.option(
+    "--sample_seqs",
+    default=500,
+    show_default=True,
+    type=int,
+    help="Number of proteins to subsample from input.",
+)
+
+def autotune(
+    ctx,
+    input,
+    cpu,
+    threads,
+    database,
+    step,
+    min_batch,
+    max_batch,
+    sample_seqs,
+    **kwargs,
+):
+    """Determines optimal batch size for 3Di prediction with your hardware"""
+
+    params = {
+        "--input": input,
+        "--threads": threads,
+        "--cpu": cpu,
+        "--database": database,
+        "--step": step,
+        "--min_batch": min_batch,
+        "--max_batch": max_batch,
+        "--sample_seqs": sample_seqs,
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "autotune")
+
+    # check the database is installed
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
+
+    if input:
+        input_path = input
+    else:
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
+    batch_size = run_autotune(
+        input_path,
+        model_dir,
+        model_name,
+        cpu,
+        threads,
+        step, 
+        min_batch,
+        max_batch, 
+        sample_seqs)
 
 
 @click.command()
