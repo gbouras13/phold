@@ -98,7 +98,6 @@ def autotune_batching_real_data(
             for i in tqdm(range(0, len(probe_seqs), bs), desc="Processing"):
                 batch_seqs = probe_seqs[i : i + bs]
 
-                print(batch_seqs)
                 n_tokens = sum(len(s) for s in batch_seqs)
                 total_tokens += n_tokens
 
