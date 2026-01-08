@@ -34,6 +34,7 @@ def open_protein_fasta_file(input_file: str) -> Union[IO[str], gzip.GzipFile]:
     Returns:
     Union[IO[str], gzip.GzipFile]: A file handle to the opened fasta file.
     """
+    input_file = Path(input_file)
     if input_file.endswith(".gz"):
         return gzip.open(input_file, "rt")
     else:
