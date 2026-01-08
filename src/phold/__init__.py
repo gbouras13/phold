@@ -354,7 +354,6 @@ def run(
 
             input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
 
-
             step = 20
             min_batch = 1
             max_batch = 1000
@@ -519,14 +518,9 @@ def predict(
 
         input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
 
-        # runs phold predict subcommand
-
         step = 20
-
         min_batch = 1
-
-        max_batch = 501
-
+        max_batch = 1000
         sample_seqs = 500
 
         batch_size = run_autotune(
@@ -831,7 +825,7 @@ def proteins_predict(
         input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
         step = 20
         min_batch = 1
-        max_batch = 501
+        max_batch = 1000
         sample_seqs = 500
 
         batch_size = run_autotune(
