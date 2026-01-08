@@ -1572,7 +1572,7 @@ def plot(
 )
 @click.option(
     "--sample_seqs",
-    default=5000,
+    default=500,
     show_default=True,
     type=int,
     help="Number of proteins to subsample from input.",

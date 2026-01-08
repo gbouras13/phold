@@ -2,6 +2,7 @@
 # autobatch
 
 from phold.features.predict_3Di import  get_T5_model
+from tqdm import tqdm
 import random
 import torch
 import torch.nn.functional as F
@@ -92,7 +93,7 @@ def autotune_batching_real_data(
             batches = 0
 
             # iterate over real sequences in batches
-            for i in range(0, len(probe_seqs), bs):
+            for i in tqdm(range(0, len(probe_seqs), bs), desc="Processing"):
                 batch_seqs = probe_seqs[i : i + bs]
                 n_tokens = sum(len(s) for s in batch_seqs)
                 total_tokens += n_tokens
