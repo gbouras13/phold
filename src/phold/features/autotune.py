@@ -52,8 +52,8 @@ def autotune_batching_real_data(
     threads,
     probe_seqs,
     start_bs=1,
-    max_bs=150,
-    step=10 # step size
+    max_bs=100,
+    step=5 # step size
 ):
     
     model, tokenizer = get_T5_model(model_dir, model_name, cpu, threads)
