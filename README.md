@@ -13,11 +13,17 @@
 
 `phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
 
-**To learn more about `phold`, please read our [manuscript](https://academic.oup.com/nar/article/54/1/gkaf1448/8415830).**
+**To learn more about `phold`, please read our manuscript:**  
+https://academic.oup.com/nar/article/54/1/gkaf1448/8415830
 
-```bash
-Bouras G, Grigson SR, Mirdita M, Heinzinger M, Papudeshi B, Mallawaarachchi V, Green R, Kim SR, Mihalia V, Psaltis AJ, Wormald P-J, Vreugde S, Steinegger M, Edwards RA: "Protein Structure Informed Bacteriophage Genome Annotation with Phold", Nucleic Acids Research, Volume 54, Issue 1, 13 January 2026, gkaf1448, [https://doi.org/10.1093/nar/gkaf1448](https://doi.org/10.1093/nar/gkaf1448)
-```
+> Bouras G., Grigson S.R., Mirdita M., Heinzinger M., Papudeshi B.,  
+> Mallawaarachchi V., Green R., Kim S.R., Mihalia V., Psaltis A.J.,  
+> Wormald P-J., Vreugde S., Steinegger M., Edwards R.A.  
+>  
+> *Protein Structure Informed Bacteriophage Genome Annotation with Phold*  
+> **Nucleic Acids Research**, Volume 54, Issue 1, 13 January 2026  
+> Article gkaf1448  
+> https://doi.org/10.1093/nar/gkaf1448
 
 `phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to rapidly translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of over 1.36 million phage protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
 
