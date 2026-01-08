@@ -13,7 +13,7 @@
 
 `phold` is a sensitive annotation tool for bacteriophage genomes and metagenomes using protein structural homology. 
 
-To learn more about `phold`, please read our [preprint](https://www.biorxiv.org/content/10.1101/2025.08.05.668817v1).
+**To learn more about `phold`, please read our [manuscript](https://academic.oup.com/nar/article/54/1/gkaf1448/8415830).**
 
 `phold` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to rapidly translate protein amino acid sequences to the 3Di token alphabet used by [Foldseek](https://github.com/steineggerlab/foldseek). Foldseek is then used to search these against a database of over 1.36 million phage protein structures mostly predicted using [Colabfold](https://github.com/sokrypton/ColabFold). 
 
@@ -50,8 +50,16 @@ If you don't want to install `phold` locally, you can run it without any code us
 
 * We recommending running the web app to generate `phold plot` genomic maps using WebAssembly (Wasm) in your broswer  - no data ever leaves your machine!
 * Please go to [https://gbouras13.github.io/phold-plot-wasm-app/](https://gbouras13.github.io/phold-plot-wasm-app/) to use it
-* You will need to first run Phold and upload the GenBank file via the button.
+* You will need to first run Phold and upload the GenBank file via the button
 * This was built during the WebAssembly workshop at ABACBS2025 - for more, you can find the website [here](https://wasmodic.github.io)
+
+# Recent Updates
+
+## v1.2.0 Update (8 January 2026)
+
+* Improved ProstT5 3Di prediction throughput for  `phold run`, `phold predict` and `phold proteins-predict` due to smarter batching implmentations
+* Addition of `phold autotune` subcommand to detect an appropriate `--batch_size` for your hardware
+* You can also use `--autotune` with `phold run`, `phold predict` and `phold proteins-predict` to automatically detect and use the optimal `--batch_size` (only recommended for large datasets with thousands of proteins)
 
 # Table of Contents
 
@@ -59,6 +67,8 @@ If you don't want to install `phold` locally, you can run it without any code us
 - [Tutorial](#tutorial)
 - [Google Colab Notebooks](#google-colab-notebooks)
 - [Phold plot Wasm App](#phold-plot-wasm-app)
+- [Recent Updates](#recent-updates)
+  - [v1.2.0 Update (8 January 2026)](#v120-update-8-january-2026)
 - [Table of Contents](#table-of-contents)
 - [Documentation](#documentation)
 - [Installation](#installation)
@@ -163,6 +173,7 @@ Options:
   -V, --version  Show the version and exit.
 
 Commands:
+  autotune          Determines optimal batch size for 3Di prediction with
   citation          Print the citation(s) for this tool
   compare           Runs Foldseek vs phold db
   createdb          Creates foldseek DB from AA FASTA and 3Di FASTA input...
@@ -190,8 +201,12 @@ Options:
   -p, --prefix TEXT              Prefix for output files  [default: phold]
   -d, --database TEXT            Specific path to installed phold database
   -f, --force                    Force overwrites the output directory
-  --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
-                                 [default: 1]
+  --autotune                     Run autotuning to detect and automatically
+                                 use best batch size for your hardware.
+                                 Recommended only if you have a large dataset
+                                 (e.g. thousands of proteins), or else
+                                 autotuning will add rather than save runtime.
+  --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
@@ -231,6 +246,9 @@ Options:
   --custom_db TEXT               Path to custom database
   --foldseek_gpu                 Use this to enable compatibility with
                                  Foldseek-GPU search acceleration
+  --restart                      Use this to restart phold from 'Processing
+                                 Foldseek output' after foldseek_results.tsv
+                                 is generated
   ```
 
 # Plotting 
@@ -249,7 +267,7 @@ phold plot -i tests/test_data/NC_043029_phold_output.gbk  -o NC_043029_phold_plo
 
 Please cite our preprint:
 
-* Bouras G, Grigson SR, Mirdita M, Heinzinger M, Papudeshi B, Mallawaarachchi V, Green R, Kim SR, Mihalia V, Psaltis AJ, Wormald P-J, Vreugde S, Steinegger M, Edwards RA: "Protein Structure Informed Bacteriophage Genome Annotation with Phold" bioRxiv (2025) [https://doi.org/10.1101/2025.08.05.668817]( https://doi.org/10.1101/2025.08.05.668817)
+* Bouras G, Grigson SR, Mirdita M, Heinzinger M, Papudeshi B, Mallawaarachchi V, Green R, Kim SR, Mihalia V, Psaltis AJ, Wormald P-J, Vreugde S, Steinegger M, Edwards RA: "Protein Structure Informed Bacteriophage Genome Annotation with Phold", Nucleic Acids Research, Volume 54, Issue 1, 13 January 2026, gkaf1448, [https://doi.org/10.1093/nar/gkaf1448](https://doi.org/10.1093/nar/gkaf1448)
 
 Please be sure to cite the following core dependencies and PHROGs database - citing all bioinformatics tools that you use helps us, so helps you get better bioinformatics tools:
 

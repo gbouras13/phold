@@ -41,8 +41,12 @@ Options:
   -p, --prefix TEXT              Prefix for output files  [default: phold]
   -d, --database TEXT            Specific path to installed phold database
   -f, --force                    Force overwrites the output directory
-  --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
-                                 [default: 1]
+  --autotune                     Run autotuning to detect and automatically
+                                 use best batch size for your hardware.
+                                 Recommended only if you have a large dataset
+                                 (e.g. thousands of proteins), or else
+                                 autotuning will add rather than save runtime.
+  --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
@@ -148,6 +152,9 @@ Options:
   --custom_db TEXT              Path to custom database
   --foldseek_gpu                Use this to enable compatibility with
                                 Foldseek-GPU search acceleration
+  --restart                     Use this to restart phold from 'Processing
+                                Foldseek output' after foldseek_results.tsv is
+                                generated
 ```
 
 ### `phold run`
@@ -177,8 +184,12 @@ Options:
   -p, --prefix TEXT              Prefix for output files  [default: phold]
   -d, --database TEXT            Specific path to installed phold database
   -f, --force                    Force overwrites the output directory
-  --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
-                                 [default: 1]
+  --autotune                     Run autotuning to detect and automatically
+                                 use best batch size for your hardware.
+                                 Recommended only if you have a large dataset
+                                 (e.g. thousands of proteins), or else
+                                 autotuning will add rather than save runtime.
+  --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
@@ -218,6 +229,9 @@ Options:
   --custom_db TEXT               Path to custom database
   --foldseek_gpu                 Use this to enable compatibility with
                                  Foldseek-GPU search acceleration
+  --restart                      Use this to restart phold from 'Processing
+                                 Foldseek output' after foldseek_results.tsv
+                                 is generated
 ```
 
 ### `phold proteins-predict`
@@ -244,8 +258,12 @@ Options:
   -p, --prefix TEXT              Prefix for output files  [default: phold]
   -d, --database TEXT            Specific path to installed phold database
   -f, --force                    Force overwrites the output directory
-  --batch_size INTEGER           batch size for ProstT5. 1 is usually fastest.
-                                 [default: 1]
+  --autotune                     Run autotuning to detect and automatically
+                                 use best batch size for your hardware.
+                                 Recommended only if you have a large dataset
+                                 (e.g. thousands of proteins), or else
+                                 autotuning will add rather than save runtime.
+  --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
@@ -325,6 +343,9 @@ Options:
   --custom_db TEXT              Path to custom database
   --foldseek_gpu                Use this to enable compatibility with
                                 Foldseek-GPU search acceleration
+  --restart                     Use this to restart phold from 'Processing
+                                Foldseek output' after foldseek_results.tsv is
+                                generated
 ```
 
 ### `phold remote`
@@ -463,4 +484,45 @@ Options:
                                   Defaults to 1. Chosen in order of CDS size.
   --label_ids TEXT                Text file with list of CDS IDs \(from gff
                                   file\) that are guaranteed to be labelled.
+```
+
+
+### `phold autotune`
+
+This in an auxillary command that allows you to detect the most efficient batch size for your hardware.
+
+It works by running ProstT5 on a variety of batch sizes, and it will print the best batch size to screen
+
+The same functionality is availabe with `phold run`, `phold predict ` and `phold proteins-predict` using `--autotune` (though with less parameters available to tweak compared to `phold autotune`). If you use `--autotune` with these subcommands, the best batch size will then be used automatically afterwards.
+
+By default, `phold autotune` does not take an input file - it will use a sample of up to 5000 sample proteins from the Phold DB 1.36M
+
+You can still specify a custom proteins `.faa` input to sample from using `-i` (in case yours is extremely different to Phold DB).
+
+Example usage 
+
+```bash
+phold autotune -d phold_db --min_batch 1 --step 20 --max_batch 1001 --sample_seqs 1000
+```
+
+
+```bash
+Usage: phold autotune [OPTIONS]
+
+  Determines optimal batch size for 3Di prediction with your hardware
+
+Options:
+  -h, --help             Show this message and exit.
+  -V, --version          Show the version and exit.
+  -i, --input PATH       Optional path to input file of proteins if you do not
+                         want to use the default sample of 5000 Phold DB
+                         proteins
+  --cpu                  Use cpus only.
+  -t, --threads INTEGER  Number of threads  [default: 1]
+  -d, --database TEXT    Specific path to installed phold database
+  --min_batch INTEGER    Minimum batch size to test  [default: 1]
+  --step INTEGER         Controls batch size step increment  [default: 10]
+  --max_batch INTEGER    Maximum batch size to test  [default: 251]
+  --sample_seqs INTEGER  Number of proteins to subsample from input.
+                         [default: 500]
 ```

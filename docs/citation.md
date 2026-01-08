@@ -3,8 +3,7 @@
 
 Please cite our preprint:
 
-* Bouras G, Grigson SR, Mirdita M, Heinzinger M, Papudeshi B, Mallawaarachchi V, Green R, Kim SR, Mihalia V, Psaltis AJ, Wormald P-J, Vreugde S, Steinegger M, Edwards RA: "Protein Structure Informed Bacteriophage Genome Annotation with Phold" bioRxiv (2025) [https://doi.org/10.1101/2025.08.05.668817]( https://doi.org/10.1101/2025.08.05.668817)
-
+* Bouras G, Grigson SR, Mirdita M, Heinzinger M, Papudeshi B, Mallawaarachchi V, Green R, Kim SR, Mihalia V, Psaltis AJ, Wormald P-J, Vreugde S, Steinegger M, Edwards RA: "Protein Structure Informed Bacteriophage Genome Annotation with Phold", Nucleic Acids Research, Volume 54, Issue 1, 13 January 2026, gkaf1448, [https://doi.org/10.1093/nar/gkaf1448](https://doi.org/10.1093/nar/gkaf1448)
 
 Please be sure to cite the following core dependencies and PHROGs database - citing all bioinformatics tools that you use helps us, so helps you get better bioinformatics tools:
 
