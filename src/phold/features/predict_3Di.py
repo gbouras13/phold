@@ -742,3 +742,4 @@ def get_embeddings(
     write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
     return predictions
+

@@ -22,6 +22,8 @@ from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
                                     validate_input)
+from phold.features.autotune import run_autotune
+from importlib.resources import files
 
 log_fmt = (
     "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] <level>{level: <8}</level> | "
@@ -92,7 +94,7 @@ def predict_options(func):
         click.option(
             "--batch_size",
             default=1,
-            help="batch size for ProstT5. 1 is usually fastest.",
+            help="batch size for ProstT5.",
             show_default=True,
         ),
         click.option(
@@ -1516,6 +1518,135 @@ def plot(
             remove_other_features_labels,
             label_force_list,
         )
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Path to input file of proteins only if you do not want to use the default sample of 5000 Phold DB proteins",
+    type=click.Path()
+)
+@click.option(
+    "--cpu",
+    is_flag=True,
+    help="Use cpus only.",
+)
+@click.option(
+    "-t",
+    "--threads",
+    help="Number of threads",
+    default=1,
+    type=int,
+    show_default=True,
+)
+@click.option(
+    "-d",
+    "--database",
+    type=str,
+    default=None,
+    help="Specific path to installed phold database",
+)
+@click.option(
+    "--step",
+    show_default=True,
+    type=int,
+    default=10,
+    help="Controls batch size step increment",
+)
+@click.option(
+    "--max_batch",
+    default=250,
+    show_default=True,
+    type=int,
+    help="Maximum batch size to test.",
+)
+@click.option(
+    "--sample_seqs",
+    default=5000,
+    show_default=True,
+    type=int,
+    help="Number of proteins to subsample from input (if you choose this).",
+)
+
+def autotune(
+    ctx,
+    input,
+    cpu,
+    threads,
+    database,
+    step,
+    max_batch,
+    sample_seqs,
+    **kwargs,
+):
+
+    params = {
+        "--input": input,
+        "--threads": threads,
+        "--cpu": cpu,
+        "--database": database,
+        "--step": step,
+        "--max_batch": max_batch,
+        "--sample_seqs": sample_seqs,
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "autotune")
+
+    # check the database is installed
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
+
+    # Dictionary to store the records
+    cds_dict = {}
+
+    if input:
+        input_path = input
+    else:
+        input_path = fasta_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+
+
+    with open_protein_fasta_file(input_path) as handle:  # handles gzip too
+        records = list(SeqIO.parse(handle, "fasta"))
+        if not records:
+            logger.warning(f"No proteins were found in your input file {input_path}.")
+            logger.error(
+                f"Your input file {input_path} is likely not a amino acid FASTA file. Please check this."
+            )
+        for record in records:
+            prot_id = record.id
+            feature_location = FeatureLocation(0, len(record.seq))
+            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
+            seq_feature = SeqFeature(
+                feature_location,
+                type="CDS",
+                qualifiers={
+                    "ID": record.id,
+                    "description": record.description,
+                    "translation": str(record.seq),
+                },
+            )
+
+            cds_dict[prot_id] = seq_feature
+
+    if not cds_dict:
+        logger.error(f"Error: no AA protein sequences found in {input_path} file")
+
+
+    # runs phold predict subcommand
+    model_dir = database
+    model_name = "Rostlab/ProstT5_fp16"
+
+    batch_size = run_autotune(model_dir,
+        model_name,
+        cpu,
+        threads,
+        cds_dict, 
+        step, 
+        max_batch, 
+        sample_seqs)
 
 
 @click.command()
