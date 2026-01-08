@@ -357,7 +357,7 @@ def run(
 
             step = 20
             min_batch = 1
-            max_batch = 501
+            max_batch = 1000
             sample_seqs = 500
 
             batch_size = run_autotune(
