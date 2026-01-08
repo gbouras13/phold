@@ -107,6 +107,7 @@ def autotune_batching_real_data(
                 )
                 inputs.pop("token_type_ids", None)
                 inputs = {k: v.to(device) for k, v in inputs.items()}
+                print(inputs)
 
                 # timing
                 torch.cuda.synchronize()
