@@ -1,7 +1,7 @@
 
 # autobatch
 
-from predict_3Di import device, get_T5_model
+from phold.features.predict_3Di import device, get_T5_model
 import csv
 import json
 from pathlib import Path
