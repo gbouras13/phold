@@ -9,7 +9,9 @@ import torch.nn.functional as F
 from loguru import logger
 import time
 import math
-
+from Bio import SeqIO
+from Bio.SeqFeature import FeatureLocation, SeqFeature
+from phold.io.handle_genbank import open_protein_fasta_file
 
 """
 
@@ -130,7 +132,7 @@ def autotune_batching_real_data(
                 "time_per_token": time_per_token,
             })
 
-            logger.info(f"Time elapsed {total_time}")
+            logger.info(f"Time elapsed {round(total_time,5)}")
             logger.info(f"Tokens per batch {token_per_batch}")
 
             bs += step
@@ -149,19 +151,54 @@ def autotune_batching_real_data(
     best_residues = best_entry["tokens_per_batch"]
     # best_tpt = best_bs["time_per_token"]
 
-    logger.info(f"best batch size: {best_bs}")
+    logger.info(f"##########################")
+    logger.info(f"Best batch size: {best_bs}")
     # logger.info(f"best max residues: {best_residues}")
 
     return best_bs, best_residues
 
 
 
-def run_autotune(    model_dir,
+def run_autotune(    
+    input_path,
+    model_dir,
     model_name,
     cpu,
     threads,
-    cds_dict, step, min_batch,
-    max_batch, sample_seqs):
+    step, 
+    min_batch,
+    max_batch, 
+    sample_seqs):
+
+    # Dictionary to store the records
+    cds_dict = {}
+
+
+    with open_protein_fasta_file(input_path) as handle:  # handles gzip too
+        records = list(SeqIO.parse(handle, "fasta"))
+        if not records:
+            logger.warning(f"No proteins were found in your input file {input_path}.")
+            logger.error(
+                f"Your input file {input_path} is likely not a amino acid FASTA file. Please check this."
+            )
+        for record in records:
+            prot_id = record.id
+            feature_location = FeatureLocation(0, len(record.seq))
+            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
+            seq_feature = SeqFeature(
+                feature_location,
+                type="CDS",
+                qualifiers={
+                    "ID": record.id,
+                    "description": record.description,
+                    "translation": str(record.seq),
+                },
+            )
+
+            cds_dict[prot_id] = seq_feature
+
+    if not cds_dict:
+        logger.error(f"Error: no AA protein sequences found in {input_path} file")
 
 
     seqs = []

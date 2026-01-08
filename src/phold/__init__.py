@@ -92,6 +92,11 @@ def predict_options(func):
     """predict command line args"""
     options = [
         click.option(
+            "--autotune",
+            is_flag=True,
+            help="Run autotuning to detect and automatically use best batch size for your hardware. Recommended only if you have a large dataset (minimum thousands of proteins), or else autotuning will add rather than save runtime.",
+        ),
+        click.option(
             "--batch_size",
             default=1,
             help="batch size for ProstT5.",
@@ -258,6 +263,7 @@ def run(
     evalue,
     force,
     database,
+    autotune,
     batch_size,
     sensitivity,
     cpu,
@@ -295,6 +301,7 @@ def run(
         "--prefix": prefix,
         "--evalue": evalue,
         "--database": database,
+        "--autotune": autotune,
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
@@ -342,6 +349,27 @@ def run(
                 checkpoint_path = (
                     Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
                 )
+
+        if autotune:
+
+            input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+
+
+            step = 20
+            min_batch = 1
+            max_batch = 501
+            sample_seqs = 500
+
+            batch_size = run_autotune(
+                input_path,
+                model_dir,
+                model_name,
+                cpu,
+                threads,
+                step, 
+                min_batch,
+                max_batch, 
+                sample_seqs)
 
         subcommand_predict(
             gb_dict,
@@ -426,6 +454,7 @@ def predict(
     prefix,
     force,
     database,
+    autotune,
     batch_size,
     cpu,
     omit_probs,
@@ -452,6 +481,7 @@ def predict(
         "--force": force,
         "--prefix": prefix,
         "--database": database,
+        "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -484,6 +514,31 @@ def predict(
             checkpoint_path = (
                 Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
             )
+
+    if autotune:
+
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+
+        # runs phold predict subcommand
+
+        step = 20
+
+        min_batch = 1
+
+        max_batch = 501
+
+        sample_seqs = 500
+
+        batch_size = run_autotune(
+            input_path,
+            model_dir,
+            model_name,
+            cpu,
+            threads,
+            step, 
+            min_batch,
+            max_batch, 
+            sample_seqs)
 
     subcommand_predict(
         gb_dict,
@@ -678,6 +733,7 @@ def proteins_predict(
     prefix,
     force,
     database,
+    autotune,
     batch_size,
     cpu,
     omit_probs,
@@ -703,6 +759,7 @@ def proteins_predict(
         "--force": force,
         "--prefix": prefix,
         "--database": database,
+        "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -767,6 +824,26 @@ def proteins_predict(
             )
 
     method = "pharokka"  # this can be whatever for proteins, it wont matter - it is for genbank input
+
+
+    if autotune:
+
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+        step = 20
+        min_batch = 1
+        max_batch = 501
+        sample_seqs = 500
+
+        batch_size = run_autotune(
+            input_path,
+            model_dir,
+            model_name,
+            cpu,
+            threads,
+            step, 
+            min_batch,
+            max_batch, 
+            sample_seqs)
 
     subcommand_predict(
         cds_dict,
@@ -1609,51 +1686,20 @@ def autotune(
     # check the database is installed
     database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
-    # Dictionary to store the records
-    cds_dict = {}
-
     if input:
         input_path = input
     else:
-        input_path = fasta_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
 
-
-    with open_protein_fasta_file(input_path) as handle:  # handles gzip too
-        records = list(SeqIO.parse(handle, "fasta"))
-        if not records:
-            logger.warning(f"No proteins were found in your input file {input_path}.")
-            logger.error(
-                f"Your input file {input_path} is likely not a amino acid FASTA file. Please check this."
-            )
-        for record in records:
-            prot_id = record.id
-            feature_location = FeatureLocation(0, len(record.seq))
-            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-            seq_feature = SeqFeature(
-                feature_location,
-                type="CDS",
-                qualifiers={
-                    "ID": record.id,
-                    "description": record.description,
-                    "translation": str(record.seq),
-                },
-            )
-
-            cds_dict[prot_id] = seq_feature
-
-    if not cds_dict:
-        logger.error(f"Error: no AA protein sequences found in {input_path} file")
-
-
-    # runs phold predict subcommand
     model_dir = database
     model_name = "Rostlab/ProstT5_fp16"
 
-    batch_size = run_autotune(model_dir,
+    batch_size = run_autotune(
+        input_path,
+        model_dir,
         model_name,
         cpu,
         threads,
-        cds_dict, 
         step, 
         min_batch,
         max_batch, 
