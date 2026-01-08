@@ -1526,7 +1526,7 @@ def plot(
 @click.option(
     "-i",
     "--input",
-    help="Path to input file of proteins only if you do not want to use the default sample of 5000 Phold DB proteins",
+    help="Optional path to input file of proteins if you do not want to use the default sample of 5000 Phold DB proteins",
     type=click.Path()
 )
 @click.option(
@@ -1550,6 +1550,13 @@ def plot(
     help="Specific path to installed phold database",
 )
 @click.option(
+    "--min_batch",
+    show_default=True,
+    type=int,
+    default=1,
+    help="Minimum batch size to test",
+)
+@click.option(
     "--step",
     show_default=True,
     type=int,
@@ -1558,17 +1565,17 @@ def plot(
 )
 @click.option(
     "--max_batch",
-    default=250,
+    default=251,
     show_default=True,
     type=int,
-    help="Maximum batch size to test.",
+    help="Maximum batch size to test",
 )
 @click.option(
     "--sample_seqs",
     default=5000,
     show_default=True,
     type=int,
-    help="Number of proteins to subsample from input (if you choose this).",
+    help="Number of proteins to subsample from input.",
 )
 
 def autotune(
@@ -1578,10 +1585,12 @@ def autotune(
     threads,
     database,
     step,
+    min_batch,
     max_batch,
     sample_seqs,
     **kwargs,
 ):
+    """Determines optimal batch size for 3Di prediction with your hardware"""
 
     params = {
         "--input": input,
@@ -1589,6 +1598,7 @@ def autotune(
         "--cpu": cpu,
         "--database": database,
         "--step": step,
+        "--min_batch": min_batch,
         "--max_batch": max_batch,
         "--sample_seqs": sample_seqs,
     }
@@ -1645,6 +1655,7 @@ def autotune(
         threads,
         cds_dict, 
         step, 
+        min_batch,
         max_batch, 
         sample_seqs)
 

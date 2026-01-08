@@ -159,7 +159,8 @@ def run_autotune(    model_dir,
     model_name,
     cpu,
     threads,
-    cds_dict, step, max_batch, sample_seqs):
+    cds_dict, step, min_batch,
+    max_batch, sample_seqs):
 
 
     seqs = []
@@ -181,7 +182,7 @@ def run_autotune(    model_dir,
         cpu,
         threads,
         probe_seqs,
-        start_bs=1,
+        start_bs=min_batch,
         max_bs=max_batch,
         step=step # step size
     )
