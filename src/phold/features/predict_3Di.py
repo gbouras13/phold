@@ -334,38 +334,43 @@ def write_probs(
         None
     """
 
-    with open(output_path_mean, "w+") as out_f:
-        for seq_id in original_keys:
-            if seq_id not in predictions:
-                logger.warning(f"Missing ProstT5 mean confidence for {seq_id}")
-                continue
-            _, mean_prob, _ = predictions[seq_id]
-            out_f.write(f"{seq_id},{mean_prob}\n")
+    for contig_id, contig_predictions in predictions.items():
+        # contig_predictions: Dict[seq_id, (labels, mean_prob, all_probs)]
 
-    if output_path_all is not None:
-        with open(output_path_all, "w+") as out_f:
+        # ---- write mean probabilities ----
+        with open(output_path_mean, "w+") as out_f:
             for seq_id in original_keys:
-                if seq_id not in predictions:
-                    logger.warning(f"Missing ProstT5 confidence for {seq_id}")
+                if seq_id not in contig_predictions:
+                    logger.warning(f"Missing ProstT5 mean confidence for {seq_id}")
                     continue
 
-                _, _, all_probs = predictions[seq_id]
+                _, mean_prob, _ = contig_predictions[seq_id]
+                out_f.write(f"{seq_id},{mean_prob}\n")
 
-                # convert to percentage
-                all_probs = all_probs * 100
+        # ---- write per-residue probabilities ----
+        if output_path_all is not None:
+            with open(output_path_all, "w+") as out_f:
+                for seq_id in original_keys:
+                    if seq_id not in contig_predictions:
+                        logger.warning(f"Missing ProstT5 confidence for {seq_id}")
+                        continue
 
-                # flatten
-                if isinstance(all_probs, np.ndarray):
-                    all_probs_list = all_probs.flatten().tolist()
-                else:
-                    all_probs_list = all_probs
+                    _, _, all_probs = contig_predictions[seq_id]
 
-                rounded_list = [round(num, 2) for num in all_probs_list]
+                    # convert to percentage and flatten
+                    probs = (all_probs * 100).flatten().tolist()
 
-                json_data = json.dumps(
-                    {"seq_id": seq_id, "probability": rounded_list}
-                )
-                out_f.write(json_data + "\n")
+                    rounded_probs = [round(p, 2) for p in probs]
+
+                    out_f.write(
+                        json.dumps(
+                            {
+                                "seq_id": seq_id,
+                                "probability": rounded_probs,
+                            }
+                        )
+                        + "\n"
+                    )
 
 
 def toCPU(tensor: torch.Tensor) -> np.ndarray:
