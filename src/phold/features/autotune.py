@@ -20,9 +20,8 @@ all_phold_structures.fasta is the FASTA of all the Phold DB 1.36M sequences
 seqkit sample -n 5000 -j 4 all_phold_structures.fasta > all_phold_structures_5000.fasta
 
 seqkit stats all_phold_structures_5000.fasta 
-file                             format  type     num_seqs    sum_len  min_len  avg_len  max_len
-all_phold_structures_5000.fasta  FASTA   Protein     5,000  1,091,959       21    218.4    2,793
-
+file                  format  type     num_seqs    sum_len  min_len  avg_len  max_len
+swissprot_5000.fasta  FASTA   Protein     4,961  1,848,648       17    372.6    2,599
 # seems reasonable
 
 """

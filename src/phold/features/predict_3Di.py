@@ -316,59 +316,61 @@ def write_predictions(
 
 
 def write_probs(
-    predictions: Dict[str, Dict[str, Tuple[int, float, Union[int, np.ndarray]]]],
+    predictions: Dict[str, Tuple[int, float, Union[int, np.ndarray]]],
     output_path_mean: Path,
     output_path_all: Path,
+    original_keys: list[str],
 ) -> None:
     """
     Write all ProstT5 encoder + CNN probabilities and mean probabilities to output files.
 
     Args:
-        predictions (Dict[str, Dict[str, Tuple[int, float, Union[int, np.ndarray]]]]):
-            Predictions dictionary containing contig IDs, sequence IDs, probabilities, and additional information.
+        predictions (Dict[str, Tuple[int, float, Union[int, np.ndarray]]]):
+        Predictions dictionary containing  sequence IDs, probabilities, and additional information.
         output_path_mean (str): Path to the output file for mean probabilities.
         output_path_all (str): Path to the output file for all probabilities.
 
     Returns:
         None
     """
-    with open(output_path_mean, "w+") as out_f:
-        for contig_id, rest in predictions.items():
-            prediction_contig_dict = predictions[contig_id]
 
-            for seq_id, (N, mean_prob, N) in prediction_contig_dict.items():
-                out_f.write("{},{}\n".format(seq_id, mean_prob))
+    for contig_id, contig_predictions in predictions.items():
+        # contig_predictions: Dict[seq_id, (labels, mean_prob, all_probs)]
 
-    if output_path_all is not None:
-        with open(output_path_all, "w+") as out_f:
-            for contig_id, rest in predictions.items():
-                prediction_contig_dict = predictions[contig_id]
+        # ---- write mean probabilities ----
+        with open(output_path_mean, "w+") as out_f:
+            for seq_id in original_keys:
+                if seq_id not in contig_predictions:
+                    logger.warning(f"Missing ProstT5 mean confidence for {seq_id}")
+                    continue
 
-                for seq_id, (N, N, all_probs) in prediction_contig_dict.items():
-                    # * 100
-                    all_probs = all_probs * 100
-                    # Convert NumPy array to list
-                    all_probs_list = (
-                        all_probs.flatten().tolist()
-                        if isinstance(all_probs, np.ndarray)
-                        else all_probs
-                    )
+                _, mean_prob, _ = contig_predictions[seq_id]
+                out_f.write(f"{seq_id},{mean_prob}\n")
 
-                    # round to 2 dp
-                    rounded_list = [round(num, 2) for num in all_probs_list]
+        # ---- write per-residue probabilities ----
+        if output_path_all is not None:
+            with open(output_path_all, "w+") as out_f:
+                for seq_id in original_keys:
+                    if seq_id not in contig_predictions:
+                        logger.warning(f"Missing ProstT5 confidence for {seq_id}")
+                        continue
 
-                    # Create a dictionary for the specific per residue probability
-                    per_residue_probs = {"seq_id": seq_id, "probability": rounded_list}
+                    _, _, all_probs = contig_predictions[seq_id]
 
-                    # Convert the dictionary to a JSON string
-                    json_data = json.dumps(per_residue_probs)
+                    # convert to percentage and flatten
+                    probs = (all_probs * 100).flatten().tolist()
 
-                    # Write the JSON string to the file
+                    rounded_probs = [round(p, 2) for p in probs]
+
                     out_f.write(
-                        json_data + "\n"
-                    )  # Add a newline after each JSON object
-
-    return None
+                        json.dumps(
+                            {
+                                "seq_id": seq_id,
+                                "probability": rounded_probs,
+                            }
+                        )
+                        + "\n"
+                    )
 
 
 def toCPU(tensor: torch.Tensor) -> np.ndarray:
@@ -739,7 +741,7 @@ def get_embeddings(
     else:
         all_probs_out_path = None
 
-    write_probs(predictions, mean_probs_out_path, all_probs_out_path)
+    write_probs(predictions, mean_probs_out_path, all_probs_out_path, original_keys)
 
     return predictions
 
