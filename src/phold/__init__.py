@@ -97,9 +97,15 @@ def predict_options(func):
             help="Run autotuning to detect and automatically use best batch size for your hardware. Recommended only if you have a large dataset (e.g. thousands of proteins), or else autotuning will add rather than save runtime.",
         ),
         click.option(
+            "--max_batch_residues",
+            default=10000,
+            help="Maximum total residues per batch.",
+            show_default=True,
+        ),
+        click.option(
             "--batch_size",
-            default=1,
-            help="batch size for ProstT5.",
+            default=50,
+            help="Batch size for ModernProst.",
             show_default=True,
         ),
         click.option(
@@ -269,6 +275,7 @@ def run(
     force,
     database,
     autotune,
+    max_batch_residues,
     batch_size,
     sensitivity,
     cpu,
@@ -308,6 +315,7 @@ def run(
         "--evalue": evalue,
         "--database": database,
         "--autotune": autotune,
+        "--max_batch_residues": max_batch_residues,
         "--batch_size": batch_size,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
@@ -371,7 +379,7 @@ def run(
             max_batch = 1001
             sample_seqs = 500
 
-            batch_size = run_autotune(
+            batch_size, max_batch_residues = run_autotune(
                 input_path,
                 model_dir,
                 model_name,
@@ -392,6 +400,7 @@ def run(
             model_dir,
             model_name,
             checkpoint_path,
+            max_batch_residues,
             batch_size,
             proteins_flag=False,
             fasta_flag=fasta_flag,
@@ -466,6 +475,7 @@ def predict(
     force,
     database,
     autotune,
+    max_batch_residues,
     batch_size,
     cpu,
     omit_probs,
@@ -494,6 +504,7 @@ def predict(
         "--prefix": prefix,
         "--database": database,
         "--autotune": autotune,
+        "--max_batch_residues": max_batch_residues,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -542,7 +553,7 @@ def predict(
         max_batch = 1001
         sample_seqs = 500
 
-        batch_size = run_autotune(
+        batch_size, max_batch_residues = run_autotune(
             input_path,
             model_dir,
             model_name,
@@ -563,6 +574,7 @@ def predict(
         model_dir,
         model_name,
         checkpoint_path,
+        max_batch_residues,
         batch_size,
         proteins_flag=False,
         fasta_flag=fasta_flag,
@@ -747,6 +759,7 @@ def proteins_predict(
     force,
     database,
     autotune,
+    max_batch_residues,
     batch_size,
     cpu,
     omit_probs,
@@ -774,6 +787,7 @@ def proteins_predict(
         "--prefix": prefix,
         "--database": database,
         "--autotune": autotune,
+        "--max_batch_residues": max_batch_residues,
         "--batch_size": batch_size,
         "--cpu": cpu,
         "--omit_probs": omit_probs,
@@ -854,7 +868,7 @@ def proteins_predict(
         max_batch = 1001
         sample_seqs = 500
 
-        batch_size = run_autotune(
+        batch_size, max_batch_residues = run_autotune(
             input_path,
             model_dir,
             model_name,
@@ -875,6 +889,7 @@ def proteins_predict(
         model_dir,
         model_name,
         checkpoint_path,
+        max_batch_residues,
         batch_size,
         proteins_flag=True,
         fasta_flag=False,

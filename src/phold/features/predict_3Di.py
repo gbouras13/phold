@@ -8,10 +8,13 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 """
 
+import math
 import csv
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from collections import defaultdict
+
 
 import contextlib
 import os
@@ -457,6 +460,24 @@ def load_predictor(checkpoint_path: Union[str, Path]) -> CNN:
 
     return model
 
+def chunk_sequence(seq, max_len):
+    """
+    Yield (start, subseq) splitting seq into `max_len` nearly equal chunks.
+    No overlap. Preserves order.
+    """
+    L = len(seq)
+    n_chunks = math.ceil(L / max_len)
+    base = L // n_chunks
+    remainder = L % n_chunks
+
+    start = 0
+    for i in range(n_chunks):
+        # distribute the extra 1 from remainder to the first `remainder` chunks
+        size = base + (1 if i < remainder else 0)
+        end = start + size
+        yield start, seq[start:end]
+        start = end
+
 
 def get_embeddings(
     cds_dict: Dict[str, Dict[str, Tuple[str, ...]]],
@@ -469,7 +490,7 @@ def get_embeddings(
     output_h5_per_residue: Path,
     output_h5_per_protein: Path,
     half_precision: bool,
-    max_residues: int = 100000,
+    max_batch_residues: int = 100000,
     max_seq_len: int = 30000,
     max_batch: int = 10000,
     cpu: bool = False,
@@ -493,9 +514,9 @@ def get_embeddings(
         output_h5_per_residue (Path): Path to the output h5 per residue embeddings file.
         output_h5_per_protein (Path): Path to the output h5 per proteins embeddings file.
         half_precision (bool): Whether to use half precision for the models.
-        max_residues (int, optional): Maximum number of residues allowed in a batch. Defaults to 3000.
-        max_seq_len (int, optional): Maximum sequence length allowed. Defaults to 1000.
-        max_batch (int, optional): Maximum batch size. Defaults to 100.
+        max_batch_residues (int, optional): Maximum number of residues allowed in a batch. 
+        max_seq_len (int, optional): Maximum sequence length allowed. 
+        max_batch (int, optional): Maximum batch size. 
         cpu (bool, optional): Whether to use CPU for processing. Defaults to False.
         output_probs (bool, optional): Whether to output probabilities. Defaults to True.
         proteins_flag (bool, optional): Whether the sequences are proteins. Defaults to False.
@@ -508,6 +529,8 @@ def get_embeddings(
     Returns:
         bool: True if embeddings and predictions are generated successfully.
     """
+
+    chunk_len = 1568 # hardcode chunk length of 1568 for inference
 
     predictions = {}
 
@@ -540,6 +563,10 @@ def get_embeddings(
         # instantiate the nested dict
         predictions[record_id] = {}
         batch_predictions = {}
+        # for modernprost chunking
+        chunk_store = defaultdict(dict)
+        chunk_embeddings_per_residue = defaultdict(dict)
+        chunk_embeddings_per_protein = defaultdict(dict)
 
         # embeddings
         if save_per_residue_embeddings:
@@ -563,32 +590,48 @@ def get_embeddings(
 
 
         batch = list()
+        n_res_batch = 0
         for seq_idx, (pdb_id, seq, slen) in enumerate(tqdm(seq_dict, desc=f"Predicting 3Di for {record_id}"), 1):
-
 
 
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)
 
-            # only needed if old models 
+            # only needed for old models 
 
             if model_name != "gbouras13/modernprost-base":
 
                 seq = prostt5_prefix + " " + " ".join(list(seq))
 
-            batch.append((pdb_id, seq, seq_len))
+                batch.append((pdb_id, seq, seq_len))
+            
+            
+            # only do chunking for modernprost as dont want to deal with prefix char plus for ProstT5 and anyway we are swapping to modernprost
+            else:
+
+                if slen > chunk_len:
+                    for chunk_idx, (start, subseq) in enumerate(chunk_sequence(seq, chunk_len)): # hardcoded to 1568
+                        chunk_pid = f"{pdb_id}__chunk{chunk_idx}"
+                        batch.append((chunk_pid, subseq, len(subseq)))
+                        res_batch += len(subseq)
+                else:
+                    batch.append((pdb_id, seq, slen))
+
 
             # count residues in current batch and add the last sequence length to
             # avoid that batches with (n_res_batch > max_residues) get processed
-            n_res_batch = sum([s_len for _, _, s_len in batch]) + seq_len
+            n_res_batch += slen
+
             if (
                 len(batch) >= max_batch
-                or n_res_batch >= max_residues
+                or n_res_batch >= max_batch_residues
                 or seq_idx == len(seq_dict)
                 or seq_len > max_seq_len
             ):
                 pdb_ids, seqs, seq_lens = zip(*batch)
+                batch.clear()
+                n_res_batch = 0
                 batch = list()
 
                 # this is the same for modernprost and ProstT5
@@ -626,7 +669,6 @@ def get_embeddings(
                     for id in pdb_ids:
                         fail_ids.append(id)
                     continue
-
 
                 try:
 
@@ -729,14 +771,29 @@ def get_embeddings(
                                     ]
 
                                     if save_per_residue_embeddings:
-                                        outputs[identifier] = (
-                                            emb.detach().cpu().numpy().squeeze()
-                                        )
+
+                                        per_residue_embeddings = (emb.detach().cpu().numpy().squeeze())
+                                        if "__chunk" in identifier:
+                                            base_id, chunk_tag = identifier.split("__chunk")
+                                            chunk_idx = int(chunk_tag)
+                                            chunk_embeddings_per_residue[base_id][chunk_idx] = per_residue_embeddings
+                                            
+                                        else:
+
+                                            batch_embeddings_per_residue[identifier] = per_residue_embeddings
+
 
                                     if save_per_protein_embeddings:
-                                        batch_embeddings_per_protein[identifier] = (
-                                            emb.mean(dim=0).detach().cpu().numpy().squeeze()
-                                        )
+                                        per_protein_embeddings = (emb.mean(dim=0).detach().cpu().numpy().squeeze())
+                                        if "__chunk" in identifier:
+                                            base_id, chunk_tag = identifier.split("__chunk")
+                                            chunk_idx = int(chunk_tag)
+                                            chunk_embeddings_per_protein[base_id][chunk_idx] = per_protein_embeddings
+                                            
+                                        else:
+
+                                            batch_embeddings_per_protein[identifier] = per_protein_embeddings
+
 
                                 except:
                                     logger.warning(
@@ -753,32 +810,103 @@ def get_embeddings(
 
                             # doubles the length of time taken
                             mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
-                           
-                            if output_probs:  # if you want the per-residue probs
-                                all_prob = probabilities[batch_idx, 0:s_len]  # flat (L,) vector as probabilities is
-                                batch_predictions[identifier] = (
-                                    pred,
-                                    mean_prob,
-                                    all_prob,
-                                )
+
+                            if "__chunk" in identifier:
+                                base_id, chunk_tag = identifier.split("__chunk")
+                                chunk_idx = int(chunk_tag)
+
+                                chunk_store[base_id][chunk_idx] = (
+                                        pred,
+                                        all_prob)
+                                
                             else:
-                                batch_predictions[identifier] = (pred, mean_prob, None)
+                           
+                                if output_probs:  # if you want the per-residue probs
+                                    all_prob = probabilities[batch_idx, 0:s_len]  # flat (L,) vector as probabilities is
+                                    batch_predictions[identifier] = (
+                                        pred,
+                                        mean_prob,
+                                        all_prob,
+                                    )
+                                else:
+                                    batch_predictions[identifier] = (pred, mean_prob, None)
 
-                    # some catch statements regardless of model
 
-                    try:
-                        len(batch_predictions[identifier][0])
-                    except:
-                        logger.warning(
-                            f"{identifier} {record_id} prediction has length 0"
-                        )
-                        fail_ids.append(identifier)
-                        continue
+                                            # some catch statements regardless of model
 
-                    if s_len != len(batch_predictions[identifier][0]):
-                        logger.warning(
-                            f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
-                        )
+
+                            try:
+                                len(batch_predictions[identifier][0])
+                            except:
+                                logger.warning(
+                                    f"{identifier} {record_id} prediction has length 0"
+                                )
+                                fail_ids.append(identifier)
+                                continue
+
+                            if s_len != len(batch_predictions[identifier][0]):
+                                logger.warning(
+                                    f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
+                                )
+
+
+                    ######################################
+                    # --- recombine chunked sequences ---
+
+                    if model_name == "gbouras13/modernprost-base":
+                        for pid, chunks in chunk_store.items():
+                            preds = []
+                            probs_all = []
+
+                            for idx in sorted(chunks):
+                                
+                                pred, prob = chunks[idx]
+                                preds.append(pred)
+                                if prob is not None:
+                                    probs_all.append(prob)
+
+                            # always needed to calculate the mean confidence
+                            pred_full = np.concatenate(preds)
+                            probs_full = np.concatenate(probs_all)
+                            mean_prob = round(100 * probs_full.mean(), 2)
+
+
+                            if not output_probs: # only output full probs if true
+                                probs_full = None
+
+                            batch_predictions[pid] = (
+                                pred_full,
+                                mean_prob,
+                                probs_full,
+                            )
+                      
+                        if save_per_residue_embeddings:
+                                        
+                            for pid, chunks in chunk_embeddings_per_residue.items():
+                                embs_all = []
+
+                                for idx in sorted(chunks):
+                                    emb = chunks[idx]
+                                    embs_all.append(emb)
+
+                                # concatenate the actual collected embeddings
+                                embs_full = np.concatenate(embs_all, axis=0)  # make sure axis is correct
+
+                                batch_embeddings_per_residue[pid] = embs_full
+
+                        if save_per_protein_embeddings:
+                                        
+                            for pid, chunks in chunk_embeddings_per_protein.items():
+                                embs_all = []
+
+                                for idx in sorted(chunks):
+                                    emb = chunks[idx]
+                                    embs_all.append(emb)
+
+                                # concatenate the actual collected embeddings
+                                embs_full = np.concatenate(embs_all, axis=0)
+
+                                batch_embeddings_per_protein[pid] = embs_full
 
 
                     # reorder to match the original FASTA
