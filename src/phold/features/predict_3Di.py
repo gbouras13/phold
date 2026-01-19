@@ -153,13 +153,15 @@ def get_model(
                 local_files_only=True,
             ).to(device)
         else:
-            model = AutoModel.from_pretrained(
-                model_name,
-                trust_remote_code=True,
-                cache_dir=f"{model_dir}/",
-                force_download=download,
-                local_files_only=localfile,
-            )
+            # still doesnt fully work actually, only removes some of the prints
+            with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                model = AutoModel.from_pretrained(
+                    model_name,
+                    trust_remote_code=True,
+                    cache_dir=f"{model_dir}/",
+                    force_download=download,
+                    local_files_only=localfile,
+                )
 
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
@@ -609,7 +611,7 @@ def get_embeddings(
                             )
                     else:
                         inputs = {
-                            k: v.to(device)
+                            k: v
                             for k, v in token_encoding.items()
                             if k != "token_type_ids"
                         }

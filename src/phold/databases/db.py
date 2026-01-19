@@ -328,14 +328,14 @@ def download_zenodo_model(model_dir, logdir, threads, model):
     md5_sum = calc_md5_sum(tarball_path)
 
     if md5_sum == requiredmd5:
-        logger.info(f"ProstT5 model backup file download OK: {md5_sum}")
+        logger.info(f"Model backup file download OK: {md5_sum}")
     else:
         logger.error(
             f"Error: corrupt file! MD5 should be '{requiredmd5}' but is '{md5_sum}'"
         )
 
     logger.info(
-        f"Extracting ProstT5 model backup tarball: file={tarball_path}, output={model_dir}"
+        f"Extracting Model backup tarball: file={tarball_path}, output={model_dir}"
     )
 
     try:
