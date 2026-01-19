@@ -610,13 +610,8 @@ def get_embeddings(
                                 attention_mask=token_encoding.attention_mask,
                             )
                     else:
-                        inputs = {
-                            k: v
-                            for k, v in token_encoding.items()
-                            if k != "token_type_ids"
-                        }
                         with torch.no_grad():
-                            outputs = model(**inputs)
+                            outputs = model(**token_encoding)
 
 
                 except RuntimeError:
