@@ -758,12 +758,7 @@ def get_embeddings(
 
                             # doubles the length of time taken
                             mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
-                            
-                            batch_predictions[identifier] = (
-                                pred,
-                                mean_prob,
-                                all_prob
-                            )
+                           
                             if output_probs:  # if you want the per-residue probs
                                 all_prob = probabilities[batch_idx, 0:s_len]
                                 batch_predictions[identifier] = (
