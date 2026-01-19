@@ -161,7 +161,7 @@ def get_model(
                     cache_dir=f"{model_dir}/",
                     force_download=download,
                     local_files_only=localfile,
-                )
+                ).to(device)
 
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
@@ -183,7 +183,7 @@ def get_model(
                 cache_dir=f"{model_dir}/",
                 force_download=download,
                 local_files_only=localfile,
-            )
+            ).to(device)
             model = model.half()
 
     model = model.eval()
