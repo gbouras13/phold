@@ -992,7 +992,7 @@ def get_embeddings(
     else:
         all_probs_out_path = None
 
-    write_probs(predictions, mean_probs_out_path, all_probs_out_path, original_keys)
+    write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
     return predictions
 
