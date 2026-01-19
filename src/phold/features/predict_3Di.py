@@ -315,7 +315,7 @@ def write_predictions(
             # masking - make the 3Di X=20
             for key, (pred, mean_prob, all_prob) in prediction_contig_dict.items():
                 for i in range(len(pred)):
-                    if all_prob[0][i] < mask_prop_threshold:
+                    if all_prob[i] < mask_prop_threshold: # flat (L,)
                         pred[i] = 20
 
             if proteins_flag is True:
@@ -380,7 +380,7 @@ def write_probs(
         with open(output_path_mean, "w+") as out_f:
             for seq_id in original_keys:
                 if seq_id not in contig_predictions:
-                    logger.warning(f"Missing ProstT5 mean confidence for {seq_id}")
+                    logger.warning(f"Missing model mean confidence for {seq_id}")
                     continue
 
                 _, mean_prob, _ = contig_predictions[seq_id]
@@ -391,13 +391,13 @@ def write_probs(
             with open(output_path_all, "w+") as out_f:
                 for seq_id in original_keys:
                     if seq_id not in contig_predictions:
-                        logger.warning(f"Missing ProstT5 confidence for {seq_id}")
+                        logger.warning(f"Missing model confidence for {seq_id}")
                         continue
 
                     _, _, all_probs = contig_predictions[seq_id]
 
-                    # convert to percentage and flatten
-                    probs = (all_probs * 100).flatten().tolist()
+                    # convert to percentage - no need to flatten as all_probs # flat (L,)
+                    probs = (all_probs * 100).tolist()
 
                     rounded_probs = [round(p, 2) for p in probs]
 
@@ -694,7 +694,7 @@ def get_embeddings(
                                     )
 
                             # slice off padding and special token appended to the end of the sequence
-                            pred = prediction[batch_idx, :, 0:s_len].squeeze()
+                            pred = prediction[batch_idx, :, 0:s_len].squeeze() # flat (L,) vector 
 
                             # always return the mean probs
                             mean_prob = round(
@@ -702,7 +702,7 @@ def get_embeddings(
                             )
 
                             if output_probs:  # if you want the per-residue probs
-                                all_prob = probabilities[batch_idx, :, 0:s_len]
+                                all_prob = probabilities[batch_idx, :, 0:s_len].squeeze(0) #takes shape (1, L) and flattens to flat (L,) vector 
                                 batch_predictions[identifier] = (
                                     pred,
                                     mean_prob,
@@ -750,7 +750,7 @@ def get_embeddings(
 
 
 
-                            pred = logits[batch_idx, 0:s_len, :].squeeze()
+                            pred = logits[batch_idx, 0:s_len, :].squeeze()  # flat (L,) vector 
 
                             pred = toCPU(
                                 torch.argmax(pred, dim=1, keepdim=True)
@@ -760,7 +760,7 @@ def get_embeddings(
                             mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
                            
                             if output_probs:  # if you want the per-residue probs
-                                all_prob = probabilities[batch_idx, 0:s_len]
+                                all_prob = probabilities[batch_idx, 0:s_len]  # flat (L,) vector as probabilities is
                                 batch_predictions[identifier] = (
                                     pred,
                                     mean_prob,
