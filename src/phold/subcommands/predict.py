@@ -7,7 +7,7 @@ from loguru import logger
 from phold.features.predict_3Di import get_embeddings
 
 
-def mask_low_confidence_aa(sequence, scores, threshold=0.5):
+def mask_low_confidence_aa(sequence, scores, threshold=0.25):
     """
     Masks all low confidence AA to X if their corresponding ProstT5 confidence score is below the given threshold.
 
@@ -20,7 +20,8 @@ def mask_low_confidence_aa(sequence, scores, threshold=0.5):
     str: The modified amino acid sequence with low-confidence residues in lowercase.
     """
     return "".join(
-        "X" if float(score) < threshold else aa for aa, score in zip(sequence, *scores)
+        "X" if float(score) < threshold else aa # scores is a list so is fine no need to unpack with *scores
+        for aa, score in zip(sequence, scores)
     )
 
 

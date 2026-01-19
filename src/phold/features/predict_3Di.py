@@ -837,7 +837,7 @@ def get_embeddings(
         write_embeddings(embeddings_per_protein, output_h5_per_protein)
 
     # always write the mean embeddings
-    if model_name != "gbouras13/modernprost-base":
+    if model_name == "gbouras13/modernprost-base":
         model_prefix = "modernprost"
     else:
         model_prefix = "prostT5"
