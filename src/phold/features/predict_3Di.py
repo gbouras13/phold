@@ -808,8 +808,7 @@ def get_embeddings(
                                 torch.argmax(pred, dim=1, keepdim=True)
                             ).astype(np.byte)
 
-                            # doubles the length of time taken
-                            mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
+                            all_prob = probabilities[batch_idx, 0:s_len]  # flat (L,) vector as probabilities is
 
                             if "__chunk" in identifier:
                                 base_id, chunk_tag = identifier.split("__chunk")
@@ -820,9 +819,9 @@ def get_embeddings(
                                         all_prob)
                                 
                             else:
+                                mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
                            
                                 if output_probs:  # if you want the per-residue probs
-                                    all_prob = probabilities[batch_idx, 0:s_len]  # flat (L,) vector as probabilities is
                                     batch_predictions[identifier] = (
                                         pred,
                                         mean_prob,
