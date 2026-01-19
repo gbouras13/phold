@@ -26,8 +26,7 @@ from transformers import logging
 from phold.databases.db import check_model_download, download_zenodo_prostT5
 from phold.utils.constants import CNN_DIR
 
-# set transformers logging verbosity
-logging.set_verbosity_warning()
+
 
 # Convolutional neural network (two convolutional layers)
 class CNN(nn.Module):
@@ -100,6 +99,9 @@ def get_model(
     # to overcome, need to explicitly map to active device
 
     global device
+
+    # set transformers logging verbosity
+    logging.set_verbosity_error()
 
     torch.set_num_threads(threads)
 
