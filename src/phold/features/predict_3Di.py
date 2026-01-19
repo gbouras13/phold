@@ -146,6 +146,13 @@ def get_model(
         logger.info(f"{model_name} not found. Downloading {model_name} from Hugging Face")
     try:
         if model_name != "gbouras13/modernprost-base":
+            model = T5EncoderModel.from_pretrained(
+                model_name,
+                cache_dir=f"{model_dir}/",
+                force_download=False,
+                local_files_only=True,
+            ).to(device)
+        else:
             # to remove the stdout prints
             with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
                 model = AutoModel.from_pretrained(
@@ -155,20 +162,12 @@ def get_model(
                     force_download=download,
                     local_files_only=localfile,
                 )
-        else:
-            model = AutoModel.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            cache_dir=f"{model_dir}/",
-            force_download=download,
-            local_files_only=localfile,
-        )
 
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
         if model_name != "gbouras13/modernprost-base":
-            download_zenodo_model(model_dir, logdir, threads, model="modernprost")
+            download_zenodo_model(model_dir, logdir, threads, model="ProstT5")
             model = T5EncoderModel.from_pretrained(
                 model_name,
                 cache_dir=f"{model_dir}/",
@@ -176,7 +175,7 @@ def get_model(
                 local_files_only=True,
             ).to(device)
         else:
-            download_zenodo_model(model_dir, logdir, threads, model="ProstT5")
+            download_zenodo_model(model_dir, logdir, threads, model="modernprost")
             with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
                 model = AutoModel.from_pretrained(
                 model_name,
