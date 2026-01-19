@@ -1682,6 +1682,11 @@ def plot(
     type=int,
     help="Number of proteins to subsample from input.",
 )
+@click.option(
+            "--original",
+            is_flag=True,
+            help="Use original ProstT5 + CNN model, not ModernProst",
+        )
 
 def autotune(
     ctx,
@@ -1693,6 +1698,7 @@ def autotune(
     min_batch,
     max_batch,
     sample_seqs,
+    original,
     **kwargs,
 ):
     """Determines optimal batch size for 3Di prediction with your hardware"""
@@ -1706,6 +1712,7 @@ def autotune(
         "--min_batch": min_batch,
         "--max_batch": max_batch,
         "--sample_seqs": sample_seqs,
+        "--original": original
     }
 
     # initial logging etc
@@ -1720,7 +1727,11 @@ def autotune(
         input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
 
     model_dir = database
-    model_name = "Rostlab/ProstT5_fp16"
+    if original:
+        model_name = "Rostlab/ProstT5_fp16"
+    else:
+         model_name = "gbouras13/modernprost-base"
+
 
     batch_size = run_autotune(
         input_path,

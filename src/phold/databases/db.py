@@ -51,6 +51,9 @@ VERSION_DICTIONARY = {
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
+        "modernprost_backup_url": "https://zenodo.org/records/18294880/files/models--gbouras13--modernprost-base.tar.gz",
+        "modernprost_backup_tarball": "models--gbouras13--modernprost-base.tar.gz",
+        "modernprost_backup_md5": "aef09f0b220eec3be60f8d3c2132d74b",
     },
 }
 
@@ -68,6 +71,9 @@ VERSION_DICTIONARY_3M16 = {
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
+        "modernprost_backup_url": "https://zenodo.org/records/18294880/files/models--gbouras13--modernprost-base.tar.gz",
+        "modernprost_backup_tarball": "models--gbouras13--modernprost-base.tar.gz",
+        "modernprost_backup_md5": "aef09f0b220eec3be60f8d3c2132d74b",
     }
 }
 
@@ -287,21 +293,35 @@ def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> Non
 
 
 
-def download_zenodo_prostT5(model_dir, logdir, threads):
+def download_zenodo_model(model_dir, logdir, threads, model):
     """
-    Download the ProstT5 model from Zenodo
+    Download the modernprost or ProstT5 model from Zenodo
 
     Args:
         db_url (str): The URL of the database.
         tarball_path (Path): The path where the downloaded tarball should be saved.
+        model (str): ProstT5 or modernprost
     """
 
-    db_url = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_url"]
-    requiredmd5 = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_md5"]
+    if model == "ProstT5":
 
-    logger.info(f"Downloading ProstT5 model backup from {db_url}")
+        db_url = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_url"]
+        requiredmd5 = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_md5"]
 
-    tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
+        logger.info(f"Downloading ProstT5 model backup from {db_url}")
+
+        tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
+
+    else: # modernprost
+
+        db_url = VERSION_DICTIONARY[CURRENT_DB_VERSION]["modernprost_backup_url"]
+        requiredmd5 = VERSION_DICTIONARY[CURRENT_DB_VERSION]["modernprost_backup_md5"]
+
+        logger.info(f"Downloading ModernProst model backup from {db_url}")
+
+        tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["modernprost_backup_tarball"]
+
+
     tarball_path = Path(f"{model_dir}/{tarball}")
 
     download(db_url, tarball_path, logdir, threads)

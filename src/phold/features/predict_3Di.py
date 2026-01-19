@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import contextlib
+import os
 import h5py
 import numpy as np
 import torch
@@ -21,9 +23,8 @@ from loguru import logger
 from torch import nn
 from tqdm import tqdm
 from transformers import T5EncoderModel, T5Tokenizer, AutoModel, AutoTokenizer
-from transformers import logging
 
-from phold.databases.db import check_model_download, download_zenodo_prostT5
+from phold.databases.db import check_model_download, download_zenodo_model
 from phold.utils.constants import CNN_DIR
 
 
@@ -100,9 +101,6 @@ def get_model(
 
     global device
 
-    # set transformers logging verbosity
-    logging.set_verbosity_error()
-
     torch.set_num_threads(threads)
 
     if cpu is True:
@@ -148,12 +146,15 @@ def get_model(
         logger.info(f"{model_name} not found. Downloading {model_name} from Hugging Face")
     try:
         if model_name != "gbouras13/modernprost-base":
-            model = T5EncoderModel.from_pretrained(
-                model_name,
-                cache_dir=f"{model_dir}/",
-                force_download=download,
-                local_files_only=localfile,
-            ).to(device)
+            # to remove the stdout prints
+            with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                model = AutoModel.from_pretrained(
+                    model_name,
+                    trust_remote_code=True,
+                    cache_dir=f"{model_dir}/",
+                    force_download=download,
+                    local_files_only=localfile,
+                )
         else:
             model = AutoModel.from_pretrained(
             model_name,
@@ -167,7 +168,7 @@ def get_model(
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
         if model_name != "gbouras13/modernprost-base":
-            download_zenodo_prostT5(model_dir, logdir, threads)
+            download_zenodo_model(model_dir, logdir, threads, model="modernprost")
             model = T5EncoderModel.from_pretrained(
                 model_name,
                 cache_dir=f"{model_dir}/",
@@ -175,14 +176,15 @@ def get_model(
                 local_files_only=True,
             ).to(device)
         else:
-            # download_zenodo_prostT5(model_dir, logdir, threads)
-            model = AutoModel.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            cache_dir=f"{model_dir}/",
-            force_download=download,
-            local_files_only=localfile,
-        )
+            download_zenodo_model(model_dir, logdir, threads, model="ProstT5")
+            with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                model = AutoModel.from_pretrained(
+                model_name,
+                trust_remote_code=True,
+                cache_dir=f"{model_dir}/",
+                force_download=download,
+                local_files_only=localfile,
+            )
             model = model.half()
 
     model = model.eval()
