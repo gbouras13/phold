@@ -20,9 +20,9 @@ import torch.nn.functional as F
 from loguru import logger
 from torch import nn
 from tqdm import tqdm
-from transformers import T5EncoderModel, T5Tokenizer
+from transformers import T5EncoderModel, T5Tokenizer, AutoModel, AutoTokenizer
 
-from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
+from phold.databases.db import check_model_download, download_zenodo_prostT5
 from phold.utils.constants import CNN_DIR
 
 
@@ -75,11 +75,11 @@ class CNN(nn.Module):
         return Yhat
 
 
-def get_T5_model(
+def get_model(
     model_dir: Path, model_name: str, cpu: bool, threads: int
-) -> (T5EncoderModel, T5Tokenizer):
+) -> (AutoModel, AutoTokenizer):
     """
-    Loads a T5 model and tokenizer.
+    Loads a HF model and tokenizer.
 
     Args:
         model_dir (Path): Directory where the model and tokenizer is be stored.
@@ -88,7 +88,7 @@ def get_T5_model(
         threads (int): Number of cpu threads.
 
     Returns:
-        Tuple[T5EncoderModel, T5Tokenizer]: Tuple containing the loaded T5 model and tokenizer.
+        Tuple[AutoModel, AutoTokenizer]: Tuple containing the loaded model and tokenizer.
     """
 
     # sets the device
@@ -128,7 +128,7 @@ def get_T5_model(
     Path(model_dir).mkdir(parents=True, exist_ok=True)
 
     # load
-    logger.info(f"Loading T5 from: {model_dir}/{model_name}")
+    logger.info(f"Loading {model_name} from: {model_dir}/{model_name}")
     logger.info(f"If {model_dir}/{model_name} is not found, it will be downloaded")
 
     # check ProstT5 is downloaded
@@ -136,34 +136,67 @@ def get_T5_model(
     localfile = True
     download = False
 
-    download = check_prostT5_download(model_dir, model_name)
+    download = check_model_download(model_dir, model_name)
+
     if download is True:
         localfile = False
-        logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
+        logger.info(f"{model_name} not found. Downloading {model_name} from Hugging Face")
     try:
-        model = T5EncoderModel.from_pretrained(
+        if model_name != "gbouras13/modernprost-base":
+            model = T5EncoderModel.from_pretrained(
+                model_name,
+                cache_dir=f"{model_dir}/",
+                force_download=download,
+                local_files_only=localfile,
+            ).to(device)
+        else:
+            model = AutoModel.from_pretrained(
             model_name,
+            trust_remote_code=True,
             cache_dir=f"{model_dir}/",
             force_download=download,
             local_files_only=localfile,
-        ).to(device)
+        )
 
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
-        download_zenodo_prostT5(model_dir, logdir, threads)
-
-        model = T5EncoderModel.from_pretrained(
+        if model_name != "gbouras13/modernprost-base":
+            download_zenodo_prostT5(model_dir, logdir, threads)
+            model = T5EncoderModel.from_pretrained(
+                model_name,
+                cache_dir=f"{model_dir}/",
+                force_download=False,
+                local_files_only=True,
+            ).to(device)
+        else:
+            # download_zenodo_prostT5(model_dir, logdir, threads)
+            model = AutoModel.from_pretrained(
             model_name,
+            trust_remote_code=True,
             cache_dir=f"{model_dir}/",
-            force_download=False,
-            local_files_only=True,
-        ).to(device)
+            force_download=download,
+            local_files_only=localfile,
+        )
+            model = model.half()
 
     model = model.eval()
-    vocab = T5Tokenizer.from_pretrained(
-        model_name, cache_dir=f"{model_dir}/", do_lower_case=False
-    )
+
+    # tokeniser
+
+    if model_name != "gbouras13/modernprost-base":
+        vocab = T5Tokenizer.from_pretrained(
+            model_name, cache_dir=f"{model_dir}/", do_lower_case=False
+        )
+    else:
+        vocab = AutoTokenizer.from_pretrained(
+            model_name,
+            trust_remote_code=True,
+            cache_dir=f"{model_dir}/",
+            force_download=download,
+            local_files_only=localfile,
+        )
+
 
     logger.info(f"{model_name} loaded")
 
@@ -479,17 +512,21 @@ def get_embeddings(
 
     prostt5_prefix = "<AA2fold>"
 
-    model, vocab = get_T5_model(model_dir, model_name, cpu, threads)
-    predictor = load_predictor(checkpoint_path)
+    model, vocab = get_model(model_dir, model_name, cpu, threads)
+    if model_name != "gbouras13/modernprost-base":
+        predictor = load_predictor(checkpoint_path)
 
-    logger.info("Beginning ProstT5 predictions")
+    logger.info(f"Beginning {model_name} predictions")
 
-    if half_precision:
-        model = model.half()
-        predictor = predictor.half()
-        logger.info("Using models in half-precision")
-    else:
-        logger.info("Using models in full-precision")
+    # modernprost always loaded in HP
+    if model_name != "gbouras13/modernprost-base":
+        if half_precision:
+            model = model.half()
+            predictor = predictor.half()
+            logger.info("Using models in half-precision")
+        else:
+            logger.info("Using models in full-precision")
+
 
     # loop over each record in the cds dict
     fail_ids = []
@@ -522,16 +559,18 @@ def get_embeddings(
         batch = list()
         for seq_idx, (pdb_id, seq, slen) in enumerate(tqdm(seq_dict, desc=f"Predicting 3Di for {record_id}"), 1):
 
-        # for seq_idx, (pdb_id, seq) in tqdm(
-        #     enumerate(seq_dict.items(), 1),
-        #     total=len(seq_dict),
-        #     desc=f"Predicting 3Di for {record_id}",
-        # ):
-            # for seq_idx, (pdb_id, seq) in enumerate(seq_dict.items(), 1):
+
+
             # replace non-standard AAs
             seq = seq.replace("U", "X").replace("Z", "X").replace("O", "X")
             seq_len = len(seq)
-            seq = prostt5_prefix + " " + " ".join(list(seq))
+
+            # only needed if old models 
+
+            if model_name != "gbouras13/modernprost-base":
+
+                seq = prostt5_prefix + " " + " ".join(list(seq))
+
             batch.append((pdb_id, seq, seq_len))
 
             # count residues in current batch and add the last sequence length to
@@ -546,18 +585,34 @@ def get_embeddings(
                 pdb_ids, seqs, seq_lens = zip(*batch)
                 batch = list()
 
+                # this is the same for modernprost and ProstT5
                 token_encoding = vocab.batch_encode_plus(
                     seqs,
                     add_special_tokens=True,
                     padding="longest",
                     return_tensors="pt",
                 ).to(device)
+
                 try:
-                    with torch.no_grad():
-                        embedding_repr = model(
-                            token_encoding.input_ids,
-                            attention_mask=token_encoding.attention_mask,
-                        )
+
+                    if model_name != "gbouras13/modernprost-base":
+
+
+                        with torch.no_grad():
+                            embedding_repr = model(
+                                token_encoding.input_ids,
+                                attention_mask=token_encoding.attention_mask,
+                            )
+                    else:
+                        inputs = {
+                            k: v.to(device)
+                            for k, v in token_encoding.items()
+                            if k != "token_type_ids"
+                        }
+                        with torch.no_grad():
+                            outputs = model(**inputs)
+
+
                 except RuntimeError:
                     logger.warning(f" number of residues in batch {n_res_batch}")
                     logger.warning(f" seq length is {seq_len}")
@@ -571,131 +626,183 @@ def get_embeddings(
                         fail_ids.append(id)
                     continue
 
-                # ProtT5 appends a special tokens at the end of each sequence
-                # Mask this also out during inference while taking into account the prostt5 prefix
+
                 try:
-                    for idx, s_len in enumerate(seq_lens):
-                        token_encoding.attention_mask[idx, s_len + 1] = 0
 
-                    # extract last hidden states (=embeddings)
-                    residue_embedding = embedding_repr.last_hidden_state.detach()
-                    # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
-                    residue_embedding = (
-                        residue_embedding
-                        * token_encoding.attention_mask.unsqueeze(dim=-1)
-                    )
-                    # slice off embedding of special token prepended before to each sequence
-                    residue_embedding = residue_embedding[:, 1:]
-                    prediction = predictor(residue_embedding)
+                    if model_name != "gbouras13/modernprost-base":
 
-                    # compute max probabilities per token/residue
-                    probabilities = toCPU(
-                        torch.max(F.softmax(prediction, dim=1), dim=1, keepdim=True)[0]
-                    )
+                        # ProtT5 appends a special tokens at the end of each sequence
+                        # Mask this also out during inference while taking into account the prostt5 prefix
 
-                    prediction = toCPU(
-                        torch.max(prediction, dim=1, keepdim=True)[1]
-                    ).astype(np.byte)
 
-                    # to get logits
-                    # t = prediction.transpose(1, 2)  # changes ( B x L x N ) to ( B x N x L )
-                    # logits = t.detach().cpu().numpy()
-                    # print(logits[0])
-                    # print(logits[0].shape)
+                        for idx, s_len in enumerate(seq_lens):
+                            token_encoding.attention_mask[idx, s_len + 1] = 0
 
-                    # prob_tensor = F.softmax(prediction, dim=1).cpu()
-                    # #print(prob_tensor.shape)
-                    # prob_matrix = prob_tensor.squeeze(0).transpose(0, 1)
-                    # #print(prob_matrix.shape)
-                    # all_sampled_states = {}
-                    # i = 1
-                    # while i < 11:
-                    #     all_sampled_states[i] = torch.multinomial(prob_matrix, 1).squeeze(1)
-                    #     i += 1
+                        # extract last hidden states (=embeddings)
+                        residue_embedding = embedding_repr.last_hidden_state.detach()
+                        # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
+                        residue_embedding = (
+                            residue_embedding
+                            * token_encoding.attention_mask.unsqueeze(dim=-1)
+                        )
+                        # slice off embedding of special token prepended before to each sequence
+                        residue_embedding = residue_embedding[:, 1:]
+                        prediction = predictor(residue_embedding)
 
-                    # sampled_states = torch.multinomial(prob_matrix, 1).squeeze(1)
-                    # sampled_states = torch.multinomial(prob_matrix, 100, replacement=True)
-                    # print(sampled_states)
-                    # print(sampled_states.shape)
-
-                    # batch-size x seq_len x embedding_dim
-                    # extra token is added at the end of the seq
-                    for batch_idx, identifier in enumerate(pdb_ids):
-                        s_len = seq_lens[batch_idx]
-
-                        # save embeddings
-                        if save_per_residue_embeddings or save_per_protein_embeddings:
-                            try:
-                                # account for prefix in offset
-                                emb = embedding_repr.last_hidden_state[
-                                    batch_idx, 1 : s_len + 1
-                                ]
-
-                                if save_per_residue_embeddings:
-                                    batch_embeddings_per_residue[identifier] = (
-                                        emb.detach().cpu().numpy().squeeze()
-                                    )
-
-                                if save_per_protein_embeddings:
-                                    batch_embeddings_per_protein[identifier] = (
-                                        emb.mean(dim=0).detach().cpu().numpy().squeeze()
-                                    )
-
-                            except:
-                                logger.warning(
-                                    f"Saving embeddings failed for {identifier}"
-                                )
-
-                        # slice off padding and special token appended to the end of the sequence
-                        pred = prediction[batch_idx, :, 0:s_len].squeeze()
-
-                        # always return the mean probs
-                        mean_prob = round(
-                            100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2
+                        # compute max probabilities per token/residue
+                        probabilities = toCPU(
+                            torch.max(F.softmax(prediction, dim=1), dim=1, keepdim=True)[0]
                         )
 
-                        if output_probs:  # if you want the per-residue probs
-                            all_prob = probabilities[batch_idx, :, 0:s_len]
+                        prediction = toCPU(
+                            torch.max(prediction, dim=1, keepdim=True)[1]
+                        ).astype(np.byte)
+
+
+                        # batch-size x seq_len x embedding_dim
+                        # extra token is added at the end of the seq
+                        for batch_idx, identifier in enumerate(pdb_ids):
+                            s_len = seq_lens[batch_idx]
+
+                            # save embeddings
+                            if save_per_residue_embeddings or save_per_protein_embeddings:
+                                try:
+                                    # account for prefix in offset
+                                    emb = embedding_repr.last_hidden_state[
+                                        batch_idx, 1 : s_len + 1
+                                    ]
+
+                                    if save_per_residue_embeddings:
+                                        batch_embeddings_per_residue[identifier] = (
+                                            emb.detach().cpu().numpy().squeeze()
+                                        )
+
+                                    if save_per_protein_embeddings:
+                                        batch_embeddings_per_protein[identifier] = (
+                                            emb.mean(dim=0).detach().cpu().numpy().squeeze()
+                                        )
+
+                                except:
+                                    logger.warning(
+                                        f"Saving embeddings failed for {identifier}"
+                                    )
+
+                            # slice off padding and special token appended to the end of the sequence
+                            pred = prediction[batch_idx, :, 0:s_len].squeeze()
+
+                            # always return the mean probs
+                            mean_prob = round(
+                                100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2
+                            )
+
+                            if output_probs:  # if you want the per-residue probs
+                                all_prob = probabilities[batch_idx, :, 0:s_len]
+                                batch_predictions[identifier] = (
+                                    pred,
+                                    mean_prob,
+                                    all_prob,
+                                )
+                            else:
+                                batch_predictions[identifier] = (pred, mean_prob, None)
+
+                    else:
+
+                        # modernprost
+
+                        logits = outputs.logits
+
+                        probabilities = toCPU(
+                            torch.max(F.softmax(logits, dim=-1), dim=-1, keepdim=True).values
+                        )
+                        for batch_idx, identifier in enumerate(pdb_ids): # way easier than ProstT5
+                            s_len = seq_lens[batch_idx]
+
+
+                            # save embeddings
+                            if save_per_residue_embeddings or save_per_protein_embeddings:
+                                try:
+                                    # confusingly I called hidden_states = outputs.last_hidden_state https://huggingface.co/gbouras13/modernprost-base/blob/main/modeling_modernprost.py
+                                    # so this is the last layer
+                                    emb = outputs.hidden_states[
+                                        batch_idx, 0:s_len
+                                    ]
+
+                                    if save_per_residue_embeddings:
+                                        outputs[identifier] = (
+                                            emb.detach().cpu().numpy().squeeze()
+                                        )
+
+                                    if save_per_protein_embeddings:
+                                        batch_embeddings_per_protein[identifier] = (
+                                            emb.mean(dim=0).detach().cpu().numpy().squeeze()
+                                        )
+
+                                except:
+                                    logger.warning(
+                                        f"Saving embeddings failed for {identifier}"
+                                    )
+
+
+
+                            pred = logits[batch_idx, 0:s_len, :].squeeze()
+
+                            pred = toCPU(
+                                torch.argmax(pred, dim=1, keepdim=True)
+                            ).astype(np.byte)
+
+                            # doubles the length of time taken
+                            mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
+                            
                             batch_predictions[identifier] = (
                                 pred,
                                 mean_prob,
-                                all_prob,
+                                all_prob
                             )
-                        else:
-                            batch_predictions[identifier] = (pred, mean_prob, None)
+                            if output_probs:  # if you want the per-residue probs
+                                all_prob = probabilities[batch_idx, 0:s_len]
+                                batch_predictions[identifier] = (
+                                    pred,
+                                    mean_prob,
+                                    all_prob,
+                                )
+                            else:
+                                batch_predictions[identifier] = (pred, mean_prob, None)
 
-                        try:
-                            len(batch_predictions[identifier][0])
-                        except:
-                            logger.warning(
-                                f"{identifier} {record_id} prediction has length 0"
-                            )
-                            fail_ids.append(identifier)
-                            continue
+                    # some catch statements regardless of model
 
-                        if s_len != len(batch_predictions[identifier][0]):
-                            logger.warning(
-                                f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
-                            )
+                    try:
+                        len(batch_predictions[identifier][0])
+                    except:
+                        logger.warning(
+                            f"{identifier} {record_id} prediction has length 0"
+                        )
+                        fail_ids.append(identifier)
+                        continue
 
-                        # reorder to match the original FASTA
-                        predictions[record_id] = {}
+                    if s_len != len(batch_predictions[identifier][0]):
+                        logger.warning(
+                            f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
+                        )
 
+
+                    # reorder to match the original FASTA
+                    predictions[record_id] = {}
+
+                    for k in original_keys:
+                        if k in batch_predictions:
+                            predictions[record_id][k] = batch_predictions[k]
+                    
+                    if save_per_residue_embeddings:
+                        embeddings_per_residue[record_id] = {}
                         for k in original_keys:
                             if k in batch_predictions:
-                                predictions[record_id][k] = batch_predictions[k]
-                        
-                        if save_per_residue_embeddings:
-                            embeddings_per_residue[record_id] = {}
-                            for k in original_keys:
-                                if k in batch_predictions:
-                                    embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
+                                embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
 
-                        if save_per_protein_embeddings:
-                            embeddings_per_protein[record_id] = {}
-                            for k in original_keys:
-                                if k in batch_predictions:
-                                    embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
+                    if save_per_protein_embeddings:
+                        embeddings_per_protein[record_id] = {}
+                        for k in original_keys:
+                            if k in batch_predictions:
+                                embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
 
 
                 except IndexError:
@@ -729,14 +836,18 @@ def get_embeddings(
         write_embeddings(embeddings_per_protein, output_h5_per_protein)
 
     # always write the mean embeddings
+    if model_name != "gbouras13/modernprost-base":
+        model_prefix = "modernprost"
+    else:
+        model_prefix = "prostT5"
     mean_probs_out_path: Path = (
-        Path(out_path) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+        Path(out_path) / f"{prefix}_{model_prefix}_3di_mean_probabilities.csv"
     )
 
     # output per residue probs
     if output_probs:
         all_probs_out_path: Path = (
-            Path(out_path) / f"{prefix}_prostT5_3di_all_probabilities.json"
+            Path(out_path) / f"{prefix}_{model_prefix}_3di_all_probabilities.json"
         )
     else:
         all_probs_out_path = None

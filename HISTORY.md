@@ -1,5 +1,16 @@
 # History
 
+1.2.0 (2026-01-07)
+----------------
+* Improved ProstT5 3Di prediction throughput for  `phold run`, `phold predict` and `phold proteins-predict` due to smarter batching implmentations
+* Addition of `phold autotune` subcommand to detect an appropriate --batch_size for your hardware
+* You can also use `--autotune` with `phold run`, `phold predict` and `phold proteins-predict` to automatically detect and use the optimal `--batch_size` (only recommended for large datasets with thousands of proteins)
+
+1.1.0 (2025-11-07)
+----------------
+* Integration with suvtk to make to it easier to submit Pharokka and Phold annotated genomes to Genbank - thanks to @LanderDC for suvtk and integration. See https://github.com/gbouras13/phold?tab=readme-ov-file#genbank-submission for more details
+* Adds --restart parameter to complete large phold compare jobs https://github.com/gbouras13/phold/issues/79
+
 1.0.1 (2025-08-12)
 ------------------
 

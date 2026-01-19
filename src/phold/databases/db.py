@@ -122,6 +122,19 @@ PROSTT5_FINETUNE_MD5_DICTIONARY = {
     },
 }
 
+MODERNPROST_MD5_DICTIONARY = {
+    "refs": {"main": "2cf8c33c2dae392d8fa318159055d2b9"},
+    "blobs": {
+        "3affba245844e25b06a42a8c391f7986b946876c": "606ebadf5a7d4c279836946079139751",
+        "53b8d94c05322ed5a0c9e8943fe3dd4d1dbf686d": "5f60ef03a82181c7d753d8684f80dc7b",
+        "79ae7ea5bf033de69d0055820c57885e3d377bbb": "ff61a5dbe8524c07029da979ddfda1f1",
+        "836217e966c7aa8995a9977624f8bdaa183d11ab": "7b3c0cd1469a641e4d7fd6851fb50527",
+        "9808c3b08304d2fc0e610d3925c8afdf78acb40d": "16a197d346fc82a0288d9c0b6420f755",
+        "b0b47af9cdacafe9ba1721eb1b1bc6fad09fc3a787d08f8d6aef485527ec9cc2": "8b5d9766750a0b860cb893de66c22ee1",
+        "e2e467ca5b84ec3ee084e8c5e9ab072ab0e9dc97": "2d21d9427afacb97bb2e70b1ddea5a03",
+        "e37f6d83abfb382fdf8247cc1f9d139fbae2074b": "25bbf971c4a00767b50caa4b5446ab80",
+    },
+}
 
 PHOLD_DB_FOLDSEEK_GPU_NAMES = ["all_phold_structures_gpu"]
 
@@ -318,7 +331,7 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
     tarball_path.unlink()
 
 
-def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
+def check_model_download(model_dir: Path, model_name: str) -> bool:
     """
      Args:
         model_dir (Path): Directory where the model and tokenizer is be stored.
@@ -330,7 +343,11 @@ def check_prostT5_download(model_dir: Path, model_name: str) -> bool:
     # assumes already has been downloaded
     download = False
 
-    if model_name == "Rostlab/ProstT5_fp16":
+    if model_name == "gbouras13/modernprost-base":
+        model_sub_dir = "models--Rostlab--ProstT5_fp16"
+        DICT = MODERNPROST_MD5_DICTIONARY
+
+    elif model_name == "Rostlab/ProstT5_fp16":
 
         model_sub_dir = "models--Rostlab--ProstT5_fp16"
         DICT = PROSTT5_MD5_DICTIONARY

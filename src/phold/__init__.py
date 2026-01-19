@@ -11,7 +11,7 @@ from pycirclize.parser import Genbank
 
 from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
-from phold.features.predict_3Di import get_T5_model
+from phold.features.predict_3Di import get_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.io.handle_genbank import open_protein_fasta_file
 from phold.plot.plot import create_circos_plot
@@ -138,6 +138,11 @@ def predict_options(func):
             "--vanilla",
             is_flag=True,
             help="Use vanilla CNN model (trained on CASP14) with ProstT5Phold encoder instead of the one trained on phage proteins",
+        ),
+        click.option(
+            "--original",
+            is_flag=True,
+            help="Use original ProstT5 + CNN model, not ModernProst",
         ),
         click.option(
             "--hyps",
@@ -283,6 +288,7 @@ def run(
     finetune,
     vanilla,
     restart,
+    original,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -320,7 +326,8 @@ def run(
         "--hyps": hyps,
         "--finetune": finetune,
         "--vanilla": vanilla,
-        "--restart": restart
+        "--restart": restart,
+        "--original": original
     }
 
     # initial logging etc
@@ -338,9 +345,14 @@ def run(
 
     if not restart:
         # phold predict
+
         model_dir = database
-        model_name = "Rostlab/ProstT5_fp16"
-        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+        model_name = "gbouras13/modernprost-base"
+        checkpoint_path = None
+
+        if original:
+            model_name = "Rostlab/ProstT5_fp16"
+            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
         if finetune:
             model_name = "gbouras13/ProstT5Phold"
@@ -463,6 +475,7 @@ def predict(
     finetune,
     vanilla,
     hyps,
+    original,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -490,6 +503,7 @@ def predict(
         "--finetune": finetune,
         "--vanilla": vanilla,
         "--hyps": hyps,
+        "--original": original
     }
 
     # initial logging etc
@@ -503,8 +517,13 @@ def predict(
 
     # runs phold predict subcommand
     model_dir = database
-    model_name = "Rostlab/ProstT5_fp16"
-    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    model_name = "gbouras13/modernprost-base"
+    checkpoint_path = None
+
+    if original:
+        model_name = "Rostlab/ProstT5_fp16"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
 
     if finetune:
         model_name = "gbouras13/ProstT5Phold"
@@ -736,6 +755,7 @@ def proteins_predict(
     mask_threshold,
     finetune,
     vanilla,
+    original,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -762,6 +782,7 @@ def proteins_predict(
         "--mask_threshold": mask_threshold,
         "--finetune": finetune,
         "--vanilla": vanilla,
+        "--original": original
     }
 
     # initial logging etc
@@ -806,8 +827,13 @@ def proteins_predict(
 
     # runs phold predict subcommand
     model_dir = database
-    model_name = "Rostlab/ProstT5_fp16"
-    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+    model_name = "gbouras13/modernprost-base"
+    checkpoint_path = None
+
+    if original:
+        model_name = "Rostlab/ProstT5_fp16"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
 
     if finetune:
         model_name = "gbouras13/ProstT5Phold"
@@ -1329,12 +1355,18 @@ install command
     type=int,
     show_default=True,
 )
+@click.option(
+            "--original",
+            is_flag=True,
+            help="Use original ProstT5 + CNN model, not ModernProst",
+        )
 def install(
     ctx,
     database,
     foldseek_gpu,
     extended_db,
     threads,
+    original,
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
@@ -1350,20 +1382,22 @@ def install(
         )
         database = Path(DB_DIR)
 
-    model_name = "Rostlab/ProstT5_fp16"
+    model_name = "gbouras13/modernprost-base"
+    if original:
+        model_name = "Rostlab/ProstT5_fp16"
 
     logger.info(
-        f"Checking that the {model_name} ProstT5 model is available in {database}"
+        f"Checking that the {model_name} model is available in {database}"
     )
 
     # always install with cpu mode as guarantee to be present
     cpu = True
 
     # load model (will be downloaded if not present)
-    model, vocab = get_T5_model(database, model_name, cpu, threads=1)
+    model, vocab = get_model(database, model_name, cpu, threads=1)
     del model
     del vocab
-    logger.info(f"ProstT5 model downloaded")
+    logger.info(f"Model downloaded")
 
     # will check if db is present, and if not, download it
     install_database(database, foldseek_gpu, extended_db, threads)
