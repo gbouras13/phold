@@ -344,7 +344,7 @@ def check_model_download(model_dir: Path, model_name: str) -> bool:
     download = False
 
     if model_name == "gbouras13/modernprost-base":
-        model_sub_dir = "models--Rostlab--ProstT5_fp16"
+        model_sub_dir = "models--gbouras13--modernprost-base"
         DICT = MODERNPROST_MD5_DICTIONARY
 
     elif model_name == "Rostlab/ProstT5_fp16":
