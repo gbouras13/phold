@@ -1,7 +1,7 @@
 
 # autobatch
 
-from phold.features.predict_3Di import  get_T5_model
+from phold.features.predict_3Di import  get_model
 from tqdm import tqdm
 import random
 import torch
@@ -55,7 +55,7 @@ def autotune_batching_real_data(
     step=5 # step size
 ):
     
-    model, tokenizer = get_T5_model(model_dir, model_name, cpu, threads)
+    model, tokenizer = get_model(model_dir, model_name, cpu, threads)
     model.eval()
     model.half()
 
