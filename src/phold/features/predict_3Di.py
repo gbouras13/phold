@@ -153,15 +153,13 @@ def get_model(
                 local_files_only=True,
             ).to(device)
         else:
-            # to remove the stdout prints
-            with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
-                model = AutoModel.from_pretrained(
-                    model_name,
-                    trust_remote_code=True,
-                    cache_dir=f"{model_dir}/",
-                    force_download=download,
-                    local_files_only=localfile,
-                )
+            model = AutoModel.from_pretrained(
+                model_name,
+                trust_remote_code=True,
+                cache_dir=f"{model_dir}/",
+                force_download=download,
+                local_files_only=localfile,
+            )
 
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
