@@ -21,10 +21,13 @@ from loguru import logger
 from torch import nn
 from tqdm import tqdm
 from transformers import T5EncoderModel, T5Tokenizer, AutoModel, AutoTokenizer
+from transformers import logging
 
 from phold.databases.db import check_model_download, download_zenodo_prostT5
 from phold.utils.constants import CNN_DIR
 
+# set transformers logging verbosity
+logging.set_verbosity_warning()
 
 # Convolutional neural network (two convolutional layers)
 class CNN(nn.Module):
