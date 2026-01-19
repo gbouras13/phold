@@ -748,6 +748,20 @@ def get_embeddings(
                             else:
                                 batch_predictions[identifier] = (pred, mean_prob, None)
 
+                            try:
+                                len(batch_predictions[identifier][0])
+                            except:
+                                logger.warning(
+                                    f"{identifier} {record_id} prediction has length 0"
+                                )
+                                fail_ids.append(identifier)
+                                continue
+
+                            if s_len != len(batch_predictions[identifier][0]):
+                                logger.warning(
+                                    f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
+                                )
+
                     else:
 
                         # modernprost
@@ -817,6 +831,20 @@ def get_embeddings(
                                 chunk_store[base_id][chunk_idx] = (
                                         pred,
                                         all_prob)
+
+                                try:
+                                    len(chunk_store[base_id][chunk_idx][0])
+                                except:
+                                    logger.warning(
+                                        f"{identifier} {record_id} prediction has length 0"
+                                    )
+                                    fail_ids.append(base_id)
+                                    continue
+
+                                if s_len != len(chunk_store[base_id][chunk_idx][0]):
+                                    logger.warning(
+                                        f"Length mismatch for {identifier}: is:{len(chunk_store[base_id][chunk_idx][0])} vs should:{s_len}"
+                                    )
                                 
                             else:
                                 mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
@@ -831,22 +859,21 @@ def get_embeddings(
                                     batch_predictions[identifier] = (pred, mean_prob, None)
 
 
-                                            # some catch statements regardless of model
+                                # some catch statements regardless of model
 
+                                try:
+                                    len(batch_predictions[identifier][0])
+                                except:
+                                    logger.warning(
+                                        f"{identifier} {record_id} prediction has length 0"
+                                    )
+                                    fail_ids.append(identifier)
+                                    continue
 
-                            try:
-                                len(batch_predictions[identifier][0])
-                            except:
-                                logger.warning(
-                                    f"{identifier} {record_id} prediction has length 0"
-                                )
-                                fail_ids.append(identifier)
-                                continue
-
-                            if s_len != len(batch_predictions[identifier][0]):
-                                logger.warning(
-                                    f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
-                                )
+                                if s_len != len(batch_predictions[identifier][0]):
+                                    logger.warning(
+                                        f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
+                                    )
 
 
                     ######################################
