@@ -361,7 +361,6 @@ def write_probs(
     predictions: Dict[str, Tuple[int, float, Union[int, np.ndarray]]],
     output_path_mean: Path,
     output_path_all: Path,
-    original_keys: list[str],
 ) -> None:
     """
     Write all ProstT5 encoder + CNN probabilities and mean probabilities to output files.
@@ -381,23 +380,14 @@ def write_probs(
 
         # ---- write mean probabilities ----
         with open(output_path_mean, "w+") as out_f:
-            for seq_id in original_keys:
-                if seq_id not in contig_predictions:
-                    logger.warning(f"Missing model mean confidence for {seq_id}")
-                    continue
+            for seq_id, (N, mean_prob, N) in contig_predictions.items():
 
-                _, mean_prob, _ = contig_predictions[seq_id]
                 out_f.write(f"{seq_id},{mean_prob}\n")
 
         # ---- write per-residue probabilities ----
         if output_path_all is not None:
             with open(output_path_all, "w+") as out_f:
-                for seq_id in original_keys:
-                    if seq_id not in contig_predictions:
-                        logger.warning(f"Missing model confidence for {seq_id}")
-                        continue
-
-                    _, _, all_probs = contig_predictions[seq_id]
+                for seq_id, (N, N, all_probs) in contig_predictions.items():
 
                     # convert to percentage - no need to flatten as all_probs # flat (L,)
                     probs = (all_probs * 100).tolist()
