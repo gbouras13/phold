@@ -860,87 +860,6 @@ def get_embeddings(
                                     logger.warning(
                                         f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
                                     )
-
-
-                    ######################################
-                    # --- recombine chunked sequences ---
-
-                    if model_name == "gbouras13/modernprost-base":
-                        for pid, chunks in chunk_store.items():
-                            preds = []
-                            probs_all = []
-
-                            for idx in sorted(chunks):
-                                
-                                pred, prob = chunks[idx]
-                                preds.append(pred)
-                                if prob is not None:
-                                    probs_all.append(prob)
-
-                            # always needed to calculate the mean confidence
-                            pred_full = np.concatenate(preds)
-                            probs_full = np.concatenate(probs_all)
-                            mean_prob = round(100 * probs_full.mean(), 2)
-
-
-                            if not output_probs: # only output full probs if true
-                                probs_full = None
-
-                            batch_predictions[pid] = (
-                                pred_full,
-                                mean_prob,
-                                probs_full,
-                            )
-                      
-                        if save_per_residue_embeddings:
-                                        
-                            for pid, chunks in chunk_embeddings_per_residue.items():
-                                embs_all = []
-
-                                for idx in sorted(chunks):
-                                    emb = chunks[idx]
-                                    embs_all.append(emb)
-
-                                # concatenate the actual collected embeddings
-                                embs_full = np.concatenate(embs_all, axis=0)  # make sure axis is correct
-
-                                batch_embeddings_per_residue[pid] = embs_full
-
-                        if save_per_protein_embeddings:
-                                        
-                            for pid, chunks in chunk_embeddings_per_protein.items():
-                                embs_all = []
-
-                                for idx in sorted(chunks):
-                                    emb = chunks[idx]
-                                    embs_all.append(emb)
-
-                                # concatenate the actual collected embeddings
-                                embs_full = np.concatenate(embs_all, axis=0)
-
-                                batch_embeddings_per_protein[pid] = embs_full
-
-
-                    # reorder to match the original FASTA
-                    predictions[record_id] = {}
-
-                    for k in original_keys:
-                        if k in batch_predictions:
-                            predictions[record_id][k] = batch_predictions[k]
-                    
-                    if save_per_residue_embeddings:
-                        embeddings_per_residue[record_id] = {}
-                        for k in original_keys:
-                            if k in batch_predictions:
-                                embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
-
-                    if save_per_protein_embeddings:
-                        embeddings_per_protein[record_id] = {}
-                        for k in original_keys:
-                            if k in batch_predictions:
-                                embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
-
-
                 except IndexError:
                     logger.warning(
                         "Index error during prediction for {} (L={})".format(
@@ -950,6 +869,86 @@ def get_embeddings(
                     for id in pdb_ids:
                         fail_ids.append(id)
                     continue
+
+                    ######################################
+                    # --- recombine chunked sequences ---
+
+            if model_name == "gbouras13/modernprost-base":
+                for pid, chunks in chunk_store.items():
+                    preds = []
+                    probs_all = []
+
+                    for idx in sorted(chunks):
+                        
+                        pred, prob = chunks[idx]
+                        preds.append(pred)
+                        if prob is not None:
+                            probs_all.append(prob)
+
+                    # always needed to calculate the mean confidence
+                    pred_full = np.concatenate(preds)
+                    probs_full = np.concatenate(probs_all)
+                    mean_prob = round(100 * probs_full.mean(), 2)
+
+
+                    if not output_probs: # only output full probs if true
+                        probs_full = None
+
+                    batch_predictions[pid] = (
+                        pred_full,
+                        mean_prob,
+                        probs_full,
+                    )
+                
+                if save_per_residue_embeddings:
+                                
+                    for pid, chunks in chunk_embeddings_per_residue.items():
+                        embs_all = []
+
+                        for idx in sorted(chunks):
+                            emb = chunks[idx]
+                            embs_all.append(emb)
+
+                        # concatenate the actual collected embeddings
+                        embs_full = np.concatenate(embs_all, axis=0)  # make sure axis is correct
+
+                        batch_embeddings_per_residue[pid] = embs_full
+
+                if save_per_protein_embeddings:
+                                
+                    for pid, chunks in chunk_embeddings_per_protein.items():
+                        embs_all = []
+
+                        for idx in sorted(chunks):
+                            emb = chunks[idx]
+                            embs_all.append(emb)
+
+                        # concatenate the actual collected embeddings
+                        embs_full = np.concatenate(embs_all, axis=0)
+
+                        batch_embeddings_per_protein[pid] = embs_full
+
+
+            # reorder to match the original FASTA
+            predictions[record_id] = {}
+
+            for k in original_keys:
+                if k in batch_predictions:
+                    predictions[record_id][k] = batch_predictions[k]
+            
+            if save_per_residue_embeddings:
+                embeddings_per_residue[record_id] = {}
+                for k in original_keys:
+                    if k in batch_predictions:
+                        embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
+
+            if save_per_protein_embeddings:
+                embeddings_per_protein[record_id] = {}
+                for k in original_keys:
+                    if k in batch_predictions:
+                        embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
+
+
 
     # write list of fails if length > 0
     if len(fail_ids) > 0:
