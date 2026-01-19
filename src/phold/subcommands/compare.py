@@ -432,14 +432,24 @@ def subcommand_compare(
     # add qcov and tcov
     merged_df = calculate_qcov_tcov(merged_df)
 
-    # NEEDS TO READ IN THE f"{prefix}_prostT5_3di_mean_probabilities.csv" - can't pass from the predict function in case using phold compare
     if predictions_dir is None:  # if running phold run
-        mean_probs_out_path: Path = (
-            Path(output) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
-        )
-    else:  # if running phold compare or phold proteins-compare
-        mean_probs_out_path: Path = (
-            Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+        base_dir = Path(output)
+    else:  # phold compare / proteins-compare
+        base_dir = Path(predictions_dir)
+
+    prostt5_path = base_dir / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+    modernprost_path = base_dir / f"{prefix}_modernprost_3di_mean_probabilities.csv"
+
+    if prostt5_path.exists():
+        mean_probs_out_path = prostt5_path
+    elif modernprost_path.exists():
+        mean_probs_out_path = modernprost_path
+    else:
+        logger.error(
+            f"Could not find mean probabilities CSV. "
+            f"Expected one of:\n"
+            f"  {modernprost_path}\n"
+            f"  {prostt5_path}"
         )
 
     # merge in confidence scores - only for not structures
