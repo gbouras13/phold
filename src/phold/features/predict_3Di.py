@@ -614,7 +614,7 @@ def get_embeddings(
                     for chunk_idx, (start, subseq) in enumerate(chunk_sequence(seq, chunk_len)): # hardcoded to 1568
                         chunk_pid = f"{pdb_id}__chunk{chunk_idx}"
                         batch.append((chunk_pid, subseq, len(subseq)))
-                        res_batch += len(subseq)
+                        n_res_batch += len(subseq)
                 else:
                     batch.append((pdb_id, seq, slen))
 
