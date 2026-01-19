@@ -607,11 +607,7 @@ def get_embeddings(
                         n_res_batch += len(subseq)
                 else:
                     batch.append((pdb_id, seq, slen))
-
-
-            # count residues in current batch and add the last sequence length to
-            # avoid that batches with (n_res_batch > max_residues) get processed
-            n_res_batch += slen
+                    n_res_batch += slen
 
             if (
                 len(batch) >= max_batch
