@@ -51,7 +51,7 @@ VERSION_DICTIONARY = {
         "prostt5_backup_url": "https://zenodo.org/records/11234657/files/models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_tarball": "models--Rostlab--ProstT5_fp16.tar.gz",
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
-        "modernprost_backup_url": "https://zenodo.org/records/18294880/files/models--gbouras13--modernprost-base.tar.gz",
+        "modernprost_backup_url": "https://zenodo.org/records/18343862/files/models--gbouras13--modernprost-base.tar.gz",
         "modernprost_backup_tarball": "models--gbouras13--modernprost-base.tar.gz",
         "modernprost_backup_md5": "aef09f0b220eec3be60f8d3c2132d74b",
     },
@@ -73,7 +73,7 @@ VERSION_DICTIONARY_3M16 = {
         "prostt5_backup_md5": "118c1997e6d2cb5025abda95d36681e0",
         "modernprost_backup_url": "https://zenodo.org/records/18294880/files/models--gbouras13--modernprost-base.tar.gz",
         "modernprost_backup_tarball": "models--gbouras13--modernprost-base.tar.gz",
-        "modernprost_backup_md5": "aef09f0b220eec3be60f8d3c2132d74b",
+        "modernprost_backup_md5": "35295726dd5de49c09c62da538f7fa06",
     }
 }
 
@@ -114,6 +114,8 @@ PROSTT5_MD5_DICTIONARY = {
     },
 }
 
+# md5sum
+
 PROSTT5_FINETUNE_MD5_DICTIONARY = {
     "refs": {"main": "833198a97a993b079841bb51b3096b6a"},
     "blobs": {
@@ -131,14 +133,15 @@ PROSTT5_FINETUNE_MD5_DICTIONARY = {
 MODERNPROST_MD5_DICTIONARY = {
     "refs": {"main": "2cf8c33c2dae392d8fa318159055d2b9"},
     "blobs": {
-        "3affba245844e25b06a42a8c391f7986b946876c": "606ebadf5a7d4c279836946079139751",
-        "53b8d94c05322ed5a0c9e8943fe3dd4d1dbf686d": "5f60ef03a82181c7d753d8684f80dc7b",
-        "79ae7ea5bf033de69d0055820c57885e3d377bbb": "ff61a5dbe8524c07029da979ddfda1f1",
-        "836217e966c7aa8995a9977624f8bdaa183d11ab": "7b3c0cd1469a641e4d7fd6851fb50527",
-        "9808c3b08304d2fc0e610d3925c8afdf78acb40d": "16a197d346fc82a0288d9c0b6420f755",
-        "b0b47af9cdacafe9ba1721eb1b1bc6fad09fc3a787d08f8d6aef485527ec9cc2": "8b5d9766750a0b860cb893de66c22ee1",
         "e2e467ca5b84ec3ee084e8c5e9ab072ab0e9dc97": "2d21d9427afacb97bb2e70b1ddea5a03",
+        "79ae7ea5bf033de69d0055820c57885e3d377bbb": "ff61a5dbe8524c07029da979ddfda1f1",
+        "9808c3b08304d2fc0e610d3925c8afdf78acb40d": "16a197d346fc82a0288d9c0b6420f755",
         "e37f6d83abfb382fdf8247cc1f9d139fbae2074b": "25bbf971c4a00767b50caa4b5446ab80",
+        "1aec4a0685349cfd40b9e67d2b524610d840aa69382298a09236074f8f6df7f1": "a3dd18997fd298884ee214314d24cba3",
+        "2d2d0db1fe28355a354ba9a5723fd9ba23b6bb8a": "dd951ee74a41b9798f6b99d282f55934",
+        "3affba245844e25b06a42a8c391f7986b946876c": "606ebadf5a7d4c279836946079139751",
+        "836217e966c7aa8995a9977624f8bdaa183d11ab": "7b3c0cd1469a641e4d7fd6851fb50527",
+        "f726a126ab551585fbee4ecb0b0ad4310ff758e3": "abde8efbae15f7a0ac5b1da2c508ec8d"
     },
 }
 

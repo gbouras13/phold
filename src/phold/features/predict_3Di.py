@@ -764,9 +764,10 @@ def get_embeddings(
                             # save embeddings
                             if save_per_residue_embeddings or save_per_protein_embeddings:
                                 try:
-                                    # confusingly I called hidden_states = outputs.last_hidden_state https://huggingface.co/gbouras13/modernprost-base/blob/main/modeling_modernprost.py
-                                    # so this is the last layer
-                                    emb = outputs.hidden_states[
+
+                                    # outputs.hidden_states[-1] get the final layer embedding
+
+                                    emb = outputs.hidden_states[-1][
                                         batch_idx, 0:s_len
                                     ]
 
