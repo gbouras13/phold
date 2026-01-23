@@ -390,7 +390,7 @@ def subcommand_compare(
     )
 
     # if prostt5, query will repeat contig_id in query - convert to cds_id
-    if structures is False and proteins_flag is False:
+    if structures is False and proteins_flag is False and profiles is False:
         weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
             "query"
         ].str.split(":", expand=True, n=1)
