@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
-from phold.features.profiles import generate_mmseqs_db_from_aa
+from phold.features.profiles import generate_mmseqs_db_from_aa, build_lookup
 
 def mask_low_confidence_aa(sequence, scores, threshold=0.25):
     """
@@ -220,8 +220,32 @@ def subcommand_predict(
     logdir: Path = Path(output) / "logs"
 
     if model_name == "gbouras13/modernprost-profiles":
+
+
         generate_mmseqs_db_from_aa(cds_dict, output, logdir, prefix, proteins_flag)
 
+
+        mmseqs2_db_dir: Path = Path(output) / f"query_profiledb" # this will be subdir where the mmseqs2 db is 
+        mmseqs2_db_dir.mkdir(parents=True, exist_ok=True)
+
+        # create MMSeqs2 db names
+        short_db_name = f"{prefix}"
+
+        mmseqs_db_lookup: Path = Path(mmseqs2_db_dir) / f"{short_db_name}.lookup"
+
+        pssm_output_db: Path = Path(mmseqs2_db_dir) / f"{short_db_name}_profile_ss"
+        pssm_index = pssm_output_db + ".index"
+
+        lookup = build_lookup(mmseqs_db_lookup)
+
+        pssm_db_builder = {
+            "lookup": lookup,
+            "parts": [],
+            "index_lines": [],
+            "offset": 0,
+            "output_db": pssm_output_db,
+            "index_file": pssm_index,
+        }
 
     predictions = get_embeddings(
         cds_dict,

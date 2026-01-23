@@ -26,14 +26,13 @@ def generate_mmseqs_db_from_aa(
         None
     """
 
-    mmseqs2_db_path: Path = Path(output) / f"query_profiledb" # this will be the mmseqs2 db
-    mmseqs2_db_path.mkdir(parents=True, exist_ok=True)
+    mmseqs2_db_dir: Path = Path(output) / f"query_profiledb" # this will be subdir where the mmseqs2 db is 
+    mmseqs2_db_dir.mkdir(parents=True, exist_ok=True)
 
     # create MMSeqs2 db names
     short_db_name = f"{prefix}"
 
-    lookup_db_name: Path = Path(mmseqs2_db_path) / f"{short_db_name}.lookup"
-
+    lookup_db_name: Path = Path(mmseqs2_db_dir) / f"{short_db_name}.lookup"
 
     temp_aa_tsv = Path(output) / "aa.tsv"
     temp_header_tsv = Path(output) / "header.tsv"
@@ -53,8 +52,8 @@ def generate_mmseqs_db_from_aa(
                     idx += 1
 
     
-    aa_db_name: Path = Path(mmseqs2_db_path) / short_db_name
-    header_db_name: Path = Path(mmseqs2_db_path) / f"{short_db_name}_h"
+    aa_db_name: Path = Path(mmseqs2_db_dir) / short_db_name
+    header_db_name: Path = Path(mmseqs2_db_dir) / f"{short_db_name}_h"
 
     # create Foldseek database with foldseek tsv2db
 
@@ -64,3 +63,17 @@ def generate_mmseqs_db_from_aa(
     # clean up
     remove_file(temp_aa_tsv)
     remove_file(temp_header_tsv)
+
+
+def build_lookup(filename):
+    """
+    builds foldseek profile lookup using mmseqs lookup
+    """
+    lookup = {}
+    with open(filename, "r") as file:
+        for line in file:
+            parts = line.strip().split("\t")
+            if len(parts) >= 2:
+                key, value = parts[1], parts[0]
+                lookup[key] = value
+    return lookup
