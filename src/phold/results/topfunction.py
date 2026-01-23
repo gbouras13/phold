@@ -14,6 +14,7 @@ def get_topfunctions(
     structures: bool,
     card_vfdb_evalue: float,
     proteins_flag: bool,
+    profiles: bool
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Process Foldseek output to extract top functions and weighted bitscores.
@@ -25,6 +26,7 @@ def get_topfunctions(
         structures (bool): Flag indicating whether structures have been added.
         card_vfdb_evalue (float): E-value threshold for card and vfdb hits.
         proteins_flag (bool): Flag indicating whether proteins are used.
+        profiles (bool): Flag indicating whether profiles were used
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames:
@@ -84,12 +86,12 @@ def get_topfunctions(
     foldseek_df["annotation_source"] = "foldseek"
 
     # gets the cds
-    if structures is False and proteins_flag is False:
+    if structures is False and proteins_flag is False and profiles is False:
         # prostt5
         foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
             ":", expand=True, n=1
         )
-    # structures or proteins_flag or both
+    # structures or proteins_flag or profiles or both
     else:
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
         foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".cif", "")

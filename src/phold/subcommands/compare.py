@@ -362,7 +362,7 @@ def subcommand_compare(
         database_name = "all_phold_structures_clustered_searchDB"
 
     filtered_topfunctions_df, weighted_bitscore_df = get_topfunctions(
-        result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag
+        result_tsv, database, database_name, structures, card_vfdb_evalue, proteins_flag, profiles
     )
 
     # update the CDS dictionary with the tophits
