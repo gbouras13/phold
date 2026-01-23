@@ -29,6 +29,9 @@ def generate_mmseqs_db_from_aa(
     mmseqs2_db_path: Path = Path(output) / f"query_profiledb" # this will be the mmseqs2 db
     mmseqs2_db_path.mkdir(parents=True, exist_ok=True)
 
+    # create MMSeqs2 db names
+    short_db_name = f"{prefix}"
+
     lookup_db_name: Path = Path(mmseqs2_db_path) / f"{short_db_name}.lookup"
 
 
@@ -49,8 +52,7 @@ def generate_mmseqs_db_from_aa(
                     l_f.write(f"{idx-1}\t{header}\t0")
                     idx += 1
 
-    # create MMSeqs2 db names
-    short_db_name = f"{prefix}"
+    
     aa_db_name: Path = Path(mmseqs2_db_path) / short_db_name
     header_db_name: Path = Path(mmseqs2_db_path) / f"{short_db_name}_h"
 
