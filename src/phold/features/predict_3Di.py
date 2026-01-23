@@ -30,7 +30,7 @@ from transformers import T5EncoderModel, T5Tokenizer, AutoModel, AutoTokenizer
 from phold.databases.db import check_model_download, download_zenodo_model
 from phold.utils.constants import CNN_DIR
 from phold.features.profiles import computeLogPSSM, toBuffer_pssm, build_database_seq, copy_and_create_extras, sort_index_file
-
+from phold.utils.util import remove_file
 
 # Convolutional neural network (two convolutional layers)
 class CNN(nn.Module):
@@ -550,6 +550,14 @@ def get_embeddings(
 
     logger.info(f"Beginning {model_name} predictions")
 
+    if model_name == "gbouras13/modernprost-profiles":
+        logger.info("You used --profiles")
+        prof_db = f"{out_path}/query_profiledb/phold_profile"
+        logger.info(f"This will generate 3Di profiles for each prediction saved to {prof_db}")
+        logger.info("This will be used for the Foldseek searches")
+        logger.info(f"Note that while the {prefix}_3di.fasta will be written, we do not recommend its use")
+        logger.info(f"Please use the default (without --profiles) if you want the best 3Di predictions")
+
     # modernprost always loaded in HP so don't need this logic
     if model_name not in {
                             "gbouras13/modernprost-base",
@@ -1048,10 +1056,18 @@ def get_embeddings(
         copy_and_create_extras(mmseqs_db)
         sort_index_file(pssm_index)
 
-        logger.info(f"Query PSSM Foldseek profile DB written to '{pssm_output_db}'")
-        logger.info(f"Amino-acid profile DB written to '{pssm_db_builder["seq_output_db"]}'")
+        # clean up teh dummy
 
 
+        remove_file(mmseqs_db)
+        remove_file(f"{mmseqs_db}.dbtype")
+        remove_file(f"{mmseqs_db}_h")
+        remove_file(f"{mmseqs_db}_h.dbtype")
+        remove_file(f"{mmseqs_db}_h.index")
+        remove_file(f"{mmseqs_db}.index")
+
+
+        logger.info(f"Finished writing 3di PSSM Foldseek profile to '{pssm_db_builder["seq_output_db"]}'")
 
 
     # write list of fails if length > 0
@@ -1097,8 +1113,6 @@ def get_embeddings(
     # write mean and per res max probs
     write_probs(predictions, mean_probs_out_path, all_probs_out_path)
 
-
-  
 
 
 

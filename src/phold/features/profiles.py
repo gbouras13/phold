@@ -223,7 +223,8 @@ def parse_substitution_matrix_seq(matrix_str):
     lines = matrix_str.strip().splitlines()
     header = None
     mat = {}
-    for line in tqdm(lines, desc="Parsing substitution matrix"):
+    # for line in tqdm(lines, desc="Parsing substitution matrix"):
+    for line in lines: # no tqdm
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -294,7 +295,7 @@ def read_sequences(seq_db_file, seq_index_file):
             seq = seq_bytes.decode("ascii").strip()
             # Remove last two characters as in original code.
             sequences.append((key, seq[:-2]))
-    print("First 5 sequences:", sequences[:5])
+    # logger.info("First 5 sequences:", sequences[:5])
     return sequences
 
 AA_TO_INDEX = {aa: i for i, aa in enumerate(AAs)}
@@ -346,7 +347,8 @@ def build_database_seq(seq_db_file, seq_index_file, output_db="profile", output_
     index_lines = []
     current_offset = 0
     sub_blocks = precompute_sub_blocks(sub_matrix)
-    for key, seq in tqdm(seqs, desc="Processing sequences"):
+    # for key, seq in tqdm(seqs, desc="Processing sequences"):
+    for key, seq in seqs:
         profile = generate_profile_for_sequence(seq, sub_blocks)
         packed = pack_profile_seq(profile)
         parts.append(packed)
@@ -358,8 +360,8 @@ def build_database_seq(seq_db_file, seq_index_file, output_db="profile", output_
         f.write(db_buffer)
     with open(output_index, "w") as f:
         f.write("\n".join(index_lines) + "\n")
-    print(f"seq database written to '{output_db}'")
-    print(f"seq index written to '{output_index}'")
+    # logger.info(f"seq database written to '{output_db}'")
+    # logger.info(f"seq index written to '{output_index}'")
 
 #############################
 # Additional file copying & index sorting
@@ -393,7 +395,7 @@ def copy_and_create_extras(mmseqs_db):
     with open(dest_profile_ss_dbtype, "wb") as f:
         f.write(data)
     
-    print("Extra files copied and .dbtype files created.")
+    logger.info("Extra files copied and .dbtype files created.")
 
 def sort_index_file(index_path):
     # Read index lines, sort them numerically by the first field.
@@ -407,4 +409,4 @@ def sort_index_file(index_path):
         sorted_lines = sorted(lines)
     with open(index_path, "w") as f:
         f.writelines(sorted_lines)
-    print(f"Sorted index file: {index_path}")
+    logger.info(f"Sorted index file: {index_path}")

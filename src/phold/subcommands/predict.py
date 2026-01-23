@@ -281,6 +281,9 @@ def subcommand_predict(
 
     mask_prop_threshold = mask_threshold / 100
 
+    if model_name == "gbouras13/modernprost-profiles":
+        mask_prop_threshold = 0 # no masking for profiles
+
     ########
     ## write the AA CDS to file
     ######
