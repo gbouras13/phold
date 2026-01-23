@@ -942,16 +942,16 @@ def get_embeddings(
                     # always needed to calculate the mean confidence
                     pred_full = np.concatenate(preds)
                     max_probs_full = np.concatenate(max_probs_all)
-                    mean_prob = round(100 * probs_full.mean(), 2)
+                    mean_prob_full = round(100 * max_probs_full.mean(), 2)
                     all_probs_full = np.concatenate(all_probs_all)
 
 
                     if not output_probs: # only output full probs if true
-                        probs_full = None
+                        max_probs_full = None
 
                     batch_predictions[pid] = (
                         pred_full,
-                        mean_prob,
+                        mean_prob_full,
                         max_probs_full,
                         all_probs_full
                     )
