@@ -8,8 +8,6 @@ If you have a local workstation with GPU, please use `phold run`, which combines
 
 If you have a local workstation without a GPU, please use `phold run` with `--cpu`.
 
-If you have trouble running ProstT5, please use `phold remote`.
-
 If you are having troubing runing `phold` offline after installation (e.g. on a HPC), you may need to add `TRANSFORMERS_OFFLINE=True` to your environment. 
 
 ## Input 
@@ -349,6 +347,8 @@ Options:
 ```
 
 ### `phold remote`
+
+**Note this is deprecated as of v1.3.0**
 
 This command queries the Foldseek webserver to predict the 3Di sequence instead of running ProstT5 locally, followed by a local Foldseek search against the Phold database locally. This is recommended for users with extremely low compute (such as an old laptop) or who can't get ProstT5 to run on their machine.
 

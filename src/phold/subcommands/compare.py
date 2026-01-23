@@ -46,6 +46,7 @@ def subcommand_compare(
     custom_db: str,
     foldseek_gpu: bool,
     restart: bool = False,
+    profiles: bool = False, 
     clustered_db=False # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
 
 ) -> bool:
@@ -76,6 +77,7 @@ def subcommand_compare(
         custom_db (str): Custom foldseek database
         foldseek_gpu (bool): Use Foldseek-GPU acceleration and ungappedprefilter
         restart (bool): Restart from foldseek_results.tsv
+        profiles (bool): Whether modernprost-profiles was used to generate 3Di PSSM Foldseek profiels
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -268,9 +270,10 @@ def subcommand_compare(
                 proteins_flag,
             )
         else:
-            generate_foldseek_db_from_aa_3di(
-                fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
-            )
+            if not profiles:
+                generate_foldseek_db_from_aa_3di(
+                    fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix,
+                )
 
         short_db_name = prefix
 
@@ -281,8 +284,6 @@ def subcommand_compare(
         if clustered_db:
             database_name = "all_phold_structures_clustered_searchDB"
 
-
-
         if short_db_name == database_name:
             logger.error(
                 f"Please choose a different {prefix} as this conflicts with the {database_name}"
@@ -292,8 +293,12 @@ def subcommand_compare(
         # foldseek search
         #####
 
+        if profiles:
+            query_db: Path = Path(output) / "query_profiledb" / f"{short_db_name}_profile"
+        
+        else:
+            query_db: Path = Path(foldseek_query_db_path) / short_db_name
 
-        query_db: Path = Path(foldseek_query_db_path) / short_db_name
         target_db: Path = Path(database) / database_name
 
         # make result and temp dirs
@@ -437,24 +442,25 @@ def subcommand_compare(
     else:  # phold compare / proteins-compare
         base_dir = Path(predictions_dir)
 
-    prostt5_path = base_dir / f"{prefix}_prostT5_3di_mean_probabilities.csv"
-    modernprost_path = base_dir / f"{prefix}_modernprost_3di_mean_probabilities.csv"
 
-    if prostt5_path.exists():
-        mean_probs_out_path = prostt5_path
-    elif modernprost_path.exists():
-        mean_probs_out_path = modernprost_path
-    else:
-        logger.error(
-            f"Could not find mean probabilities CSV. "
-            f"Expected one of:\n"
-            f"  {modernprost_path}\n"
-            f"  {prostt5_path}"
-        )
 
-    # merge in confidence scores - only for not structures
+    # merge in confidence scores - only for not structures or profiles
 
-    if not structures:
+    if not profiles and not structures:
+        prostt5_path = base_dir / f"{prefix}_prostT5_3di_mean_probabilities.csv"
+        modernprost_path = base_dir / f"{prefix}_modernprost_3di_mean_probabilities.csv"
+        if prostt5_path.exists():
+            mean_probs_out_path = prostt5_path
+        elif modernprost_path.exists():
+            mean_probs_out_path = modernprost_path
+        else:
+            logger.error(
+                f"Could not find mean probabilities CSV. "
+                f"Expected one of:\n"
+                f"  {modernprost_path}\n"
+                f"  {prostt5_path}"
+            )
+
         prostT5_conf_df = pd.read_csv(
             mean_probs_out_path,
             sep=",",
@@ -463,7 +469,7 @@ def subcommand_compare(
         )
         merged_df = pd.merge(merged_df, prostT5_conf_df, on="cds_id", how="left")
 
-    # confidence
+    # confidence - not for profiles
     # High - 80%+ reciprocal coverage + one of i) >30% seqid cutoff for the light zone (https://doi.org/10.1093/protein/12.2.85) OR ii) ProstT5 confidence > 60% (very good quality ProstT5 prediction) OR evalue < 1e-10 (ditto)
     # Medium - either query or target 80%+ coverage + one of i ) 30%+ seqid cutoff or ii) ProstT5 confidence 45-60% AND and evalue < 1-e05
     # Low - everything else - low coverages, or low seqid and low ProstT5 confidence and evalue
@@ -475,7 +481,7 @@ def subcommand_compare(
         elif row["annotation_method"] == "pharokka":
             return "pharokka"
         else:
-            if structures:
+            if structures or profiles:
                 if (
                     row["qCov"] > 0.8
                     and row["tCov"] > 0.8
