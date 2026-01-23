@@ -42,11 +42,11 @@ def generate_mmseqs_db_from_aa(
         idx = 1
 
         for contig_id, aa_contig_dict in cds_dict.items():
-            if proteins_flag:
-                header=seq_id
-            else:
-                header = f"{contig_id}:{seq_id}"
-                for seq_id, feature in aa_contig_dict.items():
+            for seq_id, feature in aa_contig_dict.items():
+                if proteins_flag:
+                    header=seq_id
+                else:
+                    header = f"{contig_id}:{seq_id}"
                     aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
                     h_f.write(f"{idx}\t{header}\n")
                     l_f.write(f"{idx-1}\t{header}\t0")
