@@ -294,8 +294,10 @@ def subcommand_compare(
         #####
 
         if profiles:
-            query_db: Path = Path(output) / "query_profiledb" / f"{short_db_name}_profile"
-        
+            if predictions_dir is None:  # if running phold run
+                query_db: Path = Path(output) / "query_profiledb" / f"{short_db_name}_profile"
+            else:
+                query_db: Path = Path(predictions_dir) / "query_profiledb" / f"{short_db_name}_profile"
         else:
             query_db: Path = Path(foldseek_query_db_path) / short_db_name
 
