@@ -72,6 +72,11 @@ def common_options(func):
             help="Specific path to installed phold database",
         ),
         click.option(
+            "--profiles",
+            is_flag=True,
+            help="Use modernprost-profiles not base to generate 3Di profiles",
+        ),
+        click.option(
             "-f",
             "--force",
             is_flag=True,
@@ -149,11 +154,6 @@ def predict_options(func):
             "--original",
             is_flag=True,
             help="Use original ProstT5 + CNN model, not ModernProst",
-        ),
-        click.option(
-            "--profiles",
-            is_flag=True,
-            help="Use modernprost-profiles not base to generate 3Di profiles",
         ),
         click.option(
             "--hyps",
@@ -446,7 +446,8 @@ def run(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        profiles=profiles
     )
 
     # cleanup the temp files
@@ -665,6 +666,7 @@ def compare(
     custom_db,
     foldseek_gpu,
     restart,
+    profiles,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -697,7 +699,8 @@ def compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
-        "--restart": restart
+        "--restart": restart,
+        "--profiles": profiles
     }
 
     # initial logging etc
@@ -735,7 +738,8 @@ def compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        profiles=profiles
     )
 
     # cleanup the temp files
@@ -986,6 +990,7 @@ def proteins_compare(
     custom_db,
     foldseek_gpu,
     restart,
+    profiles,
     **kwargs
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -1017,7 +1022,8 @@ def proteins_compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
-        "--restart": restart
+        "--restart": restart,
+        "--profiles": profiles
     }
 
     # initial logging etc
@@ -1085,7 +1091,8 @@ def proteins_compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        profiles=profiles
     )
 
     # cleanup the temp files
@@ -1095,156 +1102,6 @@ def proteins_compare(
     # end phold
     end_phold(start_time, "proteins-compare")
 
-
-"""
-remote command
-"""
-
-
-@main_cli.command()
-@click.help_option("--help", "-h")
-@click.version_option(get_version(), "--version", "-V")
-@click.pass_context
-@click.option(
-    "-i",
-    "--input",
-    help="Path to input file in Genbank format or nucleotide FASTA format",
-    type=click.Path(),
-    required=True,
-)
-@common_options
-@compare_options
-def remote(
-    ctx,
-    input,
-    output,
-    threads,
-    prefix,
-    evalue,
-    force,
-    database,
-    sensitivity,
-    keep_tmp_files,
-    card_vfdb_evalue,
-    separate,
-    max_seqs,
-    ultra_sensitive,
-    extra_foldseek_params,
-    custom_db,
-    **kwargs,
-):
-    """Uses Foldseek API to run ProstT5 then Foldseek locally"""
-
-    # validates the directory  (need to before I start phold or else no log file is written)
-    instantiate_dirs(output, force, restart=False)
-
-    output: Path = Path(output)
-    logdir: Path = Path(output) / "logs"
-
-    params = {
-        "--input": input,
-        "--output": output,
-        "--threads": threads,
-        "--force": force,
-        "--prefix": prefix,
-        "--evalue": evalue,
-        "--database": database,
-        "--sensitivity": sensitivity,
-        "--keep_tmp_files": keep_tmp_files,
-        "--card_vfdb_evalue": card_vfdb_evalue,
-        "--separate": separate,
-        "--max_seqs": max_seqs,
-        "--ultra_sensitive": ultra_sensitive,
-        "--extra_foldseek_params": extra_foldseek_params,
-        "--custom_db": custom_db,
-    }
-
-    # initial logging etc
-    start_time = begin_phold(params, "remote")
-
-    # check foldseek is installed
-    check_dependencies()
-
-    # check the database is installed
-    database = validate_db(database, DB_DIR, foldseek_gpu=False)
-
-    # validate input
-    fasta_flag, gb_dict, method = validate_input(input, threads)
-
-    # Create a nested dictionary to store CDS features by contig ID
-    cds_dict = {}
-
-    fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
-
-    # makes the nested dictionary {contig_id:{cds_id: cds_feature}}
-
-    for record_id, record in gb_dict.items():
-        cds_dict[record_id] = {}
-
-        for cds_feature in record.features:
-            if cds_feature.type == "CDS":
-                if fasta_flag is False:
-                    cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
-                        "translation"
-                    ][0]
-                    cds_dict[record_id][cds_feature.qualifiers["ID"][0]] = cds_feature
-                else:
-                    cds_dict[record_id][cds_feature.qualifiers["ID"]] = cds_feature
-
-    ## write the CDS to file
-    # FASTA -> takes the whole thing
-    # Pharokka GBK -> requires just the first entry, the GBK is parsed as a list
-
-    with open(fasta_aa, "w+") as out_f:
-        for contig_id, rest in cds_dict.items():
-            aa_contig_dict = cds_dict[contig_id]
-            # writes the CDS to file
-            for seq_id, cds_feature in aa_contig_dict.items():
-                out_f.write(f">{contig_id}:{seq_id}\n")
-                out_f.write(f"{cds_feature.qualifiers['translation']}\n")
-
-    ############
-    # prostt5 remote
-    ############
-
-    fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
-    query_remote_3di(cds_dict, fasta_3di, fasta_flag)
-
-    ############
-    # run compare vs db
-    ############
-
-    subcommand_compare(
-        gb_dict,
-        output,
-        threads,
-        evalue,
-        card_vfdb_evalue,
-        sensitivity,
-        database,
-        prefix,
-        predictions_dir=output,
-        structures=False,
-        structure_dir=None,
-        logdir=logdir,
-        filter_structures=False,
-        remote_flag=True,
-        proteins_flag=False,
-        fasta_flag=fasta_flag,
-        separate=separate,
-        max_seqs=max_seqs,
-        ultra_sensitive=ultra_sensitive,
-        extra_foldseek_params=extra_foldseek_params,
-        custom_db=custom_db,
-        foldseek_gpu=False,  # doesn't make sense for remote to do this as you wouldn't probably have a GPU
-    )
-
-    # cleanup the temp files
-    if keep_tmp_files is False:
-        clean_up_temporary_files(output)
-
-    # end phold
-    end_phold(start_time, "remote")
 
 
 """
