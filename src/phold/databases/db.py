@@ -156,7 +156,6 @@ MODERNPROST_PROFILES_MD5_DICTIONARY = {
     "blobs": {
         "e2e467ca5b84ec3ee084e8c5e9ab072ab0e9dc97": "2d21d9427afacb97bb2e70b1ddea5a03",
         "e37f6d83abfb382fdf8247cc1f9d139fbae2074b": "25bbf971c4a00767b50caa4b5446ab80",
-        "bc5f30d6632ac0efdc7be2e9095e9e9579af2e33": "39727e7063aa6976a8c044d325155bd1",
         "9808c3b08304d2fc0e610d3925c8afdf78acb40d": "16a197d346fc82a0288d9c0b6420f755",
         "836217e966c7aa8995a9977624f8bdaa183d11ab": "7b3c0cd1469a641e4d7fd6851fb50527",
         "79ae7ea5bf033de69d0055820c57885e3d377bbb": "ff61a5dbe8524c07029da979ddfda1f1",
