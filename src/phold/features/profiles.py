@@ -10,14 +10,14 @@ from phold.utils.util import remove_file
 
 
 def generate_mmseqs_db_from_aa(
-    cds_dict: Path,  mmseqs2_db_path: Path, logdir: Path, prefix: str, proteins_flag: bool
+    cds_dict: Path,  output: Path, logdir: Path, prefix: str, proteins_flag: bool
 ) -> None:
     """
     Generate MMSeqs2 database from amino-acid sequences - for use with profiles later
 
     Args:
         fasta_aa (Path): Path to the amino-acid FASTA file.
-        mmseqs2_db_path (Path): Path to the directory where MMSeqs2 database will be stored.
+        output (Path): Path to output directory.
         logdir (Path): Path to the directory where logs will be stored.
         prefix (str): Prefix for the Foldseek database.
         proteins_flag (bool): True if phold proteins-predict
@@ -26,9 +26,11 @@ def generate_mmseqs_db_from_aa(
         None
     """
 
+    mmseqs2_db_path: Path = Path(output) / f"{prefix}_profiledb" # this will be the mmseqs2 db
 
-    temp_aa_tsv = Path(mmseqs2_db_path) / "aa.tsv"
-    temp_header_tsv = Path(mmseqs2_db_path) / "header.tsv"
+
+    temp_aa_tsv = Path(output) / "aa.tsv"
+    temp_header_tsv = Path(output) / "header.tsv"
 
     with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f:
         idx = 1
