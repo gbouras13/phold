@@ -373,6 +373,7 @@ def subcommand_compare(
         structures,
         proteins_flag,
         fasta_flag,
+        profiles
     )
 
     # generate per CDS foldseek information df and write to genbank

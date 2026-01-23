@@ -280,6 +280,7 @@ def calculate_topfunctions_results(
     structures: bool,
     proteins_flag: bool,
     fasta_flag: bool,
+    profiles: bool
 ) -> Union[Dict[str, Dict[str, dict]], pd.DataFrame]:
     """
     Calculate top function results based on filtered top hits DataFrame and update CDS dictionary accordingly.
@@ -291,6 +292,7 @@ def calculate_topfunctions_results(
         structures (bool): Indicates whether the input is is in .pdb or .cif format.
         proteins_flag (bool): Indicates whether the input is proteins.
         fasta_flag (bool): Indicates whether the input is in FASTA format.
+        profiles (bool): Indicates whether the input was using profiles
 
     Returns:
         Union[Dict[str, Dict[str, dict]], pd.DataFrame]: Updated CDS dictionary and/or filtered top hits DataFrame.
@@ -311,7 +313,7 @@ def calculate_topfunctions_results(
             cds_record_dict[cds_id] = record_id
 
     # Get record_id for every cds_id and merge into the df
-    if structures:
+    if structures or profiles:
         cds_record_df = pd.DataFrame(
             list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
         )
