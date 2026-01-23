@@ -1045,7 +1045,7 @@ def get_embeddings(
                            output_index=pssm_db_builder["seq_index_file"])
 
         # Copy extra files (.h, .dbtype, .lookup) and sort indices, same as script
-        copy_and_create_extras(mmseqs_db, out_path)
+        copy_and_create_extras(mmseqs_db)
         sort_index_file(pssm_index)
 
         logger.info(f"Query PSSM Foldseek profile DB written to '{pssm_output_db}'")

@@ -365,9 +365,8 @@ def build_database_seq(seq_db_file, seq_index_file, output_db="profile", output_
 # Additional file copying & index sorting
 #############################
 
-def copy_and_create_extras(mmseqs_db, output_dir):
+def copy_and_create_extras(mmseqs_db):
 
-    base = Path(mmseqs_db)
     # Source file paths (assumed to exist)
     src_h = f"{mmseqs_db}_h"
     src_h_index = f"{mmseqs_db}_h.index"
@@ -375,13 +374,12 @@ def copy_and_create_extras(mmseqs_db, output_dir):
     src_lookup = f"{mmseqs_db}.lookup"
     
     # Destination file paths:
-    output_dir = Path(output_dir)
-    dest_profile_h = output_dir / f"{base}_profile_h"
-    dest_profile_h_index = output_dir / f"{base}_profile_h.index"
-    dest_profile_h_dbtype = output_dir / f"{base}_profile_h.dbtype"
-    dest_lookup = output_dir / f"{base}_profile.lookup"
-    dest_profile_dbtype = output_dir / f"{base}_profile.dbtype"
-    dest_profile_ss_dbtype = output_dir / f"{base}_profile_ss.dbtype"
+    dest_profile_h = f"{mmseqs_db}_profile_h"
+    dest_profile_h_index =f"{mmseqs_db}_profile_h.index"
+    dest_profile_h_dbtype =  f"{mmseqs_db}_profile_h.dbtype"
+    dest_lookup = f"{mmseqs_db}_profile.lookup"
+    dest_profile_dbtype =  f"{mmseqs_db}_profile.dbtype"
+    dest_profile_ss_dbtype =  f"{mmseqs_db}_profile_ss.dbtype"
     
     shutil.copy2(src_h, dest_profile_h)
     shutil.copy2(src_h_index, dest_profile_h_index)
