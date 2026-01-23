@@ -48,7 +48,7 @@ def generate_mmseqs_db_from_aa(
             for seq_id, feature in aa_contig_dict.items():
                 aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
                 h_f.write(f"{idx}\t{seq_id}\n")
-                lookup[seq_id] = f"{idx-1}"
+                lookup[seq_id] = f"{idx}"
                 #l_f.write(f"{idx-1}\t{seq_id}\t0") # I think I dont need this
                 idx += 1
 
