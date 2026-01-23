@@ -369,7 +369,7 @@ def copy_and_create_extras(mmseqs_db, output_dir):
 
     base = Path(mmseqs_db)
     # Source file paths (assumed to exist)
-    src_h = f"{mmseqs_db}._h"
+    src_h = f"{mmseqs_db}_h"
     src_h_index = f"{mmseqs_db}_h.index"
     src_h_dbtype = f"{mmseqs_db}_h.dbtype"
     src_lookup = f"{mmseqs_db}.lookup"
