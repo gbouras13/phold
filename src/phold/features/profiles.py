@@ -10,7 +10,7 @@ from phold.utils.util import remove_file
 
 
 def generate_mmseqs_db_from_aa(
-    fasta_aa: Path,  mmseqs2_db_path: Path, logdir: Path, prefix: str
+    cds_dict: Path,  mmseqs2_db_path: Path, logdir: Path, prefix: str, proteins_flag: bool
 ) -> None:
     """
     Generate MMSeqs2 database from amino-acid sequences - for use with profiles later
@@ -20,25 +20,32 @@ def generate_mmseqs_db_from_aa(
         mmseqs2_db_path (Path): Path to the directory where MMSeqs2 database will be stored.
         logdir (Path): Path to the directory where logs will be stored.
         prefix (str): Prefix for the Foldseek database.
+        proteins_flag (bool): True if phold proteins-predict
 
     Returns:
         None
     """
-    # read in amino-acid sequences
-    sequences_aa = {}
-    for record in SeqIO.parse(fasta_aa, "fasta"):
-        sequences_aa[record.id] = str(record.seq)
 
 
-    temp_aa_tsv: Path = Path(mmseqs2_db_path) / "aa.tsv"
-    with open(temp_aa_tsv, "w") as f:
-        for i,id in enumerate(sequences_aa.keys()):
-            f.write("{}\t{}\n".format(str(i+1), sequences_aa[id]))
+    temp_aa_tsv = Path(mmseqs2_db_path) / "aa.tsv"
+    temp_header_tsv = Path(mmseqs2_db_path) / "header.tsv"
 
-    temp_header_tsv: Path = Path(mmseqs2_db_path) / "header.tsv"
-    with open(temp_header_tsv, "w") as f:
-        for i,id in enumerate(sequences_aa.keys()):
-            f.write("{}\t{}\n".format(str(i+1), id))
+    with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f:
+        idx = 1
+
+        for contig_id, aa_contig_dict in cds_dict.items():
+            if proteins_flag:
+                for seq_id, aa_seq in aa_contig_dict.items():
+                    aa_f.write(f"{idx}\t{aa_seq}\n")
+                    h_f.write(f"{idx}\t{seq_id}\n")
+                    idx += 1
+            else:
+                prefix = contig_id + ":"
+                for seq_id, aa_seq in aa_contig_dict.items():
+                    aa_f.write(f"{idx}\t{aa_seq}\n")
+                    h_f.write(f"{idx}\t{prefix}{seq_id}\n")
+                    idx += 1
+
 
     # create MMSeqs2 db names
     short_db_name = f"{prefix}"

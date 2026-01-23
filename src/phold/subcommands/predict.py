@@ -221,8 +221,7 @@ def subcommand_predict(
 
     if model_name == "gbouras13/modernprost-profiles":
         mmseqs2_query_db_path: Path = Path(output) / f"{prefix}_profiledb" # this will be the mmseqs2 db
-        generate_mmseqs_db_from_aa(fasta_aa, mmseqs2_query_db_path, logdir, prefix)
-
+        generate_mmseqs_db_from_aa(cds_dict, mmseqs2_query_db_path, logdir, prefix, proteins_flag)
 
 
     predictions = get_embeddings(
