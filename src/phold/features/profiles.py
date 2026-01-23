@@ -26,29 +26,28 @@ def generate_mmseqs_db_from_aa(
         None
     """
 
-    mmseqs2_db_path: Path = Path(output) / f"{prefix}_profiledb" # this will be the mmseqs2 db
+    mmseqs2_db_path: Path = Path(output) / f"query_profiledb" # this will be the mmseqs2 db
     mmseqs2_db_path.mkdir(parents=True, exist_ok=True)
+
+    lookup_db_name: Path = Path(mmseqs2_db_path) / f"{short_db_name}.lookup"
 
 
     temp_aa_tsv = Path(output) / "aa.tsv"
     temp_header_tsv = Path(output) / "header.tsv"
 
-    with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f:
+    with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f, open(lookup_db_name, "w") as l_f:
         idx = 1
 
         for contig_id, aa_contig_dict in cds_dict.items():
             if proteins_flag:
-                for seq_id, feature in aa_contig_dict.items():
-                    aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
-                    h_f.write(f"{idx}\t{seq_id}\n")
-                    idx += 1
+                header=seq_id
             else:
-                p = contig_id + ":"
+                header = f"{contig_id}:{seq_id}"
                 for seq_id, feature in aa_contig_dict.items():
                     aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
-                    h_f.write(f"{idx}\t{p}{seq_id}\n")
+                    h_f.write(f"{idx}\t{header}\n")
+                    l_f.write(f"{idx-1}\t{header}\t0")
                     idx += 1
-
 
     # create MMSeqs2 db names
     short_db_name = f"{prefix}"
