@@ -56,7 +56,7 @@ VERSION_DICTIONARY = {
         "modernprost_backup_md5": "35295726dd5de49c09c62da538f7fa06",
         "modernprost_profiles_backup_url": "https://zenodo.org/records/18344503/files/models--gbouras13--modernprost-profiles.tar.gz",
         "modernprost_profiles_backup_tarball": "models--gbouras13--modernprost-profiles.tar.gz",
-        "modernprost_profiles_backup_md5": "",
+        "modernprost_profiles_backup_md5": "a2bd581392a7ba81ad68a202bb2bbef3",
     },
 }
 

@@ -29,7 +29,7 @@ from transformers import T5EncoderModel, T5Tokenizer, AutoModel, AutoTokenizer
 
 from phold.databases.db import check_model_download, download_zenodo_model
 from phold.utils.constants import CNN_DIR
-
+from phold.features.profiles import computeLogPSSM, toBuffer_pssm, build_database_seq, copy_and_create_extras, sort_index_file
 
 
 # Convolutional neural network (two convolutional layers)
@@ -324,9 +324,9 @@ def write_predictions(
             }
 
             # masking - make the 3Di X=20
-            for key, (pred, mean_prob, all_prob) in prediction_contig_dict.items():
+            for key, (pred, mean_prob, max_prob, all_prob) in prediction_contig_dict.items():
                 for i in range(len(pred)):
-                    if all_prob[i] < mask_prop_threshold: # flat (L,)
+                    if max_prob[i] < mask_prop_threshold: # flat (L,)
                         pred[i] = 20
 
             if proteins_flag is True:
@@ -371,7 +371,7 @@ def write_probs(
     output_path_all: Path,
 ) -> None:
     """
-    Write all ProstT5 encoder + CNN probabilities and mean probabilities to output files.
+    Write all ProstT5 encoder + CNN per residue max probabilities and mean max probabilities to output files.
 
     Args:
         predictions (Dict[str, Tuple[int, float, Union[int, np.ndarray]]]):
@@ -388,25 +388,25 @@ def write_probs(
 
         # ---- write mean probabilities ----
         with open(output_path_mean, "w+") as out_f:
-            for seq_id, (N, mean_prob, N) in contig_predictions.items():
+            for seq_id, (N, mean_prob, N, N) in contig_predictions.items():
 
                 out_f.write(f"{seq_id},{mean_prob}\n")
 
         # ---- write per-residue probabilities ----
         if output_path_all is not None:
             with open(output_path_all, "w+") as out_f:
-                for seq_id, (N, N, all_probs) in contig_predictions.items():
+                for seq_id, (N, N, max_probs, N) in contig_predictions.items():
 
                     # convert to percentage - no need to flatten as all_probs # flat (L,)
-                    probs = (all_probs * 100).tolist()
+                    max_probs = (max_probs * 100).tolist()
 
-                    rounded_probs = [round(p, 2) for p in probs]
+                    rounded_max_probs = [round(p, 2) for p in max_probs]
 
                     out_f.write(
                         json.dumps(
                             {
                                 "seq_id": seq_id,
-                                "probability": rounded_probs,
+                                "probability": rounded_max_probs,
                             }
                         )
                         + "\n"
@@ -498,6 +498,7 @@ def get_embeddings(
     save_per_protein_embeddings: bool = False,
     threads: int = 1,
     mask_threshold: float = 0,
+    pssm_db_builder: Path = Dict
 ) -> bool:
     """
     Generate embeddings and predictions for protein sequences using ProstT5 encoder & CNN prediction head.
@@ -522,6 +523,7 @@ def get_embeddings(
         per_protein_embeddings (bool, optional): Whether to save per protein mean embeddings to h5 file. Defaults to False.
         threads (int): number of cpu threads
         mask_threshold (float) : 0-100 - below this ProstT5 confidence threshold, these residues are masked
+        pssm_db_builder (Dict): pssm builder dictionary
 
 
     Returns:
@@ -701,7 +703,7 @@ def get_embeddings(
                         prediction = predictor(residue_embedding)
 
                         # compute max probabilities per token/residue
-                        probabilities = toCPU(
+                        max_probabilities = toCPU(
                             torch.max(F.softmax(prediction, dim=1), dim=1, keepdim=True)[0]
                         )
 
@@ -743,18 +745,19 @@ def get_embeddings(
 
                             # always return the mean probs
                             mean_prob = round(
-                                100 * np.mean(probabilities[batch_idx, :, 0:s_len]), 2
+                                100 * np.mean(max_probabilities[batch_idx, :, 0:s_len]), 2
                             )
 
                             if output_probs:  # if you want the per-residue probs
-                                all_prob = probabilities[batch_idx, :, 0:s_len].squeeze(0) #takes shape (1, L) and flattens to flat (L,) vector 
+                                max_prob = max_probabilities[batch_idx, :, 0:s_len].squeeze(0) #takes shape (1, L) and flattens to flat (L,) vector 
                                 batch_predictions[identifier] = (
                                     pred,
                                     mean_prob,
-                                    all_prob,
+                                    max_prob,
+                                    None
                                 )
                             else:
-                                batch_predictions[identifier] = (pred, mean_prob, None)
+                                batch_predictions[identifier] = (pred, mean_prob, None, None)
 
                             try:
                                 len(batch_predictions[identifier][0])
@@ -772,13 +775,22 @@ def get_embeddings(
 
                     else:
 
-                        # modernprost
+                        # modernprost base and profiles
 
                         logits = outputs.logits
 
-                        probabilities = toCPU(
-                            torch.max(F.softmax(logits, dim=-1), dim=-1, keepdim=True).values
-                        )
+                        # 
+                        softmax_logits = F.softmax(logits, dim=-1)
+                        all_probabilities = toCPU(softmax_logits)  # [B, L, C]
+                        max_probabilities = toCPU(
+                            softmax_logits.max(dim=-1, keepdim=True).values
+                        )  # [B, L, 1]
+
+                        # ---- predictions (argmax over classes) ----
+                        # argmax
+                        predictions = torch.argmax(logits, dim=-1, keepdim=True)  # [B, L, 1]
+                        predictions = toCPU(predictions).astype(np.byte)
+
                         for batch_idx, identifier in enumerate(pdb_ids): # way easier than ProstT5
                             s_len = seq_lens[batch_idx]
 
@@ -824,14 +836,12 @@ def get_embeddings(
                                     )
 
 
+                            # predictions
+                            pred = predictions[batch_idx, :s_len]          # (L, 1)
+                            max_prob = max_probabilities[batch_idx, :s_len]  # (L, 1)
+                            all_prob = all_probabilities[batch_idx, :s_len]  # (L, 20)
 
-                            pred = logits[batch_idx, 0:s_len, :].squeeze()  # flat (L,) vector 
 
-                            pred = toCPU(
-                                torch.argmax(pred, dim=1, keepdim=True)
-                            ).astype(np.byte)
-
-                            all_prob = probabilities[batch_idx, 0:s_len]  # flat (L,) vector as probabilities is
 
                             if "__chunk" in identifier:
                                 base_id, chunk_tag = identifier.split("__chunk")
@@ -839,6 +849,7 @@ def get_embeddings(
 
                                 chunk_store[base_id][chunk_idx] = (
                                         pred,
+                                        max_prob,
                                         all_prob)
 
                                 try:
@@ -856,17 +867,19 @@ def get_embeddings(
                                     )
                                 
                             else:
-                                mean_prob = round(100 * probabilities[batch_idx, 0:s_len].mean().item(), 2)
+                                mean_prob = round(100 * max_probabilities[batch_idx, 0:s_len].mean().item(), 2)
+                                if  model_name !=  "gbouras13/modernprost-profiles":
+                                    all_prob = None # only emit all probs if profile node
                            
                                 if output_probs:  # if you want the per-residue probs
                                     batch_predictions[identifier] = (
                                         pred,
                                         mean_prob,
-                                        all_prob,
+                                        max_prob,
+                                        all_prob
                                     )
                                 else:
-                                    batch_predictions[identifier] = (pred, mean_prob, None)
-
+                                    batch_predictions[identifier] = (pred, mean_prob, None, all_prob)
 
                                 # some catch statements regardless of model
 
@@ -883,9 +896,13 @@ def get_embeddings(
                                     logger.warning(
                                         f"Length mismatch for {identifier}: is:{len(batch_predictions[identifier][0])} vs should:{s_len}"
                                     )
+
+                           
+                            
+                              
                 except IndexError:
                     logger.warning(
-                        "Index error during prediction for {} (L={})".format(
+                        "Error during prediction for {} (L={})".format(
                             pdb_id, seq_len
                         )
                     )
@@ -902,19 +919,23 @@ def get_embeddings(
                         }:
                 for pid, chunks in chunk_store.items():
                     preds = []
-                    probs_all = []
+                    max_probs_all = []
+                    all_probs_all = []
 
                     for idx in sorted(chunks):
                         
-                        pred, prob = chunks[idx]
+                        pred, max_prob, all_prob = chunks[idx]
                         preds.append(pred)
-                        if prob is not None:
-                            probs_all.append(prob)
+                        if max_prob is not None:
+                            max_probs_all.append(max_prob)
+                        if all_prob is not None:
+                            all_probs_all.append(all_prob)
 
                     # always needed to calculate the mean confidence
                     pred_full = np.concatenate(preds)
-                    probs_full = np.concatenate(probs_all)
+                    max_probs_full = np.concatenate(max_probs_all)
                     mean_prob = round(100 * probs_full.mean(), 2)
+                    all_probs_full = np.concatenate(all_probs_all)
 
 
                     if not output_probs: # only output full probs if true
@@ -923,7 +944,8 @@ def get_embeddings(
                     batch_predictions[pid] = (
                         pred_full,
                         mean_prob,
-                        probs_full,
+                        max_probs_full,
+                        all_probs_full
                     )
                 
                 if save_per_residue_embeddings:
@@ -974,6 +996,65 @@ def get_embeddings(
                     if k in batch_predictions:
                         embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
 
+        # build pssm
+
+        if  model_name ==  "gbouras13/modernprost-profiles":
+            lookup = pssm_db_builder["lookup"]
+            parts = pssm_db_builder["parts"]
+            index_lines = pssm_db_builder["index_lines"]
+            offset = pssm_db_builder["offset"]
+
+            for record_id, record_predictions in predictions.items():
+                for identifier, (pred, mean_prob, max_prob, all_prob) in record_predictions:
+
+                    # all_prob is  # (L, 20) 
+
+                    logPSSM, consensus = computeLogPSSM(all_prob)
+
+                    key = lookup[identifier]            # mmseqs numeric id
+
+                    buf = toBuffer_pssm(logPSSM, consensus)
+                    buf_length = len(buf)
+
+                    parts.append(buf)
+                    index_lines.append(f"{key}\t{offset}\t{buf_length}")
+                    offset += buf_length
+
+            # update offset back into builder
+            # pssm_db_builder["offset"] = offset # dont think this is needed as i am doing all at the end
+
+        # write pssm
+
+        db_buffer = b"".join(pssm_db_builder["parts"])
+        pssm_output_db = pssm_db_builder["output_db"]      
+        pssm_index = pssm_db_builder["index_file"]         
+
+        # Single write for PSSM DB
+        with open(pssm_output_db, "wb") as f:
+            f.write(db_buffer)
+
+        # Single write for PSSM index
+        with open(pssm_index, "w") as f:
+            f.write("\n".join(pssm_db_builder["index_lines"]) + "\n")
+
+        # --- ALSO build the amino-acid profile DB (seq_to_db) here ---
+
+        mmseqs_db = pssm_db_builder["dummy_seq_db"]
+        mmseqs_db_index = mmseqs_db + ".index"
+
+        build_database_seq(mmseqs_db, 
+                           mmseqs_db_index,
+                           output_db=pssm_db_builder["seq_output_db"],
+                           output_index=pssm_db_builder["seq_index_file"])
+
+        # Copy extra files (.h, .dbtype, .lookup) and sort indices, same as script
+        copy_and_create_extras(mmseqs_db, out_path)
+        sort_index_file(pssm_index)
+
+        logger.info(f"Query PSSM Foldseek profile DB written to '{pssm_output_db}'")
+        logger.info(f"Amino-acid profile DB written to '{pssm_db_builder["seq_output_db"]}'")
+
+
 
 
     # write list of fails if length > 0
@@ -1016,7 +1097,14 @@ def get_embeddings(
     else:
         all_probs_out_path = None
 
+    # write mean and per res max probs
     write_probs(predictions, mean_probs_out_path, all_probs_out_path)
+
+
+  
+
+
+
 
     return predictions
 

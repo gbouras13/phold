@@ -222,30 +222,38 @@ def subcommand_predict(
     if model_name == "gbouras13/modernprost-profiles":
 
 
-        generate_mmseqs_db_from_aa(cds_dict, output, logdir, prefix, proteins_flag)
+        lookup = generate_mmseqs_db_from_aa(cds_dict, output, logdir, prefix, proteins_flag)
 
-
-        mmseqs2_db_dir: Path = Path(output) / f"query_profiledb" # this will be subdir where the mmseqs2 db is 
+        mmseqs2_db_dir: Path = Path(output) / f"query_profiledb" # this will be subdir where the dummy mmseqs2 db is 
         mmseqs2_db_dir.mkdir(parents=True, exist_ok=True)
 
         # create MMSeqs2 db names
         short_db_name = f"{prefix}"
 
+        mmseqs_db: Path = Path(mmseqs2_db_dir) / f"{short_db_name}"
+
         mmseqs_db_lookup: Path = Path(mmseqs2_db_dir) / f"{short_db_name}.lookup"
 
+        seq_output_db: Path = Path(mmseqs2_db_dir) / f"{short_db_name}_profile"
         pssm_output_db: Path = Path(mmseqs2_db_dir) / f"{short_db_name}_profile_ss"
         pssm_index = pssm_output_db + ".index"
+        seq_index = pssm_output_db + ".index"
 
-        lookup = build_lookup(mmseqs_db_lookup)
+        # lookup = build_lookup(mmseqs_db_lookup)
 
         pssm_db_builder = {
+            "dummy_seq_db": mmseqs_db,
             "lookup": lookup,
             "parts": [],
             "index_lines": [],
             "offset": 0,
             "output_db": pssm_output_db,
             "index_file": pssm_index,
+            "seq_output_db": seq_output_db,
+            "seq_index_file": seq_index
         }
+    else:
+        pssm_db_builder = None # for the function
 
     predictions = get_embeddings(
         cds_dict,
@@ -268,6 +276,7 @@ def subcommand_predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
+        pssm_db_builder=pssm_db_builder
     )
 
     mask_prop_threshold = mask_threshold / 100
