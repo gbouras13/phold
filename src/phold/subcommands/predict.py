@@ -235,10 +235,10 @@ def subcommand_predict(
         mmseqs_db_lookup: Path = Path(mmseqs2_db_dir) / f"{short_db_name}.lookup"
 
         seq_output_db: Path = Path(mmseqs2_db_dir) / f"{short_db_name}_profile"
+        seq_index = f"{seq_output_db}.index"
         pssm_output_db: Path = Path(mmseqs2_db_dir) / f"{short_db_name}_profile_ss"
-        pssm_index = pssm_output_db + ".index"
-        seq_index = pssm_output_db + ".index"
-
+        pssm_index = f"{pssm_output_db}.index"
+        
         # lookup = build_lookup(mmseqs_db_lookup)
 
         pssm_db_builder = {
