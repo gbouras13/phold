@@ -340,7 +340,7 @@ def write_predictions(
                                     list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
                                 ),
                             )
-                            for seq_id, (yhats, _, _) in prediction_contig_dict.items()
+                            for seq_id, (yhats, _, _, _) in prediction_contig_dict.items()
                         ]
                     )
                 )
@@ -356,7 +356,7 @@ def write_predictions(
                                     list(map(lambda yhat: ss_mapping[int(yhat)], yhats))
                                 ),
                             )
-                            for seq_id, (yhats, _, _) in prediction_contig_dict.items()
+                            for seq_id, (yhats, _, _, _) in prediction_contig_dict.items()
                         ]
                     )
                 )
