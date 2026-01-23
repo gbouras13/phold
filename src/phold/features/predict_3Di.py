@@ -148,7 +148,10 @@ def get_model(
         localfile = False
         logger.info(f"{model_name} not found. Downloading {model_name} from Hugging Face")
     try:
-        if model_name != "gbouras13/modernprost-base":
+        if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
             model = T5EncoderModel.from_pretrained(
                 model_name,
                 cache_dir=f"{model_dir}/",
@@ -169,8 +172,11 @@ def get_model(
     except:
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
-        if model_name != "gbouras13/modernprost-base":
-            download_zenodo_model(model_dir, logdir, threads, model="ProstT5")
+        download_zenodo_model(model_dir, logdir, threads, model_name)
+        if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
             model = T5EncoderModel.from_pretrained(
                 model_name,
                 cache_dir=f"{model_dir}/",
@@ -178,7 +184,6 @@ def get_model(
                 local_files_only=True,
             ).to(device)
         else:
-            download_zenodo_model(model_dir, logdir, threads, model="modernprost")
             with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
                 model = AutoModel.from_pretrained(
                 model_name,
@@ -193,7 +198,10 @@ def get_model(
 
     # tokeniser
 
-    if model_name != "gbouras13/modernprost-base":
+    if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
         vocab = T5Tokenizer.from_pretrained(
             model_name, cache_dir=f"{model_dir}/", do_lower_case=False
         )
@@ -532,13 +540,19 @@ def get_embeddings(
     prostt5_prefix = "<AA2fold>"
 
     model, vocab = get_model(model_dir, model_name, cpu, threads)
-    if model_name != "gbouras13/modernprost-base":
+    if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
         predictor = load_predictor(checkpoint_path)
 
     logger.info(f"Beginning {model_name} predictions")
 
-    # modernprost always loaded in HP
-    if model_name != "gbouras13/modernprost-base":
+    # modernprost always loaded in HP so don't need this logic
+    if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
         if half_precision:
             model = model.half()
             predictor = predictor.half()
@@ -590,7 +604,10 @@ def get_embeddings(
 
             # only needed for old models 
 
-            if model_name != "gbouras13/modernprost-base":
+            if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
 
                 seq = prostt5_prefix + " " + " ".join(list(seq))
 
@@ -629,8 +646,11 @@ def get_embeddings(
                 ).to(device)
 
                 try:
-
-                    if model_name != "gbouras13/modernprost-base":
+                    
+                    if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
 
 
                         with torch.no_grad():
@@ -658,11 +678,13 @@ def get_embeddings(
 
                 try:
 
-                    if model_name != "gbouras13/modernprost-base":
+                    if model_name not in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
 
-                        # ProtT5 appends a special tokens at the end of each sequence
+                        # ProstT5 appends a special tokens at the end of each sequence
                         # Mask this also out during inference while taking into account the prostt5 prefix
-
 
                         for idx, s_len in enumerate(seq_lens):
                             token_encoding.attention_mask[idx, s_len + 1] = 0
@@ -874,7 +896,10 @@ def get_embeddings(
                     ######################################
                     # --- recombine chunked sequences ---
 
-            if model_name == "gbouras13/modernprost-base":
+            if model_name in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
                 for pid, chunks in chunk_store.items():
                     preds = []
                     probs_all = []
@@ -972,7 +997,10 @@ def get_embeddings(
         write_embeddings(embeddings_per_protein, output_h5_per_protein)
 
     # always write the mean embeddings
-    if model_name == "gbouras13/modernprost-base":
+    if model_name in {
+                            "gbouras13/modernprost-base",
+                            "gbouras13/modernprost-profiles",
+                        }:
         model_prefix = "modernprost"
     else:
         model_prefix = "prostT5"

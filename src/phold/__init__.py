@@ -121,17 +121,17 @@ def predict_options(func):
         click.option(
             "--save_per_residue_embeddings",
             is_flag=True,
-            help="Save the ProstT5 embeddings per resuide in a h5 file ",
+            help="Saves last-layer model embeddings per resuide in a h5 file ",
         ),
         click.option(
             "--save_per_protein_embeddings",
             is_flag=True,
-            help="Save the ProstT5 embeddings as means per protein in a h5 file",
+            help="Saves last-layer model embeddings mean-pooled per protein in a h5 file",
         ),
         click.option(
             "--mask_threshold",
             default=25,
-            help="Masks 3Di residues below this value of ProstT5 confidence for Foldseek searches",
+            help="Masks 3Di residues below this value of model confidence for Foldseek searches",
             type=float,
             show_default=True,
         ),
@@ -149,6 +149,11 @@ def predict_options(func):
             "--original",
             is_flag=True,
             help="Use original ProstT5 + CNN model, not ModernProst",
+        ),
+        click.option(
+            "--profiles",
+            is_flag=True,
+            help="Use modernprost-profiles not base to generate 3Di profiles",
         ),
         click.option(
             "--hyps",
@@ -296,6 +301,7 @@ def run(
     vanilla,
     restart,
     original,
+    profiles,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -335,7 +341,8 @@ def run(
         "--finetune": finetune,
         "--vanilla": vanilla,
         "--restart": restart,
-        "--original": original
+        "--original": original,
+        "--profiles": profiles
     }
 
     # initial logging etc
@@ -357,6 +364,9 @@ def run(
         model_dir = database
         model_name = "gbouras13/modernprost-base"
         checkpoint_path = None
+
+        if profiles:
+            model_name = "gbouras13/modernprost-profiles"
 
         if original:
             model_name = "Rostlab/ProstT5_fp16"
@@ -486,6 +496,7 @@ def predict(
     vanilla,
     hyps,
     original,
+    profiles,
     **kwargs,
 ):
     """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
@@ -514,7 +525,8 @@ def predict(
         "--finetune": finetune,
         "--vanilla": vanilla,
         "--hyps": hyps,
-        "--original": original
+        "--original": original,
+        "--profiles": profiles
     }
 
     # initial logging etc
@@ -531,6 +543,9 @@ def predict(
 
     model_name = "gbouras13/modernprost-base"
     checkpoint_path = None
+
+    if profiles:
+        model_name = "gbouras13/modernprost-profiles"
 
     if original:
         model_name = "Rostlab/ProstT5_fp16"
@@ -769,6 +784,7 @@ def proteins_predict(
     finetune,
     vanilla,
     original,
+    profiles,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input - GPU recommended"""
@@ -796,7 +812,8 @@ def proteins_predict(
         "--mask_threshold": mask_threshold,
         "--finetune": finetune,
         "--vanilla": vanilla,
-        "--original": original
+        "--original": original,
+        "--profiles": profiles
     }
 
     # initial logging etc
@@ -843,6 +860,9 @@ def proteins_predict(
     model_dir = database
     model_name = "gbouras13/modernprost-base"
     checkpoint_path = None
+
+    if profiles:
+        model_name = "gbouras13/modernprost-profiles"
 
     if original:
         model_name = "Rostlab/ProstT5_fp16"
@@ -1373,7 +1393,12 @@ install command
 @click.option(
             "--original",
             is_flag=True,
-            help="Use original ProstT5 + CNN model, not ModernProst",
+            help="Install original ProstT5 model, not modernprost-base",
+        )
+@click.option(
+            "--profiles",
+            is_flag=True,
+            help="Install modernprost-profiles model, not modernprost-base",
         )
 def install(
     ctx,
@@ -1382,6 +1407,7 @@ def install(
     extended_db,
     threads,
     original,
+    profiles,
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
@@ -1398,6 +1424,8 @@ def install(
         database = Path(DB_DIR)
 
     model_name = "gbouras13/modernprost-base"
+    if profiles:
+        model_name = "gbouras13/modernprost-profiles"
     if original:
         model_name = "Rostlab/ProstT5_fp16"
 

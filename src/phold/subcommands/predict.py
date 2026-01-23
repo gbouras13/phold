@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
-
+from phold.features.profiles import generate_mmseqs_db_from_aa
 
 def mask_low_confidence_aa(sequence, scores, threshold=0.25):
     """
@@ -215,6 +215,15 @@ def subcommand_predict(
         output_probs = False
     else:
         output_probs = True
+
+    # for profiles - build the MMseqs2 DB
+    logdir: Path = Path(output) / "logs"
+
+    if model_name == "gbouras13/modernprost-profiles":
+        mmseqs2_query_db_path: Path = Path(output) / f"{prefix}_profiledb" # this will be the mmseqs2 db
+        generate_mmseqs_db_from_aa(fasta_aa, mmseqs2_query_db_path, logdir, prefix)
+
+
 
     predictions = get_embeddings(
         cds_dict,
