@@ -42,10 +42,10 @@ def generate_mmseqs_db_from_aa(
                     h_f.write(f"{idx}\t{seq_id}\n")
                     idx += 1
             else:
-                prefix = contig_id + ":"
+                p = contig_id + ":"
                 for seq_id, feature in aa_contig_dict.items():
                     aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
-                    h_f.write(f"{idx}\t{prefix}{seq_id}\n")
+                    h_f.write(f"{idx}\t{p}{seq_id}\n")
                     idx += 1
 
 
