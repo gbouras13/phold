@@ -366,20 +366,22 @@ def build_database_seq(seq_db_file, seq_index_file, output_db="profile", output_
 #############################
 
 def copy_and_create_extras(mmseqs_db, output_dir):
-    base = os.path.basename(mmseqs_db)
+
+    base = Path(mmseqs_db)
     # Source file paths (assumed to exist)
-    src_h = os.path.abspath(mmseqs_db + "_h")
-    src_h_index = os.path.abspath(mmseqs_db + "_h.index")
-    src_h_dbtype = os.path.abspath(mmseqs_db + "_h.dbtype")
-    src_lookup = os.path.abspath(mmseqs_db + ".lookup")
+    src_h = f"{mmseqs_db}._h"
+    src_h_index = f"{mmseqs_db}_h.index"
+    src_h_dbtype = f"{mmseqs_db}_h.dbtype"
+    src_lookup = f"{mmseqs_db}.lookup"
     
     # Destination file paths:
-    dest_profile_h = os.path.join(output_dir, f"{base}_profile_h")
-    dest_profile_h_index = os.path.join(output_dir, f"{base}_profile_h.index")
-    dest_profile_h_dbtype = os.path.join(output_dir, f"{base}_profile_h.dbtype")
-    dest_lookup = os.path.join(output_dir, f"{base}_profile.lookup")
-    dest_profile_dbtype = os.path.join(output_dir, f"{base}_profile.dbtype")
-    dest_profile_ss_dbtype = os.path.join(output_dir, f"{base}_profile_ss.dbtype")
+    output_dir = Path(output_dir)
+    dest_profile_h = output_dir / f"{base}_profile_h"
+    dest_profile_h_index = output_dir / f"{base}_profile_h.index"
+    dest_profile_h_dbtype = output_dir / f"{base}_profile_h.dbtype"
+    dest_lookup = output_dir / f"{base}_profile.lookup"
+    dest_profile_dbtype = output_dir / f"{base}_profile.dbtype"
+    dest_profile_ss_dbtype = output_dir / f"{base}_profile_ss.dbtype"
     
     shutil.copy2(src_h, dest_profile_h)
     shutil.copy2(src_h_index, dest_profile_h_index)
