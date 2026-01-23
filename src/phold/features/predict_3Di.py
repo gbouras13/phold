@@ -1037,7 +1037,7 @@ def get_embeddings(
         # --- ALSO build the amino-acid profile DB (seq_to_db) here ---
 
         mmseqs_db = pssm_db_builder["dummy_seq_db"]
-        mmseqs_db_index = mmseqs_db + ".index"
+        mmseqs_db_index = f"{mmseqs_db}.index"
 
         build_database_seq(mmseqs_db, 
                            mmseqs_db_index,
