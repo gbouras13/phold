@@ -40,20 +40,17 @@ def generate_mmseqs_db_from_aa(
     temp_aa_tsv = Path(output) / "aa.tsv"
     temp_header_tsv = Path(output) / "header.tsv"
 
-    with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f, open(lookup_db_name, "w") as l_f:
+    # with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f, open(lookup_db_name, "w") as l_f:
+    with open(temp_aa_tsv, "w") as aa_f, open(temp_header_tsv, "w") as h_f:
         idx = 1
 
         for contig_id, aa_contig_dict in cds_dict.items():
             for seq_id, feature in aa_contig_dict.items():
-                if proteins_flag:
-                    header=seq_id
-                else:
-                    header = f"{contig_id}:{seq_id}"
-                    aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
-                    h_f.write(f"{idx}\t{header}\n")
-                    lookup[header] = f"{idx-1}"
-                    l_f.write(f"{idx-1}\t{header}\t0") # I think I dont need this
-                    idx += 1
+                aa_f.write(f"{idx}\t{feature.qualifiers["translation"]}\n")
+                h_f.write(f"{idx}\t{seq_id}\n")
+                lookup[seq_id] = f"{idx-1}"
+                #l_f.write(f"{idx-1}\t{seq_id}\t0") # I think I dont need this
+                idx += 1
 
     
     aa_db_name: Path = Path(mmseqs2_db_dir) / short_db_name
