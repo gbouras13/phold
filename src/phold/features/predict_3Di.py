@@ -977,9 +977,6 @@ def get_embeddings(
                         batch_embeddings_per_protein[pid] = embs_full
 
 
-            # reorder to match the original FASTA
-            predictions[record_id] = {}
-
             for k in original_keys:
                 if k in batch_predictions:
                     predictions[record_id][k] = batch_predictions[k]
