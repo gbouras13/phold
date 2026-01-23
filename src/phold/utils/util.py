@@ -130,6 +130,7 @@ def remove_file(file_path: Path) -> None:
     Returns:
         None
     """
+    file_path = Path(file_path)
     if file_path.exists():
         file_path.unlink()  # Use unlink to remove the file
 
