@@ -27,6 +27,7 @@ def generate_mmseqs_db_from_aa(
     """
 
     mmseqs2_db_path: Path = Path(output) / f"{prefix}_profiledb" # this will be the mmseqs2 db
+    mmseqs2_db_path.mkdir(parents=True, exist_ok=True)
 
 
     temp_aa_tsv = Path(output) / "aa.tsv"
