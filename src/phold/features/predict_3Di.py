@@ -985,89 +985,90 @@ def get_embeddings(
                         batch_embeddings_per_protein[pid] = embs_full
 
 
+        # do it per record
+        for k in original_keys:
+            if k in batch_predictions:
+                predictions[record_id][k] = batch_predictions[k]
+        
+        if save_per_residue_embeddings:
+            embeddings_per_residue[record_id] = {}
             for k in original_keys:
                 if k in batch_predictions:
-                    predictions[record_id][k] = batch_predictions[k]
-            
-            if save_per_residue_embeddings:
-                embeddings_per_residue[record_id] = {}
-                for k in original_keys:
-                    if k in batch_predictions:
-                        embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
+                    embeddings_per_residue[record_id][k] = batch_embeddings_per_residue[k]
 
-            if save_per_protein_embeddings:
-                embeddings_per_protein[record_id] = {}
-                for k in original_keys:
-                    if k in batch_predictions:
-                        embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
+        if save_per_protein_embeddings:
+            embeddings_per_protein[record_id] = {}
+            for k in original_keys:
+                if k in batch_predictions:
+                    embeddings_per_protein[record_id][k] = batch_embeddings_per_protein[k]
 
-        # build pssm
+        # build pssm AFTER ALL
 
-        if  model_name ==  "gbouras13/modernprost-profiles":
-            lookup = pssm_db_builder["lookup"]
-            parts = pssm_db_builder["parts"]
-            index_lines = pssm_db_builder["index_lines"]
-            offset = pssm_db_builder["offset"]
+    if  model_name ==  "gbouras13/modernprost-profiles":
+        lookup = pssm_db_builder["lookup"]
+        parts = pssm_db_builder["parts"]
+        index_lines = pssm_db_builder["index_lines"]
+        offset = pssm_db_builder["offset"]
 
-            for record_id, record_predictions in predictions.items():
-                for identifier, (pred, mean_prob, max_prob, all_prob) in record_predictions.items():
+        for record_id, record_predictions in predictions.items():
+            for identifier, (pred, mean_prob, max_prob, all_prob) in record_predictions.items():
 
-                    # all_prob is  # (L, 20) 
+                # all_prob is  # (L, 20) 
 
-                    logPSSM, consensus = computeLogPSSM(all_prob)
+                logPSSM, consensus = computeLogPSSM(all_prob)
 
-                    key = lookup[identifier]            # mmseqs numeric id
+                key = lookup[identifier]            # mmseqs numeric id
 
-                    buf = toBuffer_pssm(logPSSM, consensus)
-                    buf_length = len(buf)
+                buf = toBuffer_pssm(logPSSM, consensus)
+                buf_length = len(buf)
 
-                    parts.append(buf)
-                    index_lines.append(f"{key}\t{offset}\t{buf_length}")
-                    offset += buf_length
+                parts.append(buf)
+                index_lines.append(f"{key}\t{offset}\t{buf_length}")
+                offset += buf_length
 
             # update offset back into builder
             # pssm_db_builder["offset"] = offset # dont think this is needed as i am doing all at the end
 
-        # write pssm
+    # write pssm AFTER ALL
 
-        db_buffer = b"".join(pssm_db_builder["parts"])
-        pssm_output_db = pssm_db_builder["output_db"]      
-        pssm_index = pssm_db_builder["index_file"]         
+    db_buffer = b"".join(pssm_db_builder["parts"])
+    pssm_output_db = pssm_db_builder["output_db"]      
+    pssm_index = pssm_db_builder["index_file"]         
 
-        # Single write for PSSM DB
-        with open(pssm_output_db, "wb") as f:
-            f.write(db_buffer)
+    # Single write for PSSM DB
+    with open(pssm_output_db, "wb") as f:
+        f.write(db_buffer)
 
-        # Single write for PSSM index
-        with open(pssm_index, "w") as f:
-            f.write("\n".join(pssm_db_builder["index_lines"]) + "\n")
+    # Single write for PSSM index
+    with open(pssm_index, "w") as f:
+        f.write("\n".join(pssm_db_builder["index_lines"]) + "\n")
 
-        # --- ALSO build the amino-acid profile DB (seq_to_db) here ---
+    # --- ALSO build the amino-acid profile DB (seq_to_db) here ---
 
-        mmseqs_db = pssm_db_builder["dummy_seq_db"]
-        mmseqs_db_index = f"{mmseqs_db}.index"
+    mmseqs_db = pssm_db_builder["dummy_seq_db"]
+    mmseqs_db_index = f"{mmseqs_db}.index"
 
-        build_database_seq(mmseqs_db, 
-                           mmseqs_db_index,
-                           output_db=pssm_db_builder["seq_output_db"],
-                           output_index=pssm_db_builder["seq_index_file"])
+    build_database_seq(mmseqs_db, 
+                        mmseqs_db_index,
+                        output_db=pssm_db_builder["seq_output_db"],
+                        output_index=pssm_db_builder["seq_index_file"])
 
-        # Copy extra files (.h, .dbtype, .lookup) and sort indices, same as script
-        copy_and_create_extras(mmseqs_db)
-        sort_index_file(pssm_index)
+    # Copy extra files (.h, .dbtype, .lookup) and sort indices, same as script
+    copy_and_create_extras(mmseqs_db)
+    sort_index_file(pssm_index)
 
-        # clean up teh dummy
-
-
-        remove_file(mmseqs_db)
-        remove_file(f"{mmseqs_db}.dbtype")
-        remove_file(f"{mmseqs_db}_h")
-        remove_file(f"{mmseqs_db}_h.dbtype")
-        remove_file(f"{mmseqs_db}_h.index")
-        remove_file(f"{mmseqs_db}.index")
+    # clean up teh dummy
 
 
-        logger.info(f"Finished writing 3di PSSM Foldseek profile to '{pssm_db_builder["seq_output_db"]}'")
+    remove_file(mmseqs_db)
+    remove_file(f"{mmseqs_db}.dbtype")
+    remove_file(f"{mmseqs_db}_h")
+    remove_file(f"{mmseqs_db}_h.dbtype")
+    remove_file(f"{mmseqs_db}_h.index")
+    remove_file(f"{mmseqs_db}.index")
+
+
+    logger.info(f"Finished writing 3di PSSM Foldseek profile to '{pssm_db_builder["seq_output_db"]}'")
 
 
     # write list of fails if length > 0
