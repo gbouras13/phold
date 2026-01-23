@@ -395,7 +395,7 @@ def copy_and_create_extras(mmseqs_db):
     with open(dest_profile_ss_dbtype, "wb") as f:
         f.write(data)
     
-    logger.info("Extra files copied and .dbtype files created.")
+    # logger.info("Extra files copied and .dbtype files created.")
 
 def sort_index_file(index_path):
     # Read index lines, sort them numerically by the first field.
@@ -409,4 +409,4 @@ def sort_index_file(index_path):
         sorted_lines = sorted(lines)
     with open(index_path, "w") as f:
         f.writelines(sorted_lines)
-    logger.info(f"Sorted index file: {index_path}")
+    # logger.info(f"Sorted index file: {index_path}")
