@@ -1002,7 +1002,7 @@ def get_embeddings(
             offset = pssm_db_builder["offset"]
 
             for record_id, record_predictions in predictions.items():
-                for identifier, (pred, mean_prob, max_prob, all_prob) in record_predictions:
+                for identifier, (pred, mean_prob, max_prob, all_prob) in record_predictions.items():
 
                     # all_prob is  # (L, 20) 
 
