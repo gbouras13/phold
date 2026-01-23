@@ -788,8 +788,8 @@ def get_embeddings(
 
                         # ---- predictions (argmax over classes) ----
                         # argmax
-                        predictions = torch.argmax(logits, dim=-1, keepdim=True)  # [B, L, 1]
-                        predictions = toCPU(predictions).astype(np.byte)
+                        preds = torch.argmax(logits, dim=-1, keepdim=True)  # [B, L, 1]
+                        preds = toCPU(preds).astype(np.byte)
 
                         for batch_idx, identifier in enumerate(pdb_ids): # way easier than ProstT5
                             s_len = seq_lens[batch_idx]
@@ -837,7 +837,7 @@ def get_embeddings(
 
 
                             # predictions
-                            pred = predictions[batch_idx, :s_len]          # (L, 1)
+                            pred = preds[batch_idx, :s_len]          # (L, 1)
                             max_prob = max_probabilities[batch_idx, :s_len]  # (L, 1)
                             all_prob = all_probabilities[batch_idx, :s_len]  # (L, 20)
 
