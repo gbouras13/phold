@@ -137,7 +137,7 @@ PROSTT5_FINETUNE_MD5_DICTIONARY = {
 }
 
 MODERNPROST_MD5_DICTIONARY = {
-    "refs": {"main": "2cf8c33c2dae392d8fa318159055d2b9"},
+    "refs": {"main": "0053329cab116c6f8fff983045ee2c17"},
     "blobs": {
         "e2e467ca5b84ec3ee084e8c5e9ab072ab0e9dc97": "2d21d9427afacb97bb2e70b1ddea5a03",
         "79ae7ea5bf033de69d0055820c57885e3d377bbb": "ff61a5dbe8524c07029da979ddfda1f1",
