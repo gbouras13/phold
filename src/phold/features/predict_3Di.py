@@ -708,7 +708,7 @@ def get_embeddings(
                             token_encoding.attention_mask[idx, s_len + 1] = 0
 
                         # extract last hidden states (=embeddings)
-                        residue_embedding = embedding_repr.last_hidden_state.detach()
+                        residue_embedding = outputs.last_hidden_state.detach()
                         # mask out padded elements in the attention output (can be non-zero) for further processing/prediction
                         residue_embedding = (
                             residue_embedding
@@ -737,7 +737,7 @@ def get_embeddings(
                             if save_per_residue_embeddings or save_per_protein_embeddings:
                                 try:
                                     # account for prefix in offset
-                                    emb = embedding_repr.last_hidden_state[
+                                    emb = outputs.last_hidden_state[
                                         batch_idx, 1 : s_len + 1
                                     ]
 
