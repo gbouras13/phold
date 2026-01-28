@@ -656,7 +656,7 @@ def get_embeddings(
                     }
 
                     tokenizer_kwargs = dict(
-                        seqs=seqs,
+                        text=seqs,
                         padding="longest",
                         truncation=False,
                         return_tensors="pt",
