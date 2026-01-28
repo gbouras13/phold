@@ -202,11 +202,11 @@ def get_model(
                             "gbouras13/modernprost-base",
                             "gbouras13/modernprost-profiles",
                         }:
-        vocab = T5Tokenizer.from_pretrained(
+        tokenizer = T5Tokenizer.from_pretrained(
             model_name, cache_dir=f"{model_dir}/", do_lower_case=False
         )
     else:
-        vocab = AutoTokenizer.from_pretrained(
+        tokenizer = AutoTokenizer.from_pretrained(
             model_name,
             trust_remote_code=True,
             cache_dir=f"{model_dir}/",
@@ -217,7 +217,7 @@ def get_model(
 
     logger.info(f"{model_name} loaded")
 
-    return model, vocab
+    return model, tokenizer
 
 
 def write_embeddings(
@@ -541,7 +541,7 @@ def get_embeddings(
 
     prostt5_prefix = "<AA2fold>"
 
-    model, vocab = get_model(model_dir, model_name, cpu, threads)
+    model, tokenizer = get_model(model_dir, model_name, cpu, threads)
     if model_name not in {
                             "gbouras13/modernprost-base",
                             "gbouras13/modernprost-profiles",
@@ -647,30 +647,38 @@ def get_embeddings(
                 n_res_batch = 0
                 batch = list()
 
-                # this is the same for modernprost and ProstT5
-                token_encoding = vocab.batch_encode_plus(
-                    seqs,
-                    add_special_tokens=True,
-                    padding="longest",
-                    return_tensors="pt",
-                ).to(device)
 
                 try:
                     
-                    if model_name not in {
-                            "gbouras13/modernprost-base",
-                            "gbouras13/modernprost-profiles",
-                        }:
+                    is_modernprost = model_name in {
+                        "gbouras13/modernprost-base",
+                        "gbouras13/modernprost-profiles",
+                    }
 
+                    tokenizer_kwargs = dict(
+                        seqs=seqs,
+                        padding="longest",
+                        truncation=False,
+                        return_tensors="pt",
+                    )
 
-                        with torch.no_grad():
-                            embedding_repr = model(
-                                token_encoding.input_ids,
-                                attention_mask=token_encoding.attention_mask,
-                            )
+                    if is_modernprost:
+                        
+                        tokenizer_kwargs.update(
+                            add_special_tokens=False,
+                        )
                     else:
-                        with torch.no_grad():
-                            outputs = model(**token_encoding)
+                        tokenizer_kwargs.update(
+                            add_special_tokens=True,
+                        )
+                    # Transformers v5 safe implementation
+                    token_encoding = tokenizer(**tokenizer_kwargs).to(device)
+
+                    with torch.no_grad():
+                        outputs = model(
+                            token_encoding.input_ids,
+                            attention_mask=token_encoding.attention_mask,
+                        )
 
 
                 except RuntimeError:
