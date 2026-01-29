@@ -766,6 +766,26 @@ Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input then compare
     type=click.Path(),
     required=True,
 )
+@click.option(
+    "--predictions_dir",
+    help="Path to output directory from phold proteins-predict",
+    type=click.Path(),
+)
+@click.option(
+    "--structures",
+    is_flag=True,
+    help="Use if you have .pdb or .cif file structures for the input proteins (e.g. with AF2/Colabfold) in a directory that you specify with --structure_dir",
+)
+@click.option(
+    "--structure_dir",
+    help="Path to directory with .pdb or .cif file structures. The CDS IDs need to be in the name of the file",
+    type=click.Path(),
+)
+@click.option(
+    "--filter_structures",
+    is_flag=True,
+    help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
+)
 @common_options
 @predict_options
 @compare_options
