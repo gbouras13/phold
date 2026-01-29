@@ -749,6 +749,247 @@ def compare(
     # end phold
     end_phold(start_time, "compare")
 
+""" 
+protein command
+Uses ProstT5 to predict 3Di from a multiFASTA of proteins as input then compare
+"""
+
+
+@main_cli.command()
+@click.help_option("--help", "-h")
+@click.version_option(get_version(), "--version", "-V")
+@click.pass_context
+@click.option(
+    "-i",
+    "--input",
+    help="Path to input multiFASTA file",
+    type=click.Path(),
+    required=True,
+)
+@common_options
+@predict_options
+@compare_options
+def proteins(
+    ctx,
+    input,
+    output,
+    threads,
+    prefix,
+    force,
+    database,
+    autotune,
+    max_batch_residues,
+    batch_size,
+    cpu,
+    omit_probs,
+    save_per_residue_embeddings,
+    save_per_protein_embeddings,
+    mask_threshold,
+    finetune,
+    vanilla,
+    original,
+    profiles,
+    evalue,
+    sensitivity,
+    predictions_dir,
+    structures,
+    structure_dir,
+    filter_structures,
+    keep_tmp_files,
+    card_vfdb_evalue,
+    max_seqs,
+    ultra_sensitive,
+    extra_foldseek_params,
+    custom_db,
+    foldseek_gpu,
+    restart,
+    **kwargs,
+):
+    """Runs ProstT5 on a multiFASTA input followed by comparison with Foldseek vs Phold DB - GPU recommended"""
+
+    # validates the directory  (need to before phold starts or else no log file is written)
+    instantiate_dirs(output, force, restart=False)
+
+    output: Path = Path(output)
+    logdir: Path = Path(output) / "logs"
+
+    params = {
+        "--input": input,
+        "--output": output,
+        "--threads": threads,
+        "--force": force,
+        "--prefix": prefix,
+        "--database": database,
+        "--autotune": autotune,
+        "--max_batch_residues": max_batch_residues,
+        "--batch_size": batch_size,
+        "--cpu": cpu,
+        "--omit_probs": omit_probs,
+        "--save_per_residue_embeddings": save_per_residue_embeddings,
+        "--save_per_protein_embeddings": save_per_protein_embeddings,
+        "--mask_threshold": mask_threshold,
+        "--finetune": finetune,
+        "--vanilla": vanilla,
+        "--original": original,
+        "--profiles": profiles,
+        "--evalue": evalue,
+        "--sensitivity": sensitivity,
+        "--predictions_dir": predictions_dir,
+        "--structures": structures,
+        "--structure_dir": structure_dir,
+        "--filter_structures": filter_structures,
+        "--keep_tmp_files": keep_tmp_files,
+        "--card_vfdb_evalue": card_vfdb_evalue,
+        "--max_seqs": max_seqs,
+        "--ultra_sensitive": ultra_sensitive,
+        "--extra_foldseek_params": extra_foldseek_params,
+        "--custom_db": custom_db,
+        "--foldseek_gpu": foldseek_gpu,
+
+    }
+
+    # initial logging etc
+    start_time = begin_phold(params, "proteins")
+
+    # check the database is installed
+    database = validate_db(database, DB_DIR, foldseek_gpu=False)
+
+    # Dictionary to store the records
+    cds_dict = {}
+    # need a dummmy nested dict
+    cds_dict["proteins"] = {}
+
+    # Iterate through the multifasta file and save each Seqfeature to the dictionary
+    # 1 dummy record = proteins
+
+    with open_protein_fasta_file(input) as handle:  # handles gzip too
+        records = list(SeqIO.parse(handle, "fasta"))
+        if not records:
+            logger.warning(f"No proteins were found in your input file {input}.")
+            logger.error(
+                f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
+            )
+        for record in records:
+            prot_id = record.id
+            feature_location = FeatureLocation(0, len(record.seq))
+            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
+            seq_feature = SeqFeature(
+                feature_location,
+                type="CDS",
+                qualifiers={
+                    "ID": record.id,
+                    "description": record.description,
+                    "translation": str(record.seq),
+                },
+            )
+
+            cds_dict["proteins"][prot_id] = seq_feature
+
+    if not cds_dict:
+        logger.error(f"Error: no AA protein sequences found in {input} file")
+
+    # runs phold predict subcommand
+    model_dir = database
+    model_name = "gbouras13/modernprost-base"
+    checkpoint_path = None
+
+    if profiles:
+        model_name = "gbouras13/modernprost-profiles"
+
+    if original:
+        model_name = "Rostlab/ProstT5_fp16"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = (
+                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+            )
+
+    method = "pharokka"  # this can be whatever for proteins, it wont matter - it is for genbank input
+
+
+    if autotune:
+
+        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+        step = 20
+        min_batch = 1
+        max_batch = 1001
+        sample_seqs = 500
+
+        batch_size, max_batch_residues = run_autotune(
+            input_path,
+            model_dir,
+            model_name,
+            cpu,
+            threads,
+            step, 
+            min_batch,
+            max_batch, 
+            sample_seqs)
+
+    subcommand_predict(
+        cds_dict,
+        method,
+        output,
+        prefix,
+        cpu,
+        omit_probs,
+        model_dir,
+        model_name,
+        checkpoint_path,
+        max_batch_residues,
+        batch_size,
+        proteins_flag=True,
+        fasta_flag=False,
+        save_per_residue_embeddings=save_per_residue_embeddings,
+        save_per_protein_embeddings=save_per_protein_embeddings,
+        threads=threads,
+        mask_threshold=mask_threshold,
+        hyps=False,  # always False for this as no Pharokka genbank to parse on input
+    )
+
+    # end phold
+    end_phold(start_time, "proteins-predict")
+
+
+    subcommand_compare(
+        cds_dict,
+        output,
+        threads,
+        evalue,
+        card_vfdb_evalue,
+        sensitivity,
+        database,
+        prefix,
+        predictions_dir=output,
+        structures=False,
+        structure_dir=None,
+        logdir=logdir,
+        filter_structures=False,
+        remote_flag=False,
+        proteins_flag=True,
+        fasta_flag=False,
+        separate=False,
+        max_seqs=max_seqs,
+        ultra_sensitive=ultra_sensitive,
+        extra_foldseek_params=extra_foldseek_params,
+        custom_db=custom_db,
+        foldseek_gpu=foldseek_gpu,
+        restart=restart,
+        profiles=profiles
+    )
+
+    # cleanup the temp files
+    if keep_tmp_files is False:
+        clean_up_temporary_files(output)
+
+    # end phold
+    end_phold(start_time, "proteins")
+
 
 """ 
 proteins-predict command
