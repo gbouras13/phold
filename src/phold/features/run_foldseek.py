@@ -18,7 +18,7 @@ def run_foldseek_search(
     extra_foldseek_params: str,
     foldseek_gpu: bool,
     structures: bool,
-    clustered_db: bool,
+    clustered_db: bool
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -38,6 +38,7 @@ def run_foldseek_search(
         foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
         structures (bool): Run Foldseek with structures, not ProstT5 3Dis
         clustered_db (bool): Run Foldseek with clustered DB (for benchmarking)
+        tseq (bool): Run Foldseek and keep target seqs in output
 
     Returns:
         None
@@ -132,6 +133,7 @@ def create_result_tsv(
     foldseek_gpu: bool,
     structures: bool,
     threads: int,
+    tseq: bool
 ) -> None:
     """
     Create a TSV file containing the results of a Foldseek search.
@@ -145,6 +147,7 @@ def create_result_tsv(
         foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
         structures (bool): Whether structures were input (not ProstT5)
         threads (int): Number of threads to use.
+        tseq (bool): Run Foldseek and keep target seqs in output
 
     Returns:
         None
@@ -153,6 +156,8 @@ def create_result_tsv(
         format_string = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen,alntmscore,lddt"
     else:
         format_string = "--format-output query,target,bits,fident,evalue,qstart,qend,qlen,tstart,tend,tlen"
+    if tseq:
+        format_string += f",tseq"
     if foldseek_gpu:
         target_db = f"{target_db}_gpu"
 

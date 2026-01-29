@@ -47,7 +47,9 @@ def subcommand_compare(
     foldseek_gpu: bool,
     restart: bool = False,
     profiles: bool = False, 
+    tseq=False,
     clustered_db=False # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
+    
 
 ) -> bool:
     """
@@ -78,6 +80,7 @@ def subcommand_compare(
         foldseek_gpu (bool): Use Foldseek-GPU acceleration and ungappedprefilter
         restart (bool): Restart from foldseek_results.tsv
         profiles (bool): Whether modernprost-profiles was used to generate 3Di PSSM Foldseek profiels
+        tseq (bool): keep target seq
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -335,7 +338,7 @@ def subcommand_compare(
         )
 
         
-        create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads)
+        create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads, tseq)
 
 
    # restart

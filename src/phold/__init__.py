@@ -232,7 +232,13 @@ def compare_options(func):
             "--restart",
             is_flag=True,
             help="Use this to restart phold from 'Processing Foldseek output' after foldseek_results.tsv is generated",
-)
+        ),
+        click.option(
+            "--tseq",
+            is_flag=True,
+            help="Use this to keep target sequences in Foldseek output"
+        ),
+        
     ]
     for option in reversed(options):
         func = option(func)
@@ -302,6 +308,7 @@ def run(
     restart,
     original,
     profiles,
+    tseq,
     **kwargs,
 ):
     """phold predict then comapare all in one - GPU recommended"""
@@ -342,7 +349,8 @@ def run(
         "--vanilla": vanilla,
         "--restart": restart,
         "--original": original,
-        "--profiles": profiles
+        "--profiles": profiles,
+        "--tseq": tseq
     }
 
     # initial logging etc
@@ -447,7 +455,8 @@ def run(
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
-        profiles=profiles
+        profiles=profiles,
+        tseq=tseq
     )
 
     # cleanup the temp files
@@ -667,6 +676,7 @@ def compare(
     foldseek_gpu,
     restart,
     profiles,
+    tseq,
     **kwargs,
 ):
     """Runs Foldseek vs phold db"""
@@ -700,7 +710,8 @@ def compare(
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
         "--restart": restart,
-        "--profiles": profiles
+        "--profiles": profiles,
+        "--tseq": tseq
     }
 
     # initial logging etc
@@ -739,7 +750,8 @@ def compare(
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
-        profiles=profiles
+        profiles=profiles,
+        tseq=tseq
     )
 
     # cleanup the temp files
@@ -823,6 +835,7 @@ def proteins(
     custom_db,
     foldseek_gpu,
     restart,
+    tseq,
     **kwargs,
 ):
     """Runs ProstT5 on a multiFASTA input followed by comparison with Foldseek vs Phold DB - GPU recommended"""
@@ -865,6 +878,7 @@ def proteins(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--tseq": tseq
 
     }
 
@@ -1000,7 +1014,8 @@ def proteins(
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
-        profiles=profiles
+        profiles=profiles,
+        tseq=tseq
     )
 
     # cleanup the temp files
@@ -1252,6 +1267,7 @@ def proteins_compare(
     foldseek_gpu,
     restart,
     profiles,
+    tseq,
     **kwargs
 ):
     """Runs Foldseek vs phold db on proteins input"""
@@ -1284,7 +1300,8 @@ def proteins_compare(
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
         "--restart": restart,
-        "--profiles": profiles
+        "--profiles": profiles,
+        "--tseq": tseq
     }
 
     # initial logging etc
@@ -1353,7 +1370,8 @@ def proteins_compare(
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
-        profiles=profiles
+        profiles=profiles,
+        tseq=tseq
     )
 
     # cleanup the temp files
