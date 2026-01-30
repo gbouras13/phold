@@ -14,6 +14,7 @@ from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.io.handle_genbank import open_protein_fasta_file
+from phold.io.handle_protein_faa import open_protein_fasta_as_cds_dict
 from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
@@ -888,39 +889,8 @@ def proteins(
     # check the database is installed
     database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
-    # Dictionary to store the records
-    cds_dict = {}
-    # need a dummmy nested dict
-    cds_dict["proteins"] = {}
-
-    # Iterate through the multifasta file and save each Seqfeature to the dictionary
-    # 1 dummy record = proteins
-
-    with open_protein_fasta_file(input) as handle:  # handles gzip too
-        records = list(SeqIO.parse(handle, "fasta"))
-        if not records:
-            logger.warning(f"No proteins were found in your input file {input}.")
-            logger.error(
-                f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
-            )
-        for record in records:
-            prot_id = record.id
-            feature_location = FeatureLocation(0, len(record.seq))
-            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-            seq_feature = SeqFeature(
-                feature_location,
-                type="CDS",
-                qualifiers={
-                    "ID": record.id,
-                    "description": record.description,
-                    "translation": str(record.seq),
-                },
-            )
-
-            cds_dict["proteins"][prot_id] = seq_feature
-
-    if not cds_dict:
-        logger.error(f"Error: no AA protein sequences found in {input} file")
+    # loads protein fasta as dictionary
+    cds_dict = open_protein_fasta_as_cds_dict(input)
 
     # runs phold predict subcommand
     model_dir = database
@@ -1102,39 +1072,8 @@ def proteins_predict(
     # check the database is installed
     database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
-    # Dictionary to store the records
-    cds_dict = {}
-    # need a dummmy nested dict
-    cds_dict["proteins"] = {}
-
-    # Iterate through the multifasta file and save each Seqfeature to the dictionary
-    # 1 dummy record = proteins
-
-    with open_protein_fasta_file(input) as handle:  # handles gzip too
-        records = list(SeqIO.parse(handle, "fasta"))
-        if not records:
-            logger.warning(f"No proteins were found in your input file {input}.")
-            logger.error(
-                f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
-            )
-        for record in records:
-            prot_id = record.id
-            feature_location = FeatureLocation(0, len(record.seq))
-            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-            seq_feature = SeqFeature(
-                feature_location,
-                type="CDS",
-                qualifiers={
-                    "ID": record.id,
-                    "description": record.description,
-                    "translation": str(record.seq),
-                },
-            )
-
-            cds_dict["proteins"][prot_id] = seq_feature
-
-    if not cds_dict:
-        logger.error(f"Error: no AA protein sequences found in {input} file")
+    # loads protein fasta as dictionary
+    cds_dict = open_protein_fasta_as_cds_dict(input)
 
     # runs phold predict subcommand
     model_dir = database
@@ -1313,38 +1252,8 @@ def proteins_compare(
     # check the database is installed
     database = validate_db(database, DB_DIR, foldseek_gpu)
 
-    # Dictionary to store the records
-    cds_dict = {}
-    # need a dummmy nested dict
-    cds_dict["proteins"] = {}
-
-    # Iterate through the multifasta file and save each Seqfeature to the dictionary
-    # 1 dummy record = proteins
-    with open_protein_fasta_file(input) as handle:  # handles gzip too
-        records = list(SeqIO.parse(handle, "fasta"))
-        if not records:
-            logger.warning(f"No proteins were found in your input file {input}.")
-            logger.error(
-                f"Your input file {input} is likely not a amino acid FASTA file. Please check this."
-            )
-        for record in records:
-            prot_id = record.id
-            feature_location = FeatureLocation(0, len(record.seq))
-            # Seq needs to be saved as the first element in list hence the closed brackets [str(record.seq)]
-            seq_feature = SeqFeature(
-                feature_location,
-                type="CDS",
-                qualifiers={
-                    "ID": record.id,
-                    "description": record.description,
-                    "translation": str(record.seq),
-                },
-            )
-
-            cds_dict["proteins"][prot_id] = seq_feature
-
-    if not cds_dict:
-        logger.error(f"Error: no AA protein sequences found in {input} file")
+       # loads protein fasta as dictionary
+    cds_dict = open_protein_fasta_as_cds_dict(input)
 
     success = subcommand_compare(
         cds_dict,
