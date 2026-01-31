@@ -166,11 +166,6 @@ def get_topfunctions(
         .reset_index(drop=True)
     )
 
-    # topfunction_dict = dict(zip(topfunction_df["query"], topfunction_df["function"]))
-
-    # Remove the original 'query' column
-    topfunction_df = topfunction_df.drop(columns=["query"])
-
     # scientific notation to 3dp
     topfunction_df["evalue"] = topfunction_df["evalue"].apply(
         lambda x: "{:.3e}".format(float(x))
