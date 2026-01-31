@@ -20,7 +20,7 @@ import torch.nn.functional as F
 from loguru import logger
 from torch import nn
 from tqdm import tqdm
-from transformers import T5EncoderModel, T5Tokenizer
+from transformers import T5EncoderModel, T5Tokenizer, logging, utils
 
 from phold.databases.db import check_prostT5_download, download_zenodo_prostT5
 from phold.utils.constants import CNN_DIR
@@ -141,6 +141,9 @@ def get_T5_model(
         localfile = False
         logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
     try:
+        # suppress warning and progress bar
+        logging.set_verbosity_error()
+        utils.logging.disable_progress_bar()
         model = T5EncoderModel.from_pretrained(
             model_name,
             cache_dir=f"{model_dir}/",
@@ -152,6 +155,9 @@ def get_T5_model(
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
         download_zenodo_prostT5(model_dir, logdir, threads)
+
+        logging.set_verbosity_error()
+        utils.logging.disable_progress_bar()
 
         model = T5EncoderModel.from_pretrained(
             model_name,
@@ -546,12 +552,16 @@ def get_embeddings(
                 pdb_ids, seqs, seq_lens = zip(*batch)
                 batch = list()
 
-                token_encoding = vocab.batch_encode_plus(
-                    seqs,
-                    add_special_tokens=True,
-                    padding="longest",
-                    return_tensors="pt",
+                # safe for transformers v5
+
+                token_encoding = vocab(
+                seqs,
+                add_special_tokens=True,
+                padding="longest",
+                truncation=False,
+                return_tensors="pt"
                 ).to(device)
+
                 try:
                     with torch.no_grad():
                         embedding_repr = model(
