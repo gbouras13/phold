@@ -223,7 +223,7 @@ def subcommand_compare(
                         f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict."
                     )
                     if fasta_3di_input != fasta_3di: # only copy the file if doesnt already exist (will be the case for run or proteins)
-                        shutil.copyfile(fasta_3di_input, fasta_3di)
+                        shutil.copyfile(fasta_aa_input, fasta_aa)
                 else:
                     logger.error(
                         f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
