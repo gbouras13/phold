@@ -195,12 +195,14 @@ def subcommand_compare(
 
         # input predictions or structures
         if structures is False:
-            # prostT5
+            # prost
             fasta_aa_input: Path = Path(predictions_dir) / f"{prefix}_aa.fasta"
             fasta_3di_input: Path = Path(predictions_dir) / f"{prefix}_3di.fasta"
 
-        fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
-        fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+        else:
+            
+            fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
+            fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
         ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
         if structures is False:
