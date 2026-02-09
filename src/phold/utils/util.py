@@ -163,7 +163,7 @@ def touch_file(path: Path) -> None:
         os.utime(path, None)
 
 
-def replace_pipe_in_fastq(input_path):
+def replace_pipe_in_fasta(input_path):
     """
     Solves issue #86 with the genbank format headers
     Reads a FASTA with Biopython, replace '~PIPE~' with '|' in headers, and write the result.
