@@ -19,7 +19,7 @@ from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
                                        calculate_qcov_tcov,
                                        get_topfunctions)
-from phold.utils.util import replace_pipe_in_fastq
+from phold.utils.util import replace_pipe_in_fasta
 
 
 def subcommand_compare(
@@ -352,8 +352,8 @@ def subcommand_compare(
         fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
         fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
-        replace_pipe_in_fastq(fasta_aa)
-        replace_pipe_in_fastq(fasta_3di)
+        replace_pipe_in_fasta(fasta_aa)
+        replace_pipe_in_fasta(fasta_3di)
 
 
     ########
