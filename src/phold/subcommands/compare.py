@@ -194,18 +194,17 @@ def subcommand_compare(
     if not restart:
 
         # input predictions or structures
-        if structures is False:
+        if not structures and not profiles:
             # prost
             fasta_aa_input: Path = Path(predictions_dir) / f"{prefix}_aa.fasta"
             fasta_3di_input: Path = Path(predictions_dir) / f"{prefix}_3di.fasta"
 
-        else:
-            
-            fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
-            fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+
+        fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
+        fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
         ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
-        if structures is False:
+        if not structures and not profiles:
             # if remote, these will not exist
             if remote_flag is False:
                 if fasta_3di_input.exists():
