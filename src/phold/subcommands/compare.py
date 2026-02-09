@@ -345,10 +345,10 @@ def subcommand_compare(
 
     ######
     # remove pipe in AA and 3Di FASTA (issue #86)
-    # Won't exist if structures are used
+    # Won't exist if structures or profiles are used
     ######
     
-    if not structures:
+    if not structures and not profiles:
         fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
         fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
