@@ -508,7 +508,7 @@ def get_embeddings(
         predictions[record_id] = {}
         batch_predictions = {}
 
-        # embeddings
+        # embeddings 
         if save_per_residue_embeddings:
             batch_embeddings_per_residue = {}
         if save_per_protein_embeddings:
