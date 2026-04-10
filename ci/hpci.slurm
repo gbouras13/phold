@@ -36,7 +36,7 @@ cd "$TARGET_DIR"
 
 git checkout "$COMMIT_SHA"
 
-singularity exec "$containerImage" pytest --gpu-available --threads 8 .
+singularity exec "$containerImage" pytest --gpu_available --threads 8 .
 
 cd ..
 
