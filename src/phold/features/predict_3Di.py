@@ -100,7 +100,7 @@ def get_T5_model(
 
     torch.set_num_threads(threads)
 
-    if cpu is True:
+    if cpu:
         device = torch.device("cpu")
         dev_name = "cpu"
     else:
@@ -166,10 +166,14 @@ def get_T5_model(
             local_files_only=True,
         ).to(device)
 
-    model = model.eval()
     vocab = T5Tokenizer.from_pretrained(
         model_name, cache_dir=f"{model_dir}/", do_lower_case=False
     )
+
+    if cpu:
+        model = model.float()   # FORCE FP32 - https://github.com/gbouras13/baktfold/issues/28 https://github.com/gbouras13/phold/issues/123
+
+    model = model.eval()
 
     logger.info(f"{model_name} loaded")
 
@@ -504,7 +508,7 @@ def get_embeddings(
         predictions[record_id] = {}
         batch_predictions = {}
 
-        # embeddings
+        # embeddings 
         if save_per_residue_embeddings:
             batch_embeddings_per_residue = {}
         if save_per_protein_embeddings:

@@ -1,5 +1,10 @@
 # History
 
+1.2.3 (2026-04-11)
+------------------
+* Minor bugfix when running Phold with `--cpu` #123
+* Add support for HuggingFace database download from https://huggingface.co/datasets/gbouras13/phold-db (way faster than Zenodo)
+
 1.2.2 (2026-01-31)
 ------------------
 * Minor bugfix to make phold is compatible with transformers v5 and pandas v3
