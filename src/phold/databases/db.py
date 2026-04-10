@@ -151,12 +151,12 @@ def install_database(
         if extended_db:
             DICT = VERSION_DICTIONARY_3M16
             db_url = DICT[CURRENT_DB_VERSION]["db_url"]
-            logger.info(f"Downloading Phold DB 3.16M from {db_url}")
+            logger.info(f"Downloading Phold DB 3.16M")
 
         else:
             DICT = VERSION_DICTIONARY
             db_url = DICT[CURRENT_DB_VERSION]["db_url"]
-            logger.info(f"Downloading Phold Search DB 1.36M from {db_url}")
+            logger.info(f"Downloading Phold Search DB 1.36M")
 
         requiredmd5 = DICT[CURRENT_DB_VERSION]["md5"]
         tarball = DICT[CURRENT_DB_VERSION]["tarball"]
@@ -172,7 +172,7 @@ def install_database(
             logger.warning(
                 f"Could not download file from HuggingFace: path={tarball_path}"
             )
-            logger.warning(f"Trying now with requests")
+            logger.warning(f"Trying now with requests from Zenodo from {db_url}")
             download_requests(db_url, tarball_path)
 
         md5_sum = calc_md5_sum(tarball_path)
