@@ -14,10 +14,10 @@ jobs:
 
       - name: Build Docker image
         run: |
-          IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/baktfold:${{ github.sha }}
-          docker build --build-arg BAKTFOLD_REF=${{ github.sha }} -f container/hpci/Dockerfile -t $IMAGE .
+          IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/phold:${{ github.sha }}
+          docker build --build-arg PHOLD_REF=${{ github.sha }} -f container/hpci/Dockerfile -t $IMAGE .
 
       - name: Push Docker image
         run: |
-          IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/baktfold:${{ github.sha }}
+          IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/phold:${{ github.sha }}
           docker push $IMAGE

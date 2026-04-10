@@ -1,4 +1,4 @@
-name: HPCTest
+name: HPCI
 on: [push,pull_request]
 
 jobs:
