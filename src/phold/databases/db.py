@@ -7,6 +7,7 @@ from pathlib import Path
 import requests
 from alive_progress import alive_bar
 from loguru import logger
+from huggingface_hub import hf_hub_download
 
 from phold.utils.external_tools import ExternalTool
 from phold.utils.util import remove_directory
@@ -159,11 +160,20 @@ def install_database(
 
         requiredmd5 = DICT[CURRENT_DB_VERSION]["md5"]
         tarball = DICT[CURRENT_DB_VERSION]["tarball"]
+        
 
         tarball_path = Path(f"{db_dir}/{tarball}")
         logdir = Path(db_dir) / "logdir"
 
-        download(db_url, tarball_path, logdir, threads)
+        try: 
+            logger.info(f"Downloading database from HuggingFace")
+            download(tarball_path, db_dir, tarball)
+        except:
+            logger.warning(
+                f"Could not download file from HuggingFace: path={tarball_path}"
+            )
+            logger.warning(f"Trying now with requests")
+            download_requests(db_url, tarball_path)
 
         md5_sum = calc_md5_sum(tarball_path)
 
@@ -223,54 +233,114 @@ lots of this code from the marvellous bakta https://github.com/oschwengers/bakta
 #         )
 
 """
-aria2c bottlenecked by Zenodo but still faster
+Use HF (wayyyyyy faster) not aria2c
 """
 
 
-def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> None:
+# def download(db_url: str, tarball_path: Path, logdir: Path, threads: int) -> None:
+#     """
+#     Download the database from the given URL using aria2c.
+
+#     Args:
+#         db_url (str): The URL of the database.
+#         tarball_path (Path): The path where the downloaded tarball should be saved.
+#         logdir (Path): The path to store logs
+#         threads (int): Number of threads for aria2c
+#     """
+
+#     cmd = f"--dir {str(tarball_path.parent)} --out {tarball_path.name} --max-connection-per-server={str(threads)} --allow-overwrite=true  {db_url}"
+
+#     download_db = ExternalTool(
+#         tool="aria2c",
+#         input=f"",
+#         output=f"",
+#         params=f"{cmd}",
+#         logdir=logdir,
+#     )
+#     try:
+#         ExternalTool.run_download(download_db)
+#     except:
+#         logger.warning(
+#             "Downloading the database with aria2c failed. Trying now without."
+#         )
+#         try:
+#             headers = {
+#                 "User-Agent": f"phold/{CURRENT_DB_VERSION} (contact: george.bouras@adelaide.edu.au)"
+#             }
+#             with tarball_path.open("wb") as fh_out, requests.get(
+#                 db_url, stream=True, headers=headers
+#             ) as resp:
+#                 total_length = resp.headers.get("content-length")
+#                 if total_length is not None:  # content length header is set
+#                     total_length = int(total_length)
+#                 with alive_bar(total=total_length, scale="SI") as bar:
+#                     for data in resp.iter_content(chunk_size=1024 * 1024):
+#                         fh_out.write(data)
+#                         bar(count=len(data))
+#         except IOError:
+#             logger.error(
+#                 f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
+#             )
+
+def download(tarball_path: Path, cache_dir: Path, tarball: str) -> None:
     """
-    Download the database from the given URL using aria2c.
+    Download the database from the given URL using HF.
 
     Args:
-        db_url (str): The URL of the database.
         tarball_path (Path): The path where the downloaded tarball should be saved.
-        logdir (Path): The path to store logs
-        threads (int): Number of threads for aria2c
     """
 
-    cmd = f"--dir {str(tarball_path.parent)} --out {tarball_path.name} --max-connection-per-server={str(threads)} --allow-overwrite=true  {db_url}"
-
-    download_db = ExternalTool(
-        tool="aria2c",
-        input=f"",
-        output=f"",
-        params=f"{cmd}",
-        logdir=logdir,
+    hf_tarball_path = hf_hub_download(
+        repo_id="gbouras13/phold-db",
+        repo_type="dataset",
+        filename=tarball,
+        cache_dir=f"{cache_dir}"
     )
+
+    # move from cache_dir to the base
+    # need to get the actual path not symlink
+
+    real_tarball = Path(hf_tarball_path).resolve()
+    tarball_path.parent.mkdir(parents=True, exist_ok=True)
+
+    shutil.move(real_tarball, tarball_path)
+
+    logger.info(f"Tarball saved to {tarball_path}")
+
+
+
+def download_requests(db_url: str, tarball_path: Path):
+    """
+    Downloads a file from a given URL using the requests library.
+
+    Args:
+      db_url (str): The URL of the file to download.
+      tarball_path (Path): The path to save the downloaded file.
+
+    Returns:
+      None
+    """
+
+    headers = {
+        "User-Agent": f"phold/{CURRENT_DB_VERSION} (contact: george.bouras@adelaide.edu.au)"
+    }
+
     try:
-        ExternalTool.run_download(download_db)
+        with tarball_path.open("wb") as fh_out, requests.get(
+            db_url, stream=True, headers=headers
+        ) as resp:
+            total_length = resp.headers.get("content-length")
+            if total_length is not None:  # content length header is set
+                total_length = int(total_length)
+            with alive_bar(total=total_length, scale="SI") as bar:
+                for data in resp.iter_content(chunk_size=1024 * 1024):
+                    fh_out.write(data)
+                    bar(count=len(data))
     except:
-        logger.warning(
-            "Downloading the database with aria2c failed. Trying now without."
+        logger.error(
+            f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
         )
-        try:
-            headers = {
-                "User-Agent": f"phold/{CURRENT_DB_VERSION} (contact: george.bouras@adelaide.edu.au)"
-            }
-            with tarball_path.open("wb") as fh_out, requests.get(
-                db_url, stream=True, headers=headers
-            ) as resp:
-                total_length = resp.headers.get("content-length")
-                if total_length is not None:  # content length header is set
-                    total_length = int(total_length)
-                with alive_bar(total=total_length, scale="SI") as bar:
-                    for data in resp.iter_content(chunk_size=1024 * 1024):
-                        fh_out.write(data)
-                        bar(count=len(data))
-        except IOError:
-            logger.error(
-                f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
-            )
+
 
 
 
@@ -291,7 +361,7 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
     tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
     tarball_path = Path(f"{model_dir}/{tarball}")
 
-    download(db_url, tarball_path, logdir, threads)
+    download_requests(db_url, tarball_path, logdir, threads)
     md5_sum = calc_md5_sum(tarball_path)
 
     if md5_sum == requiredmd5:
