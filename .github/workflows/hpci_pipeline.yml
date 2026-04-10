@@ -1,0 +1,42 @@
+name: HPCTest
+on: [push,pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download, Setup, and Run hpci
+        env:
+          KEY: ${{ secrets.PRIVATE_KEY }}
+          PUB: ${{ secrets.PUBLIC_KEY }}
+        run: |
+          wget -qO hpci-exe https://github.com/Garvan-Data-Science-Platform/hpci/releases/download/v0.1.2/hpci-exe
+          chmod +x ./hpci-exe
+          ./hpci-exe --help
+
+          echo "$KEY" > key
+          echo "$PUB" > key.pub
+          chmod 400 key*
+
+          ./hpci-exe \
+            --user ${{ secrets.PAWSEY_USER }} \
+            --host ${{ secrets.PAWSEY_HOST }} \
+            --port 22 \
+            --publicKey key.pub \
+            --privateKey key \
+            schedule \
+            --scheduler slurm \
+            --script ci/hpci.slurm \
+            --logFile phold-${{ github.sha }}.out \
+            --scheduler-arg --account=${{ secrets.PAWSEY_ACCOUNT }}-gpu \
+            --scheduler-arg --output=phold-${{ github.sha }}.out \
+            --scheduler-arg --begin=now+15minutes \
+            -c BASEDIR=${{ secrets.BASEDIR }},COMMIT_SHA=${{ github.sha }},REPO_URL=https://github.com/${{ github.repository }}.git,REPO_NAME=${{ github.event.repository.name }}
+
+      - name: Cleanup keys and binary
+        if: always()
+        run: rm -f ./hpci-exe key key.pub
+
+

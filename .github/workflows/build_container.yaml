@@ -1,0 +1,23 @@
+name: Build and Push Container to Quay
+on: [push,pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Log in to Quay
+        run: echo "${{ secrets.QUAY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/baktfold:${{ github.sha }}
+          docker build --build-arg BAKTFOLD_REF=${{ github.sha }} -f container/hpci/Dockerfile -t $IMAGE .
+
+      - name: Push Docker image
+        run: |
+          IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/baktfold:${{ github.sha }}
+          docker push $IMAGE
