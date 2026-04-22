@@ -1,5 +1,9 @@
 # History
 
+1.2.4 (2026-04-22)
+------------------
+* Bugfix to ensure ProstT5 confidence outputs are correctly output when annotating multiple contigs/genomes with `phold run` or `phold predict`
+
 1.2.3 (2026-04-11)
 ------------------
 * Minor bugfix when running Phold with `--cpu` #123
@@ -12,7 +16,6 @@
 1.2.1 (2026-01-15)
 ------------------
 * Minor bugfix to make sure the ordering of ProstT5 confidence outputs matches the input .faa (was length-sorted, introduced by batching in v1.2.0)
-
 
 1.2.0 (2026-01-08)
 ------------------
