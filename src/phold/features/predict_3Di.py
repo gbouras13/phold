@@ -141,9 +141,8 @@ def get_T5_model(
         localfile = False
         logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
     try:
-        # suppress warning and progress bar
+        # suppress warning
         logging.set_verbosity_error()
-        utils.logging.disable_progress_bar()
         model = T5EncoderModel.from_pretrained(
             model_name,
             cache_dir=f"{model_dir}/",
@@ -155,9 +154,7 @@ def get_T5_model(
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
         download_zenodo_prostT5(model_dir, logdir, threads)
-
         logging.set_verbosity_error()
-        utils.logging.disable_progress_bar()
 
         model = T5EncoderModel.from_pretrained(
             model_name,
