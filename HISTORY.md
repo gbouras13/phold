@@ -1,5 +1,9 @@
 # History
 
+1.2.4 (2026-04-24)
+------------------
+* Support `mps` (MacOS) with `phold autotune`
+
 1.2.4 (2026-04-22)
 ------------------
 * Bugfix to ensure ProstT5 confidence outputs are correctly output when annotating multiple contigs/genomes with `phold run` or `phold predict`
