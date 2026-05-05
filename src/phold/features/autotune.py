@@ -46,10 +46,14 @@ def sample_probe_sequences(seqs, n=5000, seed=0):
 
 
 def device_synchronize(device: torch.device):
+    # I think this whole block can be replacesd with
+    # torch.accelerator.synchronize(device)
     if device.type == "cuda":
         torch.cuda.synchronize(device)
+    elif device.type == 'xpu':
+        torch.xpu.synchronize(device)
     elif device.type == "mps":
-        torch.mps.synchronize()
+        torch.mps.synchronize(device)
     # CPU and others: no-op
 
 def autotune_batching_real_data(
@@ -80,6 +84,10 @@ def autotune_batching_real_data(
         # check for NVIDIA/cuda
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
+        # check for intel xpu
+        elif torch.xpu.is_available():
+            device = torch.device("xpu:0")
+            dev_name = "xpu"
         # check for apple silicon/metal
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
