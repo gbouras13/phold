@@ -108,6 +108,10 @@ def get_T5_model(
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
             dev_name = "cuda:0"
+        # check for intel xpu
+        elif torch.xpu.is_available():
+            device = torch.device("xpu:0")
+            dev_name = "xpu"
         # check for apple silicon/metal
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
