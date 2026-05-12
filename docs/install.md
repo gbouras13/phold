@@ -51,6 +51,10 @@ mamba install pytorch::pytorch torchvision torchaudio -c pytorch
 mamba install -c conda-forge -c bioconda phold 
 ```
 
+## Intel XPU
+
+If you have an Intel machine with an XPU, we have [written separate installation instructions](install_intel_xpu.md) that show you how to install Phold.
+
 ## pytorch 
 
 To utilise `phold` with GPU, a GPU compatible version of `pytorch` must be installed. 
