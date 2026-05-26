@@ -104,6 +104,31 @@ def subcommand_predict(
                     # due to the weird list issue when parsing from genbank file
                     if fasta_flag is False:
 
+                        # cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
+                        #     "translation"
+                        # ][0]
+
+                        # some NCBI Genbank CDS are actually pseudos
+                        # e.g. OM418625
+
+                        #  CDS             19638..19895
+                        #                  /locus_tag="CPT_lambdaimm21_023"
+                        #                  /pseudogene="unknown"
+                        #                  /codon_start=1
+                        #                  /transl_table=11
+                        #                  /product="tail fiber protein stf"
+
+                        if (
+                            "translation" not in cds_feature.qualifiers
+                            or len(cds_feature.qualifiers["translation"]) == 0
+                        ):
+                            logger.warning(
+                                f"Skipping CDS without provided translation in input, likely a pseudogene"
+                            )
+                            logger.warning(f"CDS: {cds_feature}"
+                            )
+                            continue
+
                         cds_feature.qualifiers["translation"] = cds_feature.qualifiers[
                             "translation"
                         ][0]

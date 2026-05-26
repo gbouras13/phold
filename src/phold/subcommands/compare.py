@@ -139,23 +139,39 @@ def subcommand_compare(
                                 cds_feature.qualifiers["ID"][0]
                             ] = cds_feature
 
-                        # not pharokka - must be from genbank (supported only)
+                        # not pharokka - must be from ncbi genbank (supported only)
                         except:
                             try:
-                                # add these extra fields to make it all play nice
-                                cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
-                                    "protein_id"
-                                ]
-                                cds_feature.qualifiers["function"] = []
-                                cds_feature.qualifiers["function"].append(
-                                    "unknown function"
-                                )
-                                cds_feature.qualifiers["phrog"] = []
-                                cds_feature.qualifiers["phrog"].append("No_PHROG")
 
-                                cds_dict[record_id][
-                                    cds_feature.qualifiers["ID"][0]
-                                ] = cds_feature
+                                # some NCBI Genbank CDS are actually pseudos
+                                # e.g. OM418625
+
+                                #  CDS             19638..19895
+                                #                  /locus_tag="CPT_lambdaimm21_023"
+                                #                  /pseudogene="unknown"
+                                #                  /codon_start=1
+                                #                  /transl_table=11
+                                #                  /product="tail fiber protein stf"
+                                if "pseudogene" in cds_feature.qualifiers:
+
+                                    #logger.warning(f"Skipping pseudogene: {cds_feature}")
+                                    continue
+                                else:
+
+                                    # add these extra fields to make it all play nice
+                                    cds_feature.qualifiers["ID"] = cds_feature.qualifiers[
+                                        "protein_id"
+                                    ]
+                                    cds_feature.qualifiers["function"] = []
+                                    cds_feature.qualifiers["function"].append(
+                                        "unknown function"
+                                    )
+                                    cds_feature.qualifiers["phrog"] = []
+                                    cds_feature.qualifiers["phrog"].append("No_PHROG")
+
+                                    cds_dict[record_id][
+                                        cds_feature.qualifiers["ID"][0]
+                                    ] = cds_feature
 
                             except:
                                 logger.error(
@@ -175,7 +191,7 @@ def subcommand_compare(
 
             i = 1
             for non_cds_feature in record.features:
-                if non_cds_feature.type != "CDS":
+                if non_cds_feature.type != "CDS" or (non_cds_feature.type == "CDS" and "pseudogene" in cds_feature.qualifiers): # captures the pseudos
                     try:
                         non_cds_dict[record_id][
                             non_cds_feature.qualifiers["ID"][0]
