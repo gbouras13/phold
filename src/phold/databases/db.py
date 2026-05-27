@@ -361,7 +361,7 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
     tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
     tarball_path = Path(f"{model_dir}/{tarball}")
 
-    download_requests(db_url, tarball_path, logdir, threads)
+    download_requests(db_url, tarball_path)
     md5_sum = calc_md5_sum(tarball_path)
 
     if md5_sum == requiredmd5:
