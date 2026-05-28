@@ -43,6 +43,8 @@ output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
 run_gbk_hyps: Path = f"{output_dir}/NC_043029_hyps"
 run_gbk_ncbi: Path = f"{output_dir}/run_gbk_ncbi_gbk"
+run_gbk_ncbi_pseudo: Path = f"{output_dir}/OM418625_w_pseudo_gbk"
+run_gbk_ncbi_no_product: Path = f"{output_dir}/run_ncbi_no_product_gbk"
 run_gbk_bakta: Path = f"{output_dir}/run_gbk_ncbi_bakta"
 run_gbk_pharokka_1_4_1_dir: Path = f"{output_dir}/NC_043029_pharokka1.4.1_dir"
 run_gbk_pharokka_pipe: Path = f"{output_dir}/pipe.gbk"
@@ -196,6 +198,31 @@ def test_run_genbank_ncbi(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+
+def test_run_genbank_ncbi_pseudo(gpu_available, threads, nvidia):
+    """test phold run with genbank input from NCBI with a pseudogene (no translation)"""
+    input_gbk: Path = f"{test_data}/OM418625_w_pseudo.gbk"
+    cmd = (
+        f"phold run -i {input_gbk} -o {run_gbk_ncbi_pseudo} -t {threads} -d {database_dir} -f"
+    )
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
+def test_run_genbank_ncbi_no_product(gpu_available, threads, nvidia):
+    """test phold run with genbank input from NCBI with no product"""
+    input_gbk: Path = f"{test_data}/OY726582_w_no_product.gbk"
+    cmd = (
+        f"phold run -i {input_gbk} -o {run_gbk_ncbi_no_product} -t {threads} -d {database_dir} -f"
+    )
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+
 
 def test_run_genbank_bakta(gpu_available, threads, nvidia):
     """test phold run with genbank input from bakta"""
