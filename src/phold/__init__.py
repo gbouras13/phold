@@ -108,6 +108,14 @@ def predict_options(func):
             help="Use cpus only.",
         ),
         click.option(
+            "--gpus",
+            type=str,
+            default=None,
+            help=('Comma-separated CUDA device indices to use (e.g. "0,2"). '
+                  "Default: all visible CUDA GPUs. Overridden by --cpu. "
+                  "Has no effect on MPS / XPU systems."),
+        ),
+        click.option(
             "--omit_probs",
             is_flag=True,
             help="Do not output per residue 3Di probabilities from ProstT5. Mean per protein 3Di probabilities will always be output.",
@@ -267,6 +275,7 @@ def run(
     batch_size,
     sensitivity,
     cpu,
+    gpus,
     omit_probs,
     keep_tmp_files,
     card_vfdb_evalue,
@@ -306,6 +315,7 @@ def run(
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--omit_probs": omit_probs,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
@@ -365,10 +375,12 @@ def run(
                 model_name,
                 cpu,
                 threads,
-                step, 
+                step,
                 min_batch,
-                max_batch, 
-                sample_seqs)
+                max_batch,
+                sample_seqs,
+                gpus=gpus,
+            )
 
         subcommand_predict(
             gb_dict,
@@ -388,6 +400,7 @@ def run(
             threads=threads,
             mask_threshold=mask_threshold,
             hyps=hyps,
+            gpus=gpus,
         )
 
     # phold compare
@@ -415,7 +428,8 @@ def run(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        gpus=gpus,
     )
 
     # cleanup the temp files
@@ -456,6 +470,7 @@ def predict(
     autotune,
     batch_size,
     cpu,
+    gpus,
     omit_probs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
@@ -483,6 +498,7 @@ def predict(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--omit_probs": omit_probs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
@@ -529,10 +545,12 @@ def predict(
             model_name,
             cpu,
             threads,
-            step, 
+            step,
             min_batch,
-            max_batch, 
-            sample_seqs)
+            max_batch,
+            sample_seqs,
+            gpus=gpus,
+        )
 
     subcommand_predict(
         gb_dict,
@@ -552,6 +570,7 @@ def predict(
         threads=threads,
         mask_threshold=mask_threshold,
         hyps=hyps,
+        gpus=gpus,
     )
 
     # end phold
@@ -594,6 +613,13 @@ compare command
     is_flag=True,
     help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
+@click.option(
+    "--gpus",
+    type=str,
+    default=None,
+    help=('Comma-separated CUDA device indices for Foldseek-GPU (e.g. "0,2"). '
+          "Default: all visible CUDA GPUs. Only meaningful with --foldseek_gpu."),
+)
 @common_options
 @compare_options
 def compare(
@@ -610,6 +636,7 @@ def compare(
     structures,
     structure_dir,
     filter_structures,
+    gpus,
     keep_tmp_files,
     card_vfdb_evalue,
     separate,
@@ -651,6 +678,7 @@ def compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--gpus": gpus,
         "--restart": restart
     }
 
@@ -689,7 +717,8 @@ def compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        gpus=gpus,
     )
 
     # cleanup the temp files
@@ -730,6 +759,7 @@ def proteins_predict(
     autotune,
     batch_size,
     cpu,
+    gpus,
     omit_probs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
@@ -756,6 +786,7 @@ def proteins_predict(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--omit_probs": omit_probs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
@@ -834,10 +865,12 @@ def proteins_predict(
             model_name,
             cpu,
             threads,
-            step, 
+            step,
             min_batch,
-            max_batch, 
-            sample_seqs)
+            max_batch,
+            sample_seqs,
+            gpus=gpus,
+        )
 
     subcommand_predict(
         cds_dict,
@@ -857,6 +890,7 @@ def proteins_predict(
         threads=threads,
         mask_threshold=mask_threshold,
         hyps=False,  # always False for this as no Pharokka genbank to parse on input
+        gpus=gpus,
     )
 
     # end phold
@@ -901,6 +935,13 @@ Runs Foldseek vs phold DB for multiFASTA 3Di sequences (predicted with proteins-
     is_flag=True,
     help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
+@click.option(
+    "--gpus",
+    type=str,
+    default=None,
+    help=('Comma-separated CUDA device indices for Foldseek-GPU (e.g. "0,2"). '
+          "Default: all visible CUDA GPUs. Only meaningful with --foldseek_gpu."),
+)
 @common_options
 @compare_options
 def proteins_compare(
@@ -917,6 +958,7 @@ def proteins_compare(
     structures,
     structure_dir,
     filter_structures,
+    gpus,
     keep_tmp_files,
     card_vfdb_evalue,
     max_seqs,
@@ -956,6 +998,7 @@ def proteins_compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--gpus": gpus,
         "--restart": restart
     }
 
@@ -1024,7 +1067,8 @@ def proteins_compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        gpus=gpus,
     )
 
     # cleanup the temp files
@@ -1606,6 +1650,13 @@ def plot(
     help="Use cpus only.",
 )
 @click.option(
+    "--gpus",
+    type=str,
+    default=None,
+    help=('Comma-separated CUDA device indices (e.g. "0,2"). '
+          "Default: lowest visible CUDA GPU. Overridden by --cpu."),
+)
+@click.option(
     "-t",
     "--threads",
     help="Number of threads",
@@ -1653,6 +1704,7 @@ def autotune(
     ctx,
     input,
     cpu,
+    gpus,
     threads,
     database,
     step,
@@ -1667,6 +1719,7 @@ def autotune(
         "--input": input,
         "--threads": threads,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--database": database,
         "--step": step,
         "--min_batch": min_batch,
@@ -1694,10 +1747,12 @@ def autotune(
         model_name,
         cpu,
         threads,
-        step, 
+        step,
         min_batch,
-        max_batch, 
-        sample_seqs)
+        max_batch,
+        sample_seqs,
+        gpus=gpus,
+    )
 
 
 @click.command()

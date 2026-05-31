@@ -46,8 +46,8 @@ def subcommand_compare(
     custom_db: str,
     foldseek_gpu: bool,
     restart: bool = False,
-    clustered_db=False # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
-
+    clustered_db=False, # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
+    gpus: Optional[str] = None,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -338,7 +338,8 @@ def subcommand_compare(
             extra_foldseek_params,
             foldseek_gpu,
             structures,
-            clustered_db
+            clustered_db,
+            gpus=gpus,
         )
 
         
@@ -574,6 +575,7 @@ def subcommand_compare(
             foldseek_gpu,
             structures,
             clustered_db=False,  # no custom db cluster searching
+            gpus=gpus,
         )
 
         # make result tsv

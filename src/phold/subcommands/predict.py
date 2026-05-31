@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+from typing import Optional
 
 from loguru import logger
 
@@ -42,6 +43,7 @@ def subcommand_predict(
     threads: int,
     mask_threshold: float,
     hyps: bool,
+    gpus: Optional[str] = None,
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -259,6 +261,7 @@ def subcommand_predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
+        gpus=gpus,
     )
 
     mask_prop_threshold = mask_threshold / 100
