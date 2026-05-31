@@ -160,10 +160,15 @@ def get_topfunctions(
             # Get the entire row
             return group.loc[min_row_index]
 
+    # pandas ≥2.2: include_groups=False excludes the grouping column from the
+    # DataFrame passed to custom_nsmallest (becomes the only allowed mode in
+    # pandas 3.0). The grouping key reappears via reset_index(drop=False),
+    # giving us a byte-identical 'query' column.
     topfunction_df = (
         foldseek_df.groupby("query", group_keys=True)
-        .apply(custom_nsmallest)
-        .reset_index(drop=True)
+        .apply(custom_nsmallest, include_groups=False)
+        .reset_index(drop=False)
+        .drop(columns=["level_1"], errors="ignore")
     )
 
     # scientific notation to 3dp
@@ -250,8 +255,12 @@ def get_topfunctions(
 
         return weighted_bitscore_df
 
+    # pandas ≥2.2: weighted_function only consumes 'evalue', 'bitscore',
+    # 'function'; the 'query' grouping key is unused inside, so we can
+    # exclude it from the group DataFrame. 'query' still reappears as a
+    # column via the subsequent reset_index() since group_keys=True.
     weighted_bitscore_df = foldseek_df.groupby("query", group_keys=True).apply(
-        weighted_function
+        weighted_function, include_groups=False
     )
 
     weighted_bitscore_df.reset_index(inplace=True)
