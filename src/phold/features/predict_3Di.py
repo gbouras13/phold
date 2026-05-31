@@ -108,6 +108,10 @@ def get_T5_model(
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
             dev_name = "cuda:0"
+        # check for intel xpu
+        elif torch.xpu.is_available():
+            device = torch.device("xpu:0")
+            dev_name = "xpu"
         # check for apple silicon/metal
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
@@ -141,9 +145,8 @@ def get_T5_model(
         localfile = False
         logger.info("ProstT5 not found. Downloading ProstT5 from Hugging Face")
     try:
-        # suppress warning and progress bar
+        # suppress warning
         logging.set_verbosity_error()
-        utils.logging.disable_progress_bar()
         model = T5EncoderModel.from_pretrained(
             model_name,
             cache_dir=f"{model_dir}/",
@@ -155,9 +158,7 @@ def get_T5_model(
         logger.warning("Download from Hugging Face failed. Trying backup from Zenodo.")
         logdir = f"{model_dir}/logdir"
         download_zenodo_prostT5(model_dir, logdir, threads)
-
         logging.set_verbosity_error()
-        utils.logging.disable_progress_bar()
 
         model = T5EncoderModel.from_pretrained(
             model_name,
@@ -329,7 +330,7 @@ def write_probs(
     predictions: Dict[str, Tuple[int, float, Union[int, np.ndarray]]],
     output_path_mean: Path,
     output_path_all: Path,
-    original_keys: list[str],
+    cds_dict: Dict[str, Dict[str, Tuple[str, ...]]],
 ) -> None:
     """
     Write all ProstT5 encoder + CNN probabilities and mean probabilities to output files.
@@ -344,44 +345,33 @@ def write_probs(
         None
     """
 
-    for contig_id, contig_predictions in predictions.items():
-        # contig_predictions: Dict[seq_id, (labels, mean_prob, all_probs)]
 
-        # ---- write mean probabilities ----
-        with open(output_path_mean, "w+") as out_f:
+    with open(output_path_mean, "w") as out_mean:
+        out_all = open(output_path_all, "w") if output_path_all else None
+
+        for contig_id, contig_predictions in predictions.items():
+            original_keys = list(cds_dict[contig_id].keys())
             for seq_id in original_keys:
                 if seq_id not in contig_predictions:
                     logger.warning(f"Missing ProstT5 mean confidence for {seq_id}")
                     continue
 
-                _, mean_prob, _ = contig_predictions[seq_id]
-                out_f.write(f"{seq_id},{mean_prob}\n")
+                _, mean_prob, all_probs = contig_predictions[seq_id]
+                out_mean.write(f"{seq_id},{mean_prob}\n")
 
-        # ---- write per-residue probabilities ----
-        if output_path_all is not None:
-            with open(output_path_all, "w+") as out_f:
-                for seq_id in original_keys:
-                    if seq_id not in contig_predictions:
-                        logger.warning(f"Missing ProstT5 confidence for {seq_id}")
-                        continue
-
-                    _, _, all_probs = contig_predictions[seq_id]
-
-                    # convert to percentage and flatten
+                if out_all:
                     probs = (all_probs * 100).flatten().tolist()
-
                     rounded_probs = [round(p, 2) for p in probs]
 
-                    out_f.write(
-                        json.dumps(
-                            {
-                                "seq_id": seq_id,
-                                "probability": rounded_probs,
-                            }
-                        )
-                        + "\n"
+                    out_all.write(
+                        json.dumps({
+                            "seq_id": seq_id,
+                            "probability": rounded_probs,
+                        }) + "\n"
                     )
 
+        if out_all:
+            out_all.close()
 
 def toCPU(tensor: torch.Tensor) -> np.ndarray:
     """
@@ -755,7 +745,7 @@ def get_embeddings(
     else:
         all_probs_out_path = None
 
-    write_probs(predictions, mean_probs_out_path, all_probs_out_path, original_keys)
+    write_probs(predictions, mean_probs_out_path, all_probs_out_path, cds_dict)
 
     return predictions
 

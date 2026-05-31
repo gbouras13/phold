@@ -44,6 +44,18 @@ def sample_probe_sequences(seqs, n=5000, seed=0):
 
     return sampled
 
+
+def device_synchronize(device: torch.device):
+    # I think this whole block can be replacesd with
+    # torch.accelerator.synchronize(device)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    elif device.type == 'xpu':
+        torch.xpu.synchronize(device)
+    elif device.type == "mps":
+        torch.mps.synchronize(device)
+    # CPU and others: no-op
+
 def autotune_batching_real_data(
     model_dir,
     model_name,
@@ -67,15 +79,21 @@ def autotune_batching_real_data(
 
     if cpu is True:
         device = torch.device("cpu")
+        logger.error("You are running phold autotune with CPU, which is not supported. Please use --batch_size 1")
     else:
         # check for NVIDIA/cuda
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
+        # check for intel xpu
+        elif torch.xpu.is_available():
+            device = torch.device("xpu:0")
+            dev_name = "xpu"
         # check for apple silicon/metal
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
         else:
             device = torch.device("cpu")
+            logger.error("You are running phold autotune with CPU, which is not supported. Please use --batch_size 1")
 
 
     while bs <= max_bs:
@@ -108,11 +126,12 @@ def autotune_batching_real_data(
                 inputs = {k: v.to(device) for k, v in inputs.items()}
 
                 # timing
-                torch.cuda.synchronize()
+                device_synchronize(device)
                 t0 = time.perf_counter()
                 with torch.no_grad():
                     _ = model(**inputs)
-                torch.cuda.synchronize()
+                device_synchronize(device)
+
 
                 total_time += time.perf_counter() - t0
                 

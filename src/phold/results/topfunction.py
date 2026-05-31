@@ -427,12 +427,25 @@ def calculate_topfunctions_results(
                         updated_cds_dict[record_id][cds_id].qualifiers["phrog"][0] = (
                             result_dict[record_id][cds_id]["phrog"]
                         )
-                        updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
-                            result_dict[record_id][cds_id]["product"]
-                        )
-                        updated_cds_dict[record_id][cds_id].qualifiers["function"][
-                            0
-                        ] = result_dict[record_id][cds_id]["function"]
+
+                        # Handle missing product qualifier - see https://www.ncbi.nlm.nih.gov/nuccore/OY726582.1/ CAJ1523274.1
+                        if "product" not in updated_cds_dict[record_id][cds_id].qualifiers:
+                            updated_cds_dict[record_id][cds_id].qualifiers["product"] = [
+                                result_dict[record_id][cds_id]["product"]
+                            ]
+                        else:
+                            updated_cds_dict[record_id][cds_id].qualifiers["product"][0] = (
+                                result_dict[record_id][cds_id]["product"]
+                            )
+                        # Handle missing function qualifier
+                        if "function" not in updated_cds_dict[record_id][cds_id].qualifiers:
+                            updated_cds_dict[record_id][cds_id].qualifiers["function"] = [
+                                result_dict[record_id][cds_id]["function"]
+                            ]
+                        else:
+                            updated_cds_dict[record_id][cds_id].qualifiers["function"][0] = (
+                                result_dict[record_id][cds_id]["function"]
+                            )
 
                     # pharokka has a phrog (or genbank doesn't exist)
                     else:
