@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Dict, Union
 
-import pandas as pd
+import polars as pl
 import pyrodigal_gv
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -308,7 +308,7 @@ def write_genbank(
     proteins_flag: bool,
     separate: bool,
     fasta_flag: bool,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Write sequences to GenBank files.
 
@@ -324,7 +324,7 @@ def write_genbank(
         fasta_flag (bool): Flag indicating whether input is a FASTA file.
 
     Returns:
-        pd.DataFrame: DataFrame containing information about each CDS.
+        pl.DataFrame: DataFrame containing information about each CDS.
     """
 
     # separate gbks per contig
@@ -499,12 +499,21 @@ def write_genbank(
             f"You used Pharokka < v1.8.2 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.2."
         )
 
-    per_cds_df = pd.DataFrame(per_cds_list)
+    # Build the per-CDS table. ``per_cds_list`` is a list of dicts; polars
+    # will infer column dtypes from the first row. ``strand`` comes from
+    # BioPython's ``cds_feature.location.strand`` which is always int
+    # ∈ {-1, 1} for CDS features in valid input.
+    per_cds_df = pl.DataFrame(per_cds_list)
 
     if proteins_flag is False:
-        # convert strand
-        per_cds_df["strand"] = per_cds_df["strand"].apply(
-            lambda x: "-" if x == -1 else ("+" if x == 1 else x)
+        # Convert strand: -1 → "-", +1 → "+", anything else → string repr.
+        # Vectorised pl.when() chain replaces the original row-wise
+        # .apply(lambda) call.
+        per_cds_df = per_cds_df.with_columns(
+            pl.when(pl.col("strand") == -1).then(pl.lit("-"))
+              .when(pl.col("strand") == 1).then(pl.lit("+"))
+              .otherwise(pl.col("strand").cast(pl.Utf8))
+              .alias("strand")
         )
 
         # only write the gbk if proteins_flag is False

@@ -8,6 +8,7 @@ Usage:
 
 Exit code 0 = identical (modulo timestamps), non-zero = differences found.
 """
+import json
 import math
 import re
 import sys
@@ -82,6 +83,53 @@ def _tsv_float_cols_differ(lines_dev: list, lines_ref: list, tol: float = 0.01) 
     return row_diffs
 
 
+def _jsonl_prob_differ(lines_dev: list, lines_ref: list, tol: float = 0.01) -> list:
+    """Compare two JSONL probability files (``_all_probabilities.json``) with
+    per-probability float tolerance.
+
+    Each line is ``{"seq_id": str, "probability": [float, ...]}``. We compare
+    seq_ids exactly and probabilities element-wise with ``abs_tol=tol``.
+    Absorbs the tiny CPU-matmul drift between torch versions on the
+    ProstT5 softmax outputs (typical magnitude: ~0.01 per element).
+    """
+    row_diffs = []
+    if len(lines_dev) != len(lines_ref):
+        row_diffs.append(f"    line count: dev={len(lines_dev)} ref={len(lines_ref)}")
+    for i, (a, b) in enumerate(zip(lines_dev, lines_ref)):
+        if a == b:
+            continue
+        try:
+            da, db = json.loads(a), json.loads(b)
+        except json.JSONDecodeError:
+            row_diffs.append(f"    JSON parse error dev[{i}]: {a[:120]}")
+            row_diffs.append(f"                       ref[{i}]: {b[:120]}")
+            continue
+        if da.get("seq_id") != db.get("seq_id"):
+            row_diffs.append(
+                f"    seq_id mismatch dev[{i}]: {da.get('seq_id')}"
+                f" | ref: {db.get('seq_id')}"
+            )
+            continue
+        pa, pb = da.get("probability", []), db.get("probability", [])
+        if len(pa) != len(pb):
+            row_diffs.append(
+                f"    prob len dev[{i}]={len(pa)} ref[{i}]={len(pb)} for {da['seq_id']}"
+            )
+            continue
+        bad_pos = [
+            j for j, (fa, fb) in enumerate(zip(pa, pb))
+            if not math.isclose(float(fa), float(fb), abs_tol=tol)
+        ]
+        if bad_pos:
+            row_diffs.append(
+                f"    {da['seq_id']} differs at {len(bad_pos)} position(s) > tol={tol}; "
+                f"first 3: " + ", ".join(
+                    f"[{j}] dev={pa[j]} ref={pb[j]}" for j in bad_pos[:3]
+                )
+            )
+    return row_diffs
+
+
 def _csv_float_differ(lines_dev: list, lines_ref: list, tol: float = 0.5) -> list:
     """Return diff messages for two sorted lists of CSV lines where the second
     column is a float.  Lines with matching seq_ids are compared numerically;
@@ -149,6 +197,22 @@ def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
         # numpy formatting artefact.  We always apply the tighter of the two:
         #   --cpu strict mode → abs_tol=0.01 (formatting artefact only)
         #   default (MPS)     → abs_tol=0.5  (GPU noise dominates)
+        # ``_all_probabilities.json``: JSONL of per-residue ProstT5 softmax
+        # outputs (values in the 0-100 percentage range). Compare each
+        # probability with abs_tol — phold writes 2dp-rounded values, so
+        # straddle cases like dev=68.10 / ref=68.11 (truly 0.005 apart in
+        # the underlying float) appear ~0.01 apart and would fail a tight
+        # tol. abs_tol=0.02 absorbs that without masking real differences
+        # (0.02 is 0.02% of the 0-100 range — well below model noise).
+        if rel.suffix == ".json" and "probabilities" in rel.name:
+            sd, sr = sorted(ld), sorted(lr)
+            jsonl_tol = 0.02 if strict else 0.5
+            row_diffs = _jsonl_prob_differ(sd, sr, tol=jsonl_tol)
+            if row_diffs:
+                diffs.append(f"  DIFFER (per-prob tol={jsonl_tol}) : {rel}")
+                diffs.extend(row_diffs[:22])
+            continue
+
         if rel.suffix in {".tsv", ".csv", ".txt"}:
             is_prob_csv = "probabilities" in rel.name and rel.suffix == ".csv"
             sd, sr = sorted(ld), sorted(lr)

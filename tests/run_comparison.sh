@@ -20,7 +20,28 @@ trap '_last_sig=HUP'  HUP
 trap '_last_sig=TERM' TERM
 trap '_last_sig=INT'  INT
 
-CONDA="${CONDA_EXE:-$(command -v conda)}"
+# Resolve conda binary in this order: $CONDA_EXE → conda on PATH →
+# common miniforge/miniconda install locations. Daemonised shells (no
+# login profile) often have none of the first two set.
+_resolve_conda() {
+    if [ -n "${CONDA_EXE:-}" ] && [ -x "$CONDA_EXE" ]; then echo "$CONDA_EXE"; return; fi
+    local found="$(command -v conda 2>/dev/null)"
+    if [ -n "$found" ]; then echo "$found"; return; fi
+    for candidate in \
+        "$HOME/miniforge3/bin/conda" \
+        "$HOME/miniconda3/bin/conda" \
+        "$HOME/anaconda3/bin/conda" \
+        "/opt/miniforge3/bin/conda" \
+        "/opt/conda/bin/conda"; do
+        if [ -x "$candidate" ]; then echo "$candidate"; return; fi
+    done
+    echo "" # nothing found — error below
+}
+CONDA="$(_resolve_conda)"
+if [ -z "$CONDA" ]; then
+    echo "ERROR: could not find a conda binary. Set CONDA_EXE or add conda to PATH." >&2
+    exit 2
+fi
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB="${REPO}/tests/test_data/phold_db"
 TD="${REPO}/tests/test_data"
@@ -35,6 +56,10 @@ REF_OUT="${BASE}/ref_outputs"
 
 mkdir -p "$BASE" "$DEV_OUT" "$REF_OUT"
 
+# CSV of per-case wall-clock per environment; appended to as we go.
+TIMING_CSV="${BASE}/timings.csv"
+echo "case,env,wall_seconds,status" > "$TIMING_CSV"
+
 PASS=0
 FAIL=0
 ERRORS=()
@@ -48,12 +73,36 @@ run_test() {
     shift 3
     local cmd="$*"
 
+    # Bypass ``conda run`` and call the env's binaries directly. ``conda
+    # run`` is heavyweight (spawns a Python interpreter just to set up
+    # env vars) and was observed to die silently when daemonised.
+    # Resolve <conda_root>/envs/<env>/bin and prepend it to PATH for
+    # the child shell — that's exactly what ``conda activate`` does.
+    local conda_root="$(dirname "$(dirname "$CONDA")")"
+    local env_bin="${conda_root}/envs/${env}/bin"
+    if [ ! -d "$env_bin" ]; then
+        echo "ERROR: env bin dir not found: $env_bin" >&2
+        return 2
+    fi
+
     printf "  [%s] %s starting...\n" "$(date '+%H:%M:%S')" "$label"
-    if $CONDA run -n "$env" bash -c "cd '$REPO' && $cmd" > "$log" 2>&1; then
-        printf "  [%s] %s DONE ✓\n" "$(date '+%H:%M:%S')" "$label"
+    local t0=$SECONDS
+    local rc=0
+    if PATH="${env_bin}:${PATH}" bash -c "cd '$REPO' && $cmd" > "$log" 2>&1; then
+        local dt=$((SECONDS - t0))
+        printf "  [%s] %s DONE ✓ (%ds)\n" "$(date '+%H:%M:%S')" "$label" "$dt"
+        # Extract case name and env from label "case[env]" → "case,env"
+        local case_name="${label%\[*}"
+        local env_tag="${label#*\[}"; env_tag="${env_tag%\]}"
+        echo "$case_name,$env_tag,$dt,ok" >> "$TIMING_CSV"
         return 0
     else
-        printf "  [%s] %s FAILED ✗ (see %s)\n" "$(date '+%H:%M:%S')" "$label" "$log"
+        rc=$?
+        local dt=$((SECONDS - t0))
+        printf "  [%s] %s FAILED ✗ (%ds, see %s)\n" "$(date '+%H:%M:%S')" "$label" "$dt" "$log"
+        local case_name="${label%\[*}"
+        local env_tag="${label#*\[}"; env_tag="${env_tag%\]}"
+        echo "$case_name,$env_tag,$dt,fail" >> "$TIMING_CSV"
         ERRORS+=("$label FAILED — see $log")
         FAIL=$((FAIL + 1))
         return 1
@@ -109,23 +158,22 @@ run_case() {
 
 # ── test cases ───────────────────────────────────────────────────────────────
 # predict: pure 3Di inference (most critical — tests pholdlib refactor)
-# [SKIP] Cases 1-4 confirmed MATCH in previous run — skipped to save time.
 
-# run_case "predict_genbank" \
-#     "phold predict -i ${TD}/combined_truncated_acr_defense_vfdb_card.gbk \
-#      -o ${TD}/outputs/predict_gbk -t $T -d $DB -f --cpu"
+run_case "predict_genbank" \
+    "phold predict -i ${TD}/combined_truncated_acr_defense_vfdb_card.gbk \
+     -o ${TD}/outputs/predict_gbk -t $T -d $DB -f --cpu"
 
-# run_case "predict_fasta" \
-#     "phold predict -i ${TD}/combined_truncated_acr_defense_vfdb_card.fasta \
-#      -o ${TD}/outputs/predict_fasta -t $T -d $DB -f --cpu"
+run_case "predict_fasta" \
+    "phold predict -i ${TD}/combined_truncated_acr_defense_vfdb_card.fasta \
+     -o ${TD}/outputs/predict_fasta -t $T -d $DB -f --cpu"
 
-# run_case "proteins_predict" \
-#     "phold proteins-predict -i ${TD}/phanotate.faa \
-#      -o ${TD}/outputs/proteins_predict -t $T -d $DB -f --cpu"
+run_case "proteins_predict" \
+    "phold proteins-predict -i ${TD}/phanotate.faa \
+     -o ${TD}/outputs/proteins_predict -t $T -d $DB -f --cpu"
 
-# run_case "proteins_predict_gzip" \
-#     "phold proteins-predict -i ${TD}/phanotate.faa.gz \
-#      -o ${TD}/outputs/proteins_predict_gz -t $T -d $DB -f --cpu"
+run_case "proteins_predict_gzip" \
+    "phold proteins-predict -i ${TD}/phanotate.faa.gz \
+     -o ${TD}/outputs/proteins_predict_gz -t $T -d $DB -f --cpu"
 
 # run: full pipeline (predict + foldseek)
 

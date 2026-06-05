@@ -37,7 +37,7 @@ dependencies = [
         "click >=8.0.0",
         "loguru >=0.5.3",
         "pyyaml >=6.0",
-        "pandas >=1.4.2",
+        "polars >=1.0",
         "biopython >=1.80",
         "datasets >=2.15",
         "requests >=2.25",
@@ -68,8 +68,12 @@ lint = [
     "isort",
     "black"
 ]
-test = ["pytest>=6.2.5",
-"pytest-cov >=3.0.0"]
+test = [
+    "pytest>=6.2.5",
+    "pytest-cov >=3.0.0",
+    "pytest-snapshot >=0.9",
+    "polars >=1.0",
+]
 exe = [
     "setuptools",
     "wheel",

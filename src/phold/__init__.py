@@ -7,14 +7,17 @@ import click
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
-from pycirclize.parser import Genbank
+
+# pycirclize is lazy-imported inside the `plot` subcommand (line ~1561) so
+# the core phold pipeline doesn't drag pandas in transitively just to
+# enable plotting. Users who run `phold plot` need `pip install pandas
+# pycirclize` (pycirclize already requires pandas as a hard dep).
 
 from phold.databases.db import install_database, validate_db
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.io.handle_genbank import open_protein_fasta_file
-from phold.plot.plot import create_circos_plot
 from phold.subcommands.compare import subcommand_compare
 from phold.subcommands.predict import subcommand_predict
 from phold.utils.constants import CNN_DIR, DB_DIR
@@ -1525,6 +1528,11 @@ def plot(
     **kwargs,
 ):
     """Creates Phold Circular Genome Plots"""
+
+    # Lazy-imported here (not at module top) so the core phold pipeline
+    # doesn't drag pandas in transitively just to support plotting.
+    from pycirclize.parser import Genbank
+    from phold.plot.plot import create_circos_plot
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
