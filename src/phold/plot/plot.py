@@ -311,7 +311,7 @@ def create_circos_plot(
             # add the first crispr
             filtered_indices_crispr.append(0)
 
-            for i in range(1, len(length_list_tmrna)):
+            for i in range(1, len(length_list_crispr)):
                 # If the position of the crispr is at least 500bp away from the previous, add it
                 if pos_list_crispr[i] > (pos_list_crispr[i - 1] + 500):
                     filtered_indices_crispr.append(i)
