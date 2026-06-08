@@ -239,7 +239,9 @@ def create_circos_plot(
         # trna
         pos_list_trna, labels_trna, length_list_trna = [], [], []
         for f in trna_features:
-            start, end = int(str(f.location.end)), int(str(f.location.start))
+            # Bio.SeqFeature: .location.start is the lower bound, .end the upper.
+            # These were previously swapped, producing negative `length` values.
+            start, end = int(str(f.location.start)), int(str(f.location.end))
             pos = (start + end) / 2.0
             length = end - start
             label = "tRNA"
@@ -268,7 +270,7 @@ def create_circos_plot(
         # tmrna
         pos_list_tmrna, labels_tmrna, length_list_tmrna = [], [], []
         for f in tmrna_features:
-            start, end = int(str(f.location.end)), int(str(f.location.start))
+            start, end = int(str(f.location.start)), int(str(f.location.end))
             pos = (start + end) / 2.0
             length = end - start
             label = "tmRNA"
@@ -296,7 +298,7 @@ def create_circos_plot(
         # crispr
         pos_list_crispr, labels_crispr, length_list_crispr = [], [], []
         for f in crispr_features:
-            start, end = int(str(f.location.end)), int(str(f.location.start))
+            start, end = int(str(f.location.start)), int(str(f.location.end))
             pos = (start + end) / 2.0
             length = end - start
             label = "CRISPR"
@@ -330,7 +332,7 @@ def create_circos_plot(
     # Extract CDS product labels
     pos_list, labels, length_list, id_list = [], [], [], []
     for f in cds_features:
-        start, end = int(str(f.location.end)), int(str(f.location.start))
+        start, end = int(str(f.location.start)), int(str(f.location.end))
         pos = (start + end) / 2.0
         length = end - start
         label = f.qualifiers.get("product", [""])[0]
@@ -381,16 +383,30 @@ def create_circos_plot(
         annotations = 0
 
     ####### running the sparsity
+    # ``annotations`` is a 0..1 fraction; 0 = no labels, 1 = all labels,
+    # 0.5 = top half by CDS length, etc. Implementation: pick CDS whose
+    # length is at or above the (1 - annotations) quantile so that
+    # ``annotations=1`` → threshold = min length → all features pass,
+    # ``annotations=0`` → threshold = max length → none pass (we short-
+    # circuit that case explicitly to guarantee zero labels and avoid
+    # an off-by-one at the absolute longest gene).
+    # ``label_force_list`` IDs are always plotted regardless.
+    # Historical note: this previously relied on two compensating bugs —
+    # the start/end swap above gave negative ``length`` values, and a
+    # ``length < quantile`` comparison produced the same semantics by
+    # accident. Both fixed; the comment now matches the code.
     filtered_indices = []
-    # basler error - contigs with no non-hyps fail here
     if len(length_list) > 0:
-        quantile_length = np.quantile(length_list, annotations)
-        # Loop through the indices of the length_list
-        for i in range(len(length_list)):
-            # If the length at this index is greater than or equal to the median, add the index to filtered_indices
-            # captures the once in the label force list
-            if (length_list[i] < quantile_length) or (id_list[i] in label_force_list):
-                filtered_indices.append(i)
+        if annotations > 0:
+            quantile_length = np.quantile(length_list, 1 - annotations)
+            for i in range(len(length_list)):
+                if length_list[i] >= quantile_length or id_list[i] in label_force_list:
+                    filtered_indices.append(i)
+        else:
+            # annotations == 0: only forced labels survive.
+            for i in range(len(length_list)):
+                if id_list[i] in label_force_list:
+                    filtered_indices.append(i)
 
     # Use the filtered indices to create new lists for pos_list, labels, and length_list
     pos_list = [pos_list[i] for i in filtered_indices]

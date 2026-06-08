@@ -477,17 +477,37 @@ def write_genbank(
         # if proteins dummy seq
         else:
             sequence = Seq("")
+
+        # Preserve LOCUS/DEFINITION fields from the input record so that
+        # downstream tools (and human inspection) keep the same accession,
+        # description and topology that Pharokka/NCBI/Bakta emitted.
+        # Previously we constructed a fresh SeqRecord with empty
+        # description and an empty annotations dict, which clobbered:
+        #   * DEFINITION line  → became "."
+        #   * LOCUS topology   → "DNA PHG ..." (missing "linear")
+        #   * KEYWORDS / SOURCE / ORGANISM and any other source metadata.
+        # See https://github.com/gbouras13/phold/issues/132.
         seq_record = SeqIO.SeqRecord(
-            seq=sequence, id=record_id, description="", features=sorted_features
+            seq=sequence,
+            id=record_id,
+            name=record.name or record_id,
+            description=record.description or "",
+            features=sorted_features,
+            annotations=dict(record.annotations),  # copy → don't mutate input
         )
         seq_records.append(seq_record)
 
-        # update the molecule type, data file division and date
+        # Phold-specific annotations always win (date is a fresh stamp;
+        # molecule_type / division are required by SeqIO.write for genbank).
         seq_record.annotations["molecule_type"] = "DNA"
         seq_record.annotations["data_file_division"] = "PHG"
         seq_record.annotations["date"] = str(
             datetime.now().strftime("%d-%b-%Y").upper()
         )
+        # Default topology to "linear" only when the input didn't carry
+        # one (FASTA input, or older GenBanks). Preserves "circular" on
+        # complete phage genomes that already declared it.
+        seq_record.annotations.setdefault("topology", "linear")
 
         if separate is True and proteins_flag is False:
             output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
