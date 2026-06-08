@@ -10,7 +10,13 @@ from loguru import logger
 from huggingface_hub import hf_hub_download
 
 from phold.utils.external_tools import ExternalTool
-from phold.utils.util import remove_directory
+from phold.utils.util import atomic_write_path, remove_directory
+
+# (connect_timeout, read_timeout) seconds for HTTP downloads.
+# Connect: generous because Zenodo can be slow to acknowledge. Read: the
+# longest gap we'll tolerate between successive bytes once the stream is
+# established — picks up dead/stalled connections quickly.
+_DOWNLOAD_TIMEOUT = (30, 120)
 
 # set this if changes
 CURRENT_DB_VERSION: str = "1.0.0"
@@ -165,12 +171,16 @@ def install_database(
         tarball_path = Path(f"{db_dir}/{tarball}")
         logdir = Path(db_dir) / "logdir"
 
-        try: 
+        try:
             logger.info(f"Downloading database from HuggingFace")
             download(tarball_path, db_dir, tarball)
-        except:
+        except Exception as e:
+            # Narrowed from bare ``except`` so that KeyboardInterrupt /
+            # SystemExit are not silently absorbed into a Zenodo retry.
+            # Include the underlying error in the warning so transient HF
+            # issues are diagnosable from logs alone.
             logger.warning(
-                f"Could not download file from HuggingFace: path={tarball_path}"
+                f"Could not download file from HuggingFace: path={tarball_path} ({type(e).__name__}: {e})"
             )
             logger.warning(f"Trying now with requests from Zenodo from {db_url}")
             download_requests(db_url, tarball_path)
@@ -317,8 +327,22 @@ def download_requests(db_url: str, tarball_path: Path):
       db_url (str): The URL of the file to download.
       tarball_path (Path): The path to save the downloaded file.
 
-    Returns:
-      None
+    Raises:
+      requests.exceptions.RequestException: on connection failure, timeout,
+        non-2xx HTTP status, or read stall. The target path is left
+        untouched in every failure case (the download streams to a sibling
+        temp file and only atomically replaces ``tarball_path`` on success).
+
+    Notes:
+      Previously this used a bare ``except`` and a bare ``requests.get``
+      with no timeout. That had three failure modes:
+        1. A hung Zenodo connection blocked ``phold install`` forever.
+        2. Ctrl-C / SystemExit was swallowed silently and the function
+           returned as if nothing happened.
+        3. A partial / zero-byte / HTML-error-page tarball was left at
+           ``tarball_path`` for the caller to md5-check and untar.
+      All three are addressed here. The caller now sees a real exception
+      on failure and the on-disk state is unchanged.
     """
 
     headers = {
@@ -326,20 +350,40 @@ def download_requests(db_url: str, tarball_path: Path):
     }
 
     try:
-        with tarball_path.open("wb") as fh_out, requests.get(
-            db_url, stream=True, headers=headers
+        with requests.get(
+            db_url,
+            stream=True,
+            headers=headers,
+            timeout=_DOWNLOAD_TIMEOUT,
         ) as resp:
+            # Turn 4xx/5xx into a real exception instead of writing the
+            # error body to disk and pretending the download succeeded.
+            resp.raise_for_status()
+
             total_length = resp.headers.get("content-length")
             if total_length is not None:  # content length header is set
                 total_length = int(total_length)
-            with alive_bar(total=total_length, scale="SI") as bar:
-                for data in resp.iter_content(chunk_size=1024 * 1024):
-                    fh_out.write(data)
-                    bar(count=len(data))
-    except:
+
+            # Atomic: stream to a sibling temp file; rename on success;
+            # delete the temp (and leave tarball_path untouched) on any
+            # failure — including KeyboardInterrupt, since atomic_write_path
+            # catches BaseException.
+            with atomic_write_path(tarball_path) as tmp_path:
+                with tmp_path.open("wb") as fh_out, alive_bar(
+                    total=total_length, scale="SI"
+                ) as bar:
+                    for data in resp.iter_content(chunk_size=1024 * 1024):
+                        fh_out.write(data)
+                        bar(count=len(data))
+    except requests.exceptions.RequestException:
+        # Network / HTTP-level failure. Log a useful diagnostic and
+        # re-raise so the caller doesn't proceed to md5-check a missing
+        # or corrupt file. KeyboardInterrupt / SystemExit are deliberately
+        # NOT caught here and will propagate.
         logger.error(
-            f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
+            f"ERROR: Could not download file! url={db_url}, path={tarball_path}"
         )
+        raise
 
 
 
