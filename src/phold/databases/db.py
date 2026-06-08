@@ -190,13 +190,39 @@ def install_database(
         if md5_sum == requiredmd5:
             logger.info(f"Phold database file download OK: {md5_sum}")
         else:
-            logger.error(
-                f"Error: corrupt database file! MD5 should be '{requiredmd5}' but is '{md5_sum}'"
+            # Previously we logged the mismatch and then proceeded to
+            # ``untar()`` regardless — leaving the user with a half-installed
+            # corrupt DB and no clear failure. Now: rename the bad tarball
+            # to ``<name>.corrupt`` so the user can inspect or report it,
+            # and raise so install_database is loud about failing.
+            corrupt_path = tarball_path.with_suffix(tarball_path.suffix + ".corrupt")
+            try:
+                tarball_path.replace(corrupt_path)
+            except OSError:
+                # Rename failed (rare — same FS as the download). Drop the
+                # bad file rather than leaving it where a retry would
+                # md5-check it again and loop.
+                try:
+                    tarball_path.unlink()
+                except FileNotFoundError:
+                    pass
+                corrupt_path = None
+            raise RuntimeError(
+                f"Corrupt Phold database tarball: MD5 should be "
+                f"'{requiredmd5}' but is '{md5_sum}'. "
+                + (
+                    f"Bad file preserved at {corrupt_path} for inspection."
+                    if corrupt_path is not None
+                    else "Bad file removed."
+                )
             )
 
         logger.info(
             f"Extracting Phold database tarball: file={tarball_path}, output={db_dir}"
         )
+        # ``untar`` now raises on extract failure (it used to log + return
+        # silently on OSError), so the unlink below is reached only when
+        # the tarball has been successfully extracted.
         untar(tarball_path, db_dir, DICT)
         tarball_path.unlink()
 
@@ -411,8 +437,26 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
     if md5_sum == requiredmd5:
         logger.info(f"ProstT5 model backup file download OK: {md5_sum}")
     else:
-        logger.error(
-            f"Error: corrupt file! MD5 should be '{requiredmd5}' but is '{md5_sum}'"
+        # Mirror of the fix in install_database: corrupt tarball is
+        # preserved as ``<name>.corrupt`` and an exception is raised so
+        # extraction never proceeds on a known-bad file.
+        corrupt_path = tarball_path.with_suffix(tarball_path.suffix + ".corrupt")
+        try:
+            tarball_path.replace(corrupt_path)
+        except OSError:
+            try:
+                tarball_path.unlink()
+            except FileNotFoundError:
+                pass
+            corrupt_path = None
+        raise RuntimeError(
+            f"Corrupt ProstT5 model backup tarball: MD5 should be "
+            f"'{requiredmd5}' but is '{md5_sum}'. "
+            + (
+                f"Bad file preserved at {corrupt_path} for inspection."
+                if corrupt_path is not None
+                else "Bad file removed."
+            )
         )
 
     logger.info(
@@ -424,10 +468,16 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
             fileobj=fh_in, mode="r:gz"
         ) as tar_file:
             tar_file.extractall(path=str(model_dir))
-
-    except OSError:
-        logger.warning("Encountered OSError: {}".format(OSError))
-        logger.error(f"Could not extract {tarball_path} to {model_dir}")
+    except (OSError, tarfile.TarError) as e:
+        # Was: log OSError and ``unlink()`` the tarball anyway → user lost
+        # both the model AND the evidence. Now: log the actual exception
+        # (the old format-string referenced the OSError class instead of
+        # the instance), preserve the tarball for inspection, and re-raise.
+        logger.error(
+            f"Could not extract ProstT5 tarball {tarball_path} to {model_dir}: "
+            f"{type(e).__name__}: {e}. The tarball has been preserved for inspection."
+        )
+        raise
 
     tarball_path.unlink()
 
@@ -521,9 +571,19 @@ def untar(tarball_path: Path, output_path: Path, DICT: dict) -> None:
         # remove the directory
         remove_directory(tarpath)
 
-    except OSError:
-        logger.warning("Encountered OSError: {}".format(OSError))
-        logger.error(f"Could not extract {tarball_path} to {output_path}")
+    except (OSError, tarfile.TarError) as e:
+        # Was: log "Encountered OSError: <class 'OSError'>" (the f-string
+        # referenced the class instead of the instance — so the actual
+        # cause was never shown) and then **return silently**, leaving the
+        # caller to ``unlink()`` the tarball and assume success on a
+        # partially-extracted DB. Now: log the real exception, preserve
+        # the tarball for inspection / retry, and re-raise so the caller
+        # can't proceed.
+        logger.error(
+            f"Could not extract {tarball_path} to {output_path}: "
+            f"{type(e).__name__}: {e}. The tarball has been preserved for inspection."
+        )
+        raise
 
 
 def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
