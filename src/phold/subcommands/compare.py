@@ -358,7 +358,17 @@ def subcommand_compare(
 
             i = 1
             for non_cds_feature in record.features:
-                if non_cds_feature.type != "CDS" or (non_cds_feature.type == "CDS" and "pseudogene" in cds_feature.qualifiers): # captures the pseudos
+                # Capture: anything not a CDS, OR a CDS marked as a pseudogene
+                # (those don't have translations and must be handled as non-CDS).
+                # NB: was previously `cds_feature.qualifiers` here — leftover
+                # closure variable from the outer CDS loop. That checked the
+                # wrong feature (the last CDS of the last record), causing
+                # silent misclassification of pseudo-CDS, and a NameError on
+                # records with zero CDS features.
+                if non_cds_feature.type != "CDS" or (
+                    non_cds_feature.type == "CDS"
+                    and "pseudogene" in non_cds_feature.qualifiers
+                ):
                     try:
                         non_cds_dict[record_id][
                             non_cds_feature.qualifiers["ID"][0]
