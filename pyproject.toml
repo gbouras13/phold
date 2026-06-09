@@ -48,7 +48,15 @@ dependencies = [
         "pyrodigal-gv >=0.3.1",
         "pyarrow >=14.0.0",
         "alive-progress >=3.0.1",
-        "numpy >=2.0",
+        # numpy Loosened from `>=2.0` to `>=1.24` so Docker base images that ship
+        # numpy 1.26.x via Debian (e.g. pawsey/pytorch:2.7.1-rocm6.3.3)
+        # don't trigger pip's "Cannot uninstall numpy: RECORD file not
+        # found" error — those installs have no pip metadata so pip can't
+        # safely replace them with a 2.x build. phold only uses the stable
+        # numeric API (np.quantile/where/max/abs), which has been in numpy
+        # since 1.20; 1.24 (Dec 2022) is a comfortable floor for the rest
+        # of the dep tree (polars, pyarrow, pandas, torch).
+        "numpy >=1.24",
         "pycirclize >=0.3.1",
         "h5py >=3.5",
         "tqdm >=4.35.0",
