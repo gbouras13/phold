@@ -74,21 +74,33 @@ class ExternalTool:
             print(f"Command line: {self.command_as_str}", file=stderr_fh)
             logger.info(f"Started running {self.command_as_str} ...")
 
-            process = subprocess.Popen(
+            # ``with subprocess.Popen(...)`` guarantees that the child's
+            # stdout pipe is closed and ``wait()`` is called on every exit
+            # path — including exceptions. The inner ``try/except`` makes
+            # sure that if anything inside the read loop raises (e.g.
+            # ``KeyboardInterrupt`` from the user, an OSError on the
+            # tty, an exception from ``stdout_fh.write``) we ``kill()`` the
+            # child before falling into ``Popen.__exit__``'s ``wait()`` —
+            # otherwise an unkilled child can hang that wait indefinitely
+            # and we'd leak a zombie. ``BaseException`` (not ``Exception``)
+            # is intentional so Ctrl-C / SystemExit also trigger cleanup.
+            with subprocess.Popen(
                 self.command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 universal_newlines=True,
-            )
+            ) as process:
+                try:
+                    for line in process.stdout:
+                        print(line, end="")  # Live output to terminal
+                        stdout_fh.write(line)  # Also write to stdout log
+                except BaseException:
+                    process.kill()
+                    raise
 
-            for line in process.stdout:
-                print(line, end="")  # Live output to terminal
-                stdout_fh.write(line)  # Also write to stdout log
-
-            process.stdout.close()
-            return_code = process.wait()
-
+            # ``Popen.__exit__`` has run ``wait()``; ``returncode`` is set.
+            return_code = process.returncode
             logger.info(f"Done running {self.command_as_str}")
 
             if return_code != 0:
