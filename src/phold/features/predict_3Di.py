@@ -9,6 +9,7 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/predict_3Di_encoderOnly
 
 import csv
 import json
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -16,6 +17,8 @@ import h5py
 import numpy as np
 
 from loguru import logger
+
+from phold.utils.util import atomic_write_path
 
 # ── pholdlib shared components ────────────────────────────────────────────────
 from pholdlib.prostt5.model import CNN, get_T5_model, load_predictor, toCPU  # noqa: F401
@@ -122,8 +125,32 @@ def write_probs(
         output_path_all:  JSONL path for per-residue probs. Pass ``None`` to skip.
         cds_dict: The original CDS dict; used to retrieve the per-contig key order.
     """
-    with open(output_path_mean, "w") as out_mean:
-        out_all = open(output_path_all, "w") if output_path_all is not None else None
+    # Atomicity + leak safety in one pass:
+    #
+    # * Previously ``out_all`` was opened OUTSIDE the ``with``; if any
+    #   ``out_mean.write`` or ``out_all.write`` raised mid-loop, the second
+    #   handle leaked and the manual ``close()`` at the end never ran.
+    # * Both files were also written directly to their final paths. A
+    #   crash mid-loop left a partially-written CSV / JSONL on disk, and
+    #   ``--restart`` happily picked it up as if it were complete.
+    #
+    # ``ExitStack`` registers both atomic-write contexts and their inner
+    # file handles for LIFO cleanup, so on any failure (incl. KeyboardInterrupt
+    # — atomic_write_path catches BaseException) the file handles close, the
+    # sibling temp files are unlinked, and the final paths are left exactly
+    # as they were before the call. On success, the file handles close
+    # first (flushing buffers) and then atomic_write_path's ``__exit__``
+    # ``os.replace``s the temp onto the final path — atomic for any
+    # downstream observer.
+    with ExitStack() as stack:
+        tmp_mean = stack.enter_context(atomic_write_path(output_path_mean))
+        out_mean = stack.enter_context(open(tmp_mean, "w"))
+
+        if output_path_all is not None:
+            tmp_all = stack.enter_context(atomic_write_path(output_path_all))
+            out_all = stack.enter_context(open(tmp_all, "w"))
+        else:
+            out_all = None
 
         for contig_id, contig_predictions in predictions.items():
             original_keys = list(cds_dict[contig_id].keys())
@@ -150,9 +177,6 @@ def write_probs(
                     out_all.write(
                         json.dumps({"seq_id": seq_id, "probability": rounded_probs}) + "\n"
                     )
-
-        if out_all is not None:
-            out_all.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
