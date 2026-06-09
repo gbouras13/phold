@@ -398,6 +398,17 @@ def write_genbank(
         # clean cds_feature and append for dataframe
         for cds_feature in sorted_features:
             if cds_feature.type == "CDS":
+                # Skip pseudo-CDS: NCBI/Bakta pseudogenes survive parsing with
+                # ``type == "CDS"`` but lack the Pharokka-style ``ID`` qualifier
+                # that phold's annotation step would have added (the compare
+                # loop in ``subcommand_compare`` routes them into
+                # ``non_cds_dict`` because they have no translation, but they
+                # still flow through this loop via ``merged_dict``). Keep them
+                # in the output GenBank as-is — just don't try to add them to
+                # the per-CDS dataframe.
+                if "ID" not in cds_feature.qualifiers:
+                    continue
+
                 if proteins_flag is True:
                     cds_info = {
                         "cds_id": cds_feature.qualifiers["ID"],
@@ -510,20 +521,32 @@ def write_genbank(
 
         # Preserve LOCUS/DEFINITION fields from the input record so that
         # downstream tools (and human inspection) keep the same accession,
-        # description and topology that Pharokka/NCBI/Bakta emitted.
-        # Previously we constructed a fresh SeqRecord with empty
-        # description and an empty annotations dict, which clobbered:
-        #   * DEFINITION line  → became "."
-        #   * LOCUS topology   → "DNA PHG ..." (missing "linear")
-        #   * KEYWORDS / SOURCE / ORGANISM and any other source metadata.
-        # See https://github.com/gbouras13/phold/issues/132.
+        # description and topology that Pharokka/NCBI/Bakta emitted
+        # (https://github.com/gbouras13/phold/issues/132).
+        #
+        # NB: in the ``proteins-compare`` flow the "record" passed in via
+        # ``gb_dict`` is a plain ``{prot_id: SeqFeature}`` dict, NOT a
+        # SeqRecord (see ``subcommand_compare`` proteins branch and the
+        # ``sequence = Seq("")`` assignment just above). Dicts don't have
+        # ``.name`` / ``.description`` / ``.annotations``, so guard on
+        # ``proteins_flag`` and fall back to the original empty defaults
+        # for that path — there's no source GenBank to inherit from
+        # anyway.
+        if proteins_flag is True:
+            record_name = record_id
+            record_description = ""
+            record_annotations = {}
+        else:
+            record_name = record.name or record_id
+            record_description = record.description or ""
+            record_annotations = dict(record.annotations)  # copy → don't mutate input
         seq_record = SeqIO.SeqRecord(
             seq=sequence,
             id=record_id,
-            name=record.name or record_id,
-            description=record.description or "",
+            name=record_name,
+            description=record_description,
             features=sorted_features,
-            annotations=dict(record.annotations),  # copy → don't mutate input
+            annotations=record_annotations,
         )
         seq_records.append(seq_record)
 
