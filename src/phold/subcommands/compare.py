@@ -19,7 +19,7 @@ from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
                                        calculate_qcov_tcov,
                                        get_topfunctions)
-from phold.utils.util import replace_pipe_in_fastq
+from phold.utils.util import atomic_write_path, replace_pipe_in_fastq
 
 
 def assign_annotation_confidence(row, structures: bool) -> str:
@@ -391,6 +391,17 @@ def subcommand_compare(
         fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
         ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
+        #
+        # All three write paths below go via atomic_write_path so that an
+        # interrupted predict-then-compare leaves the final files exactly
+        # as they were (or absent) — never half-written. Previously the
+        # raw ``shutil.copyfile`` + ``open(..., "w+")`` calls wrote
+        # straight to the final paths; if the process died mid-copy or
+        # mid-loop (OOM, Ctrl-C, disk full), the truncated AA / 3Di
+        # FASTAs sat on disk and ``--restart`` happily picked them up as
+        # if they were complete. atomic_write_path catches BaseException,
+        # cleans up the sibling temp on failure, and only does the
+        # ``os.replace`` swap onto the target on success.
         if structures is False:
             # if remote, these will not exist
             if remote_flag is False:
@@ -398,7 +409,8 @@ def subcommand_compare(
                     logger.info(
                         f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict"
                     )
-                    shutil.copyfile(fasta_3di_input, fasta_3di)
+                    with atomic_write_path(fasta_3di) as tmp:
+                        shutil.copyfile(fasta_3di_input, tmp)
                 else:
                     logger.error(
                         f"The 3Di CDS file {fasta_3di_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
@@ -408,7 +420,8 @@ def subcommand_compare(
                     logger.info(
                         f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict."
                     )
-                    shutil.copyfile(fasta_aa_input, fasta_aa)
+                    with atomic_write_path(fasta_aa) as tmp:
+                        shutil.copyfile(fasta_aa_input, tmp)
                 else:
                     logger.error(
                         f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
@@ -417,7 +430,9 @@ def subcommand_compare(
         else:
             ## write the CDS to file
             logger.info(f"Writing the AAs to file {fasta_aa}.")
-            with open(fasta_aa, "w+") as out_f:
+            # ``"w+"`` was unnecessary — the loop only writes — so this is
+            # plain ``"w"`` on the sibling temp file.
+            with atomic_write_path(fasta_aa) as tmp_fasta, open(tmp_fasta, "w") as out_f:
                 for record_id, rest in cds_dict.items():
                     aa_contig_dict = cds_dict[record_id]
 
