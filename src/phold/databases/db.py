@@ -374,26 +374,57 @@ Use HF (wayyyyyy faster) not aria2c
 
 def download(tarball_path: Path, cache_dir: Path, tarball: str) -> None:
     """
-    Download the database from the given URL using HF.
+    Download the database from HuggingFace.
+
+    Materialises the tarball at ``tarball_path`` while leaving HuggingFace's
+    cache structure under ``cache_dir`` intact, so that re-installs (and any
+    other consumer of the same cache) can reuse the cached blob instead of
+    re-downloading.
+
+    Previously this used ``shutil.move(real_tarball, tarball_path)``, which
+    had three independent problems:
+
+    1. **Broke HF cache integrity** — moving the resolved blob out from
+       under ``cache_dir/datasets--gbouras13--phold-db/blobs/<sha>`` left
+       the ``snapshots/<rev>/<filename>`` symlink dangling. The next
+       ``phold install`` couldn't reuse the cached weights even though the
+       cache directory was still on disk.
+    2. **Cross-device-unsafe** — when ``cache_dir`` and ``tarball_path``
+       landed on different filesystems (common on shared-storage systems),
+       ``shutil.move`` falls back to copy-then-delete. An interrupt
+       mid-copy removed the source before the destination was complete,
+       leaving both ends corrupt.
+    3. **No atomicity** — if the move was interrupted, ``tarball_path``
+       could be left half-written; the subsequent md5 check would either
+       reject it (if #6's fix is in place) or, worse, accept a partial
+       file with a coincidentally-matching hash.
+
+    Fix: copy (don't move) into a sibling temp via ``atomic_write_path``;
+    the temp is atomically renamed onto ``tarball_path`` on success and
+    cleaned up (with ``tarball_path`` left untouched) on any failure,
+    including ``KeyboardInterrupt``.
 
     Args:
-        tarball_path (Path): The path where the downloaded tarball should be saved.
+        tarball_path: Where the downloaded tarball should ultimately live.
+        cache_dir: Root of the HuggingFace cache layout; the blob persists
+            here for reuse on subsequent installs.
+        tarball: Filename within the dataset repo.
     """
 
     hf_tarball_path = hf_hub_download(
         repo_id="gbouras13/phold-db",
         repo_type="dataset",
         filename=tarball,
-        cache_dir=f"{cache_dir}"
+        cache_dir=f"{cache_dir}",
     )
 
-    # move from cache_dir to the base
-    # need to get the actual path not symlink
-
+    # The path HF returns is a symlink under ``snapshots/<rev>/``; resolve
+    # to the actual blob so ``shutil.copyfile`` reads the real bytes.
     real_tarball = Path(hf_tarball_path).resolve()
     tarball_path.parent.mkdir(parents=True, exist_ok=True)
 
-    shutil.move(real_tarball, tarball_path)
+    with atomic_write_path(tarball_path) as tmp_path:
+        shutil.copyfile(real_tarball, tmp_path)
 
     logger.info(f"Tarball saved to {tarball_path}")
 
