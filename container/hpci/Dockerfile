@@ -23,7 +23,12 @@ RUN pip install --ignore-installed PyYAML
 RUN python3 -c "import torch; print(torch.__version__)" || echo "PyTorch is not installed before installing the project. "
 ARG PHOLD_REF
 RUN pip install git+https://github.com/gbouras13/phold.git@${PHOLD_REF}
-RUN pip install pytest
+# Install the test extras (kept in lockstep with the ``test`` group in
+# pyproject.toml). ``pytest`` alone is insufficient — the snapshot tests
+# in tests/unit/ rely on the ``snapshot`` fixture provided by
+# ``pytest-snapshot``, so without it every snapshot test errors at setup
+# with `fixture 'snapshot' not found`.
+RUN pip install pytest pytest-cov pytest-snapshot
 
 # tests
 RUN foldseek --help
