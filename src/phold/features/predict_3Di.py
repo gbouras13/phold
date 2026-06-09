@@ -48,12 +48,20 @@ def write_embeddings(
     """Write per-residue or per-protein embeddings to HDF5.
 
     Keys are stored as ``contig_id:seq_id`` (or just ``seq_id`` in proteins mode).
+
+    Atomic: the HDF5 is written to a sibling temp file and only renamed onto
+    ``out_path`` on success. Crashes mid-write (OOM, Ctrl-C, disk full) used to
+    leave a truncated ``.h5`` at the final path; ``h5py`` doesn't validate the
+    superblock when re-opening, so the next run would attempt to keep using
+    the broken file. Now: temp gets unlinked on any ``BaseException`` and the
+    original ``out_path`` (if any) is left byte-identical.
     """
-    with h5py.File(str(out_path), "w") as hf:
-        for contig_id, contig_dict in embeddings.items():
-            for sequence_id, embedding in contig_dict.items():
-                key = sequence_id if contig_id == "proteins" else f"{contig_id}:{sequence_id}"
-                hf.create_dataset(key, data=embedding)
+    with atomic_write_path(out_path) as tmp:
+        with h5py.File(str(tmp), "w") as hf:
+            for contig_id, contig_dict in embeddings.items():
+                for sequence_id, embedding in contig_dict.items():
+                    key = sequence_id if contig_id == "proteins" else f"{contig_id}:{sequence_id}"
+                    hf.create_dataset(key, data=embedding)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
