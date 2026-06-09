@@ -1416,7 +1416,11 @@ def install(
     # ``LocalEntryNotFoundError: outgoing traffic has been disabled``.
     # We pass the same pair that ``predict_3Di.get_embeddings`` uses, so
     # behaviour stays consistent across commands.
-    model, vocab = get_T5_model(
+    #
+    # ``get_T5_model`` returns ``(model, vocab, device)`` — the device
+    # is irrelevant during install (we're only materialising the model
+    # to disk), so we discard it with ``_``.
+    model, vocab, _ = get_T5_model(
         database,
         model_name,
         cpu,
