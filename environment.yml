@@ -43,4 +43,4 @@ dependencies:
   # will put on conda soon
   - pip
   - pip:
-      - pholdlib >=0.1.0
+      - pholdlib >=0.1.1
