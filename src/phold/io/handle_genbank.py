@@ -138,9 +138,29 @@ def get_genbank(genbank: Path) -> dict:
                     logger.error(
                         f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
                     )
+                    # The file *is* a parseable Genbank — we just don't
+                    # recognise the CDS qualifier convention. Returning
+                    # ``method=None`` matches the no-CDS branch above and
+                    # binds ``method`` so the return below can't raise
+                    # ``UnboundLocalError`` (which would otherwise be
+                    # silently misclassified as "not a genbank file" by
+                    # the ``except`` clause).
+                    method = None
             return identify_long_ids(gb_dict), method
-        except Exception as e:
-            logger.warning(f"{genbank} is not a genbank file")
+        except (ValueError, AssertionError, IndexError) as e:
+            # ``SeqIO.parse(handle, "gb")`` raises ``ValueError`` (most
+            # commonly) when the handle doesn't actually contain valid
+            # GenBank. We previously caught ``Exception`` here, which
+            # swallowed *all* programming errors in the parser logic
+            # above (e.g. ``UnboundLocalError``) and reported them as
+            # "not a genbank file" — silently misclassifying the format.
+            # Now: narrow to the BioPython-level parser errors, and
+            # include the underlying exception in the log so the cause
+            # is actually diagnosable.
+            logger.warning(
+                f"{genbank} is not a parseable Genbank file "
+                f"({type(e).__name__}: {e})"
+            )
             return {}, None
 
     try:
@@ -150,8 +170,18 @@ def get_genbank(genbank: Path) -> dict:
         else:
             with open(genbank.strip(), "rt") as handle:
                 return parse_records(handle)
-    except Exception as e:
-        logger.warning(f"{genbank} is not a genbank file")
+    except (OSError, EOFError) as e:
+        # File-level failure (not found, permission denied, truncated
+        # gzip stream, etc.). These aren't a "not a genbank file"
+        # condition — they're a "couldn't read the file" condition. The
+        # caller treats an empty ``gb_dict`` as "fall back to FASTA",
+        # which is the wrong behaviour here, but preserving the existing
+        # caller contract is out of scope for this fix. At minimum,
+        # surface the actual error in the log instead of pretending the
+        # file format is the problem.
+        logger.warning(
+            f"Could not read {genbank} ({type(e).__name__}: {e})"
+        )
         return {}, None
 
 def identify_long_ids(gb_dict: dict) -> dict:
