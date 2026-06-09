@@ -1,6 +1,7 @@
 import hashlib
 import os
 import shutil
+import sys
 import tarfile
 from pathlib import Path
 
@@ -17,6 +18,59 @@ from phold.utils.util import atomic_write_path, remove_directory
 # longest gap we'll tolerate between successive bytes once the stream is
 # established — picks up dead/stalled connections quickly.
 _DOWNLOAD_TIMEOUT = (30, 120)
+
+
+def _safe_extractall(tar: tarfile.TarFile, dest: Path) -> None:
+    """Extract ``tar`` into ``dest`` with path-traversal protection.
+
+    Plain ``TarFile.extractall`` happily honours malicious member names
+    like ``../../etc/passwd`` or absolute paths — so a single MITM or
+    Zenodo-supply-chain compromise could write arbitrary files anywhere
+    the phold process can write. The mitigation:
+
+    * **Python 3.12+**: pass ``filter="data"``. CPython's built-in data
+      filter strips absolute paths, rejects ``..``-escapes, blocks
+      symlinks pointing outside the destination, and disallows special
+      file modes (setuid, device nodes, etc.). This will become the
+      default in Python 3.14; until then it must be requested explicitly.
+
+    * **Python 3.8–3.11**: equivalent checks by hand — resolve each
+      member's destination path under ``dest`` and reject anything that
+      lands outside, including symlink/hardlink targets.
+
+    See https://docs.python.org/3.12/library/tarfile.html#extraction-filters
+    and PEP 706 for the full filter contract.
+    """
+    dest = Path(dest).resolve()
+
+    if sys.version_info >= (3, 12):
+        # CPython's "data" filter is the recommended hardening hook.
+        tar.extractall(path=str(dest), filter="data")
+        return
+
+    # Manual pre-validation on older Pythons. Reject any member whose
+    # resolved path escapes ``dest``; reject symlinks/hardlinks whose
+    # targets escape ``dest``.
+    for member in tar.getmembers():
+        member_dest = (dest / member.name).resolve()
+        try:
+            member_dest.relative_to(dest)
+        except ValueError:
+            raise tarfile.TarError(
+                f"Refusing to extract '{member.name}' from tarball: "
+                f"resolved path {member_dest} escapes destination {dest}"
+            )
+        if member.issym() or member.islnk():
+            link_target = (member_dest.parent / member.linkname).resolve()
+            try:
+                link_target.relative_to(dest)
+            except ValueError:
+                raise tarfile.TarError(
+                    f"Refusing to extract link '{member.name}' "
+                    f"→ '{member.linkname}' from tarball: target {link_target} "
+                    f"escapes destination {dest}"
+                )
+    tar.extractall(path=str(dest))
 
 # set this if changes
 CURRENT_DB_VERSION: str = "1.0.0"
@@ -467,7 +521,7 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
         with tarball_path.open("rb") as fh_in, tarfile.open(
             fileobj=fh_in, mode="r:gz"
         ) as tar_file:
-            tar_file.extractall(path=str(model_dir))
+            _safe_extractall(tar_file, model_dir)
     except (OSError, tarfile.TarError) as e:
         # Was: log OSError and ``unlink()`` the tarball anyway → user lost
         # both the model AND the evidence. Now: log the actual exception
@@ -557,7 +611,7 @@ def untar(tarball_path: Path, output_path: Path, DICT: dict) -> None:
         with tarball_path.open("rb") as fh_in, tarfile.open(
             fileobj=fh_in, mode="r:gz"
         ) as tar_file:
-            tar_file.extractall(path=str(output_path))
+            _safe_extractall(tar_file, output_path)
 
         tarpath = Path(output_path) / DICT[CURRENT_DB_VERSION]["dir_name"]
 
