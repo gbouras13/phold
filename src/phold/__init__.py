@@ -13,7 +13,9 @@ from loguru import logger
 # enable plotting. Users who run `phold plot` need `pip install pandas
 # pycirclize` (pycirclize already requires pandas as a hard dep).
 
-from phold.databases.db import install_database, validate_db
+from phold.databases.db import (check_prostT5_download,
+                                  download_zenodo_prostT5, install_database,
+                                  validate_db)
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
@@ -1406,8 +1408,22 @@ def install(
     # always install with cpu mode as guarantee to be present
     cpu = True
 
-    # load model (will be downloaded if not present)
-    model, vocab = get_T5_model(database, model_name, cpu, threads=1)
+    # Load (or download) the ProstT5 model. The check_fn / zenodo_fn
+    # arguments are essential here: pholdlib's ``get_T5_model`` defaults
+    # to ``local_files_only=True`` (offline) unless ``check_fn`` tells it
+    # a download is needed. The first ``phold install`` on a fresh host
+    # has nothing cached, so without check_fn the loader fails with
+    # ``LocalEntryNotFoundError: outgoing traffic has been disabled``.
+    # We pass the same pair that ``predict_3Di.get_embeddings`` uses, so
+    # behaviour stays consistent across commands.
+    model, vocab = get_T5_model(
+        database,
+        model_name,
+        cpu,
+        threads=1,
+        check_fn=check_prostT5_download,
+        zenodo_fn=download_zenodo_prostT5,
+    )
     del model
     del vocab
     logger.info(f"ProstT5 model downloaded")
