@@ -5,7 +5,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Iterator, Union
+from typing import Any, Dict, Iterator, List, Union
 from Bio import SeqIO
 import click
 from loguru import logger
@@ -92,6 +92,29 @@ log_fmt = (
     "<level>{message}</level>"
 )
 
+# Module-level register of every loguru sink that ``begin_phold`` installed.
+# loguru's logger is a process-wide singleton, so without this tracking
+# every re-invocation (programmatic call, pytest collection, repeated
+# subcommand in tests) would stack a new file handler and a new
+# ``sys.exit``-on-error handler on top of the previous ones, multiplying
+# log output and reopening files unboundedly. The next begin_phold tears
+# the previous ones down before installing fresh ones.
+_PHOLD_SINK_IDS: List[int] = []
+
+
+def _remove_phold_sinks() -> None:
+    """Idempotently remove every sink installed by a prior begin_phold."""
+    while _PHOLD_SINK_IDS:
+        sink_id = _PHOLD_SINK_IDS.pop()
+        try:
+            logger.remove(sink_id)
+        except ValueError:
+            # Already removed elsewhere (e.g. caller did ``logger.remove()``
+            # globally). Swallow — the goal here is "phold's sinks are gone",
+            # not "this exact id existed".
+            pass
+
+
 """
 begin and end functions
 """
@@ -108,14 +131,20 @@ def begin_phold(params: Dict[str, Any], subcommand: str) -> float:
     Returns:
         float: Start time of the Phold process.
     """
+    # Make begin_phold idempotent: drop any sinks we installed on a
+    # previous call before adding new ones. This is the load-bearing
+    # part of the #14 fix — it stops handlers stacking when begin_phold
+    # is re-invoked in tests or by programmatic callers.
+    _remove_phold_sinks()
+
     # get start time
     start_time = time.time()
     # initial logging stuff
     if subcommand != "autotune":
         log_file = os.path.join(params["--output"], f"phold_{subcommand}_{start_time}.log")
-        # adds log file
-        logger.add(log_file)
-    logger.add(lambda _: sys.exit(1), level="ERROR")
+        # adds log file — track the id so we can remove it later
+        _PHOLD_SINK_IDS.append(logger.add(log_file))
+    _PHOLD_SINK_IDS.append(logger.add(lambda _: sys.exit(1), level="ERROR"))
 
     print_splash()
     logger.info("phold: annotating phage genomes with protein structures")
@@ -149,6 +178,12 @@ def end_phold(start_time: float, subcommand: str) -> None:
     # Show elapsed time for the process
     logger.info(f"phold {subcommand} has finished")
     logger.info("Elapsed time: " + str(elapsed_time) + " seconds")
+
+    # Clean up the loguru sinks installed by begin_phold so a subsequent
+    # call (or the rest of the test suite) starts with a clean logger.
+    # ``begin_phold`` also tears these down at the top, so this is a
+    # belt-and-braces for the happy-path lifecycle.
+    _remove_phold_sinks()
 
 
 # need the logo here eventually
