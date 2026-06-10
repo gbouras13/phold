@@ -90,11 +90,9 @@ def write_predictions(
             # drop zero-length predictions (issue #47)
             contig_dict = {k: v for k, v in contig_dict.items() if len(v[0]) > 0}
 
-            # apply masking in-place
+            # apply masking in-place: pred is np.byte, all_prob shape (1, L)
             for key, (pred, mean_prob, all_prob) in contig_dict.items():
-                for i in range(len(pred)):
-                    if all_prob[0][i] < mask_prop:
-                        pred[i] = 20  # 'X'
+                pred[all_prob[0] < mask_prop] = 20  # 'X'
 
             header_fmt = "{}" if proteins_flag else "{}:{}"
 
