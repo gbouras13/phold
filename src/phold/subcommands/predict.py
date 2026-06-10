@@ -276,14 +276,11 @@ def subcommand_predict(
             prediction_contig_dict = {
                 k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
             }
+            parts = []
             for seq_id, cds_feature in aa_contig_dict.items():
-                if proteins_flag is True:
-                    out_f.write(f">{seq_id}\n")
-                else:
-                    out_f.write(f">{contig_id}:{seq_id}\n")
+                header = f">{seq_id}\n" if proteins_flag else f">{contig_id}:{seq_id}\n"
 
                 prot_seq = cds_feature.qualifiers["translation"]
-                # prediction_contig_dict[seq_id][2] these are teh ProstT5 confidence scores from 0-1 - need to convert to list
 
                 try:
                     # this will fail if ProstT5 OOM fails (or fails for some other reason)
@@ -296,6 +293,7 @@ def subcommand_predict(
                     # in that case, just return 'X' aka masked proteins
                     prot_seq = "X" * len(prot_seq)
 
-                out_f.write(f"{prot_seq}\n")
+                parts.append(f"{header}{prot_seq}\n")
+            out_f.write("".join(parts))
 
     return True
