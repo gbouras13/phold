@@ -281,6 +281,7 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
         return (record.id, record.seq, genes)
 
     def run_pool(pool, records):
+        result = {}
         for record_id, record_seq, genes in pool.imap(_find_genes, records):
             i = 0
             all_features = []
@@ -311,9 +312,9 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
             seq_record = SeqIO.SeqRecord(
                 seq=Seq(record_seq), id=record_id, description="", features=all_features
             )
-            gb_dict[record_id] = seq_record
+            result[record_id] = seq_record
 
-        return gb_dict
+        return result
 
     with multiprocessing.pool.ThreadPool(threads) as pool:
         if is_gzip_file(input.strip()):
@@ -630,7 +631,6 @@ def get_proteins(fasta: Path) -> dict:
                         sequence += line
                 if sequence_id:
                     fasta_dict[sequence_id] = sequence
-            handle.close()
         except ValueError:
             logger.error(f"{fasta.strip()} is not a FASTA file!")
             raise
@@ -652,7 +652,6 @@ def get_proteins(fasta: Path) -> dict:
                         sequence += line
                 if sequence_id:
                     fasta_dict[sequence_id] = sequence
-            handle.close()
         except ValueError:
             logger.error(f"{fasta.strip()} is not a FASTA file!")
             raise

@@ -183,9 +183,18 @@ def generate_foldseek_db_from_structures(
             # will just be the CDS id if it is proteins-compare
             cds_id = id
         else:
-            # in case the header has a colon in it - this will cause a bug if so
-            cds_id = id.split(":")[1:]
-            cds_id = ":".join(cds_id).strip()
+            # Header format is "contig_id:cds_id"; everything after the first
+            # colon is the CDS id (inner colons are preserved via split max=1).
+            parts = id.split(":", 1)
+            if len(parts) == 1:
+                logger.warning(
+                    f"FASTA header '{id}' has no ':' separator — expected "
+                    "'contig_id:cds_id'. Treating the whole id as cds_id; "
+                    "no matching structure will be found."
+                )
+                cds_id = id
+            else:
+                cds_id = parts[1]
 
         # record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs

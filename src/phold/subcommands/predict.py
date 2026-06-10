@@ -269,7 +269,7 @@ def subcommand_predict(
     ## write the AA CDS to file
     ######
 
-    with open(fasta_aa, "w+") as out_f:
+    with open(fasta_aa, "w") as out_f:
         for contig_id, rest in cds_dict.items():
             aa_contig_dict = cds_dict[contig_id]
             prediction_contig_dict = predictions[contig_id]

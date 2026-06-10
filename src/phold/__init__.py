@@ -1202,7 +1202,7 @@ def remote(
     # FASTA -> takes the whole thing
     # Pharokka GBK -> requires just the first entry, the GBK is parsed as a list
 
-    with open(fasta_aa, "w+") as out_f:
+    with open(fasta_aa, "w") as out_f:
         for contig_id, rest in cds_dict.items():
             aa_contig_dict = cds_dict[contig_id]
             # writes the CDS to file
@@ -1639,24 +1639,16 @@ def plot(
             f"You have specified a file {label_ids} containing a list of CDS IDs to force label."
         )
         # check if it is a file
-        if Path(label_ids).exists() is False:
+        if not Path(label_ids).exists():
             logger.error(f"{label_ids} was not found.")
-        # check if it contains text
-        try:
-            # Open the file in read mode
-            with open(Path(label_ids), "r") as file:
-                # Read the first character
-                # will error if file is empty
-                first_char = file.read(1)
-
-                # read all the labels
-                with open(Path(label_ids)) as f:
-                    ignore_dict = {x.rstrip().split()[0] for x in f}
-                # label force list
-                label_force_list = list(ignore_dict)
-
-        except FileNotFoundError:
-            logger.warning(f"{label_ids} contains no text. No contigs will be ignored")
+        else:
+            content = Path(label_ids).read_text()
+            if not content.strip():
+                logger.warning(f"{label_ids} contains no text. No CDS IDs will be force-labelled.")
+            else:
+                label_force_list = [
+                    x.rstrip().split()[0] for x in content.splitlines() if x.strip()
+                ]
 
     # if there is 1 contig, then all the parameters will apply
 

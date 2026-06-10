@@ -584,28 +584,15 @@ def calculate_topfunctions_results(
                             result_dict[record_id][cds_id]["function"]
                             != "unknown function"
                         ):
-                            # if from pharokka input gbk
-                            try:
-                                # update
-                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                                    0
-                                ] = result_dict[record_id][cds_id]["phrog"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "product"
-                                ][0] = result_dict[record_id][cds_id]["product"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "function"
-                                ][0] = result_dict[record_id][cds_id]["function"]
-                            except:  # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
-                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                                    0
-                                ] = result_dict[record_id][cds_id]["phrog"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "product"
-                                ][0] = result_dict[record_id][cds_id]["product"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "function"
-                                ][0] = result_dict[record_id][cds_id]["function"]
+                            updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                0
+                            ] = result_dict[record_id][cds_id]["phrog"]
+                            updated_cds_dict[record_id][cds_id].qualifiers[
+                                "product"
+                            ][0] = result_dict[record_id][cds_id]["product"]
+                            updated_cds_dict[record_id][cds_id].qualifiers[
+                                "function"
+                            ][0] = result_dict[record_id][cds_id]["function"]
 
                         # if foldseek result has unknown function
                         else:

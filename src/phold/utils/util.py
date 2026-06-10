@@ -227,7 +227,7 @@ def remove_directory(dir_path: Path) -> None:
         None
     """
     if dir_path.exists():
-        shutil.rmtree(dir_path)
+        shutil.rmtree(dir_path, ignore_errors=True)
 
 
 def touch_file(path: Path) -> None:
