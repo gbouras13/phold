@@ -162,14 +162,16 @@ def generate_foldseek_db_from_structures(
     for record in SeqIO.parse(fasta_aa, "fasta"):
         sequences_aa[record.id] = str(record.seq)
 
-    # lists all the pdb files
-    structure_files = [
-        file
-        for file in os.listdir(structure_dir)
-        if file.endswith(".pdb") or file.endswith(".cif")
-    ]
-
-    num_structures = len(structure_files)
+    # Index structure files by CDS id (filename stem) so the per-CDS lookup
+    # below is O(1). The old O(K) linear scan inside an O(K) outer loop was
+    # the dominant cost on big genomes: 50k CDS × 50k files = 2.5e9 string
+    # equality checks. Single-pass index keeps both ".pdb" and ".cif" hits
+    # under the same key so the same len-check / take-first logic works.
+    structures_by_cds_id: dict = {}
+    for file in os.listdir(structure_dir):
+        if file.endswith(".pdb") or file.endswith(".cif"):
+            stem = file[:-4]  # ".pdb" and ".cif" are both 4 chars
+            structures_by_cds_id.setdefault(stem, []).append(file)
 
     num_structures = 0
 
@@ -191,11 +193,7 @@ def generate_foldseek_db_from_structures(
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as  "{cds_id}.pdb" or "{cds_id}.cif" (AF3)
 
-        matching_files = [
-            file
-            for file in structure_files
-            if f"{cds_id}.pdb" == file or f"{cds_id}.cif" == file
-        ]
+        matching_files = structures_by_cds_id.get(cds_id, [])
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
         # with filter_structures
