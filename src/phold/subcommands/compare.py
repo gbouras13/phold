@@ -163,28 +163,27 @@ def _write_function_counts_table(merged_df: pl.DataFrame, out_path: Path) -> Non
          0 if absent).
       3. 5 sub-DB rows (one per ``_SUBDB_CATEGORIES`` entry, in order;
          counted on the ``phrog`` column).
+
+    Implementation: single ``group_by("contig_id").agg(...)`` pass over
+    ``merged_df`` computes CDS total + 15 boolean-sum aggregations at once.
+    The previous per-contig ``filter`` then 16 ``.sum()`` calls scanned the
+    frame ``len(contigs)`` times — replaced by one scan.
     """
-    contigs = merged_df["contig_id"].unique(maintain_order=True).to_list()
+    wide = merged_df.group_by("contig_id", maintain_order=True).agg([
+        pl.len().alias("CDS"),
+        *[(pl.col("function") == cat).sum().alias(cat) for cat in _FUNCTION_CATEGORIES],
+        *[(pl.col("phrog") == phrog_value).sum().alias(description)
+          for description, phrog_value in _SUBDB_CATEGORIES],
+    ])
 
     rows: List[dict] = []
-    for contig in contigs:
-        contig_df = merged_df.filter(pl.col("contig_id") == contig)
-        fn_col = contig_df["function"]
-        phrog_col = contig_df["phrog"]
-
-        rows.append({"Description": "CDS", "Count": contig_df.height, "Contig": contig})
+    for r in wide.iter_rows(named=True):
+        contig = r["contig_id"]
+        rows.append({"Description": "CDS", "Count": int(r["CDS"]), "Contig": contig})
         for category in _FUNCTION_CATEGORIES:
-            rows.append({
-                "Description": category,
-                "Count": int((fn_col == category).sum()),
-                "Contig": contig,
-            })
-        for description, phrog_value in _SUBDB_CATEGORIES:
-            rows.append({
-                "Description": description,
-                "Count": int((phrog_col == phrog_value).sum()),
-                "Contig": contig,
-            })
+            rows.append({"Description": category, "Count": int(r[category]), "Contig": contig})
+        for description, _ in _SUBDB_CATEGORIES:
+            rows.append({"Description": description, "Count": int(r[description]), "Contig": contig})
 
     pl.DataFrame(rows).write_csv(out_path, separator="\t")
 
