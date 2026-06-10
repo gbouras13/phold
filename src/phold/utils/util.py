@@ -6,7 +6,6 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Union
-from Bio import SeqIO
 import click
 from loguru import logger
 
@@ -247,23 +246,23 @@ def touch_file(path: Path) -> None:
 
 def replace_pipe_in_fastq(input_path):
     """
-    Solves issue #86 with the genbank format headers
-    Reads a FASTA with Biopython, replace '~PIPE~' with '|' in headers, and write the result.
+    Solves issue #86 with the genbank format headers.
+    Replace '~PIPE~' with '|' in FASTA header lines and write the result.
 
-    Atomic: the input file is read fully into memory, then a sibling temp
-    file is written and renamed over the target on success. If the process
-    is killed mid-write (OOM, Ctrl-C, SIGTERM), the original file is left
-    untouched — preventing the truncated-FASTA hazard that ``--restart``
-    used to silently pick up.
+    Streaming line filter: reads and writes one line at a time — no
+    BioPython parse, no in-memory list, no sequence re-encoding.
+    ``~PIPE~`` only ever appears in ``>``-header lines (it is a header
+    sanitisation artefact), so sequence lines are passed through unchanged.
+
+    Atomic: a sibling temp file is written and renamed over the target on
+    success. Ctrl-C / OOM mid-write leaves the original untouched.
     """
-    records = []
-    for record in SeqIO.parse(input_path, "fasta"):
-        record.id = record.id.replace("~PIPE~", "|")
-        record.description = record.description.replace("~PIPE~", "|")
-        records.append(record)
-
     with atomic_write_path(input_path) as tmp:
-        SeqIO.write(records, str(tmp), "fasta")
+        with open(input_path, "r") as in_f, open(tmp, "w") as out_f:
+            for line in in_f:
+                if line.startswith(">") and "~PIPE~" in line:
+                    line = line.replace("~PIPE~", "|")
+                out_f.write(line)
 
 def clean_up_temporary_files(output: Path) -> None:
     """
