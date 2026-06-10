@@ -17,17 +17,20 @@ from phold.databases.db import (check_prostT5_download,
                                   download_zenodo_prostT5, install_database,
                                   validate_db)
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
-from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.io.handle_genbank import open_protein_fasta_file
-from phold.subcommands.compare import subcommand_compare
-from phold.subcommands.predict import subcommand_predict
+# get_T5_model (from predict_3Di) and run_autotune (from autotune) are
+# lazy-imported inside their handler bodies — both transitively import torch.
+# subcommand_predict and subcommand_compare are lazy-imported inside each
+# handler body (see below). subcommands.predict transitively imports torch
+# (~4 s on a cold Python process), so importing it at module level made
+# every phold subcommand — including install, citation, createdb, and plot —
+# pay that cost even though they never call those functions.
 from phold.utils.constants import CNN_DIR, DB_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
                                     validate_input)
-from phold.features.autotune import run_autotune
 from importlib.resources import files
 
 log_fmt = (
@@ -338,6 +341,10 @@ def run(
         "--restart": restart
     }
 
+    from phold.subcommands.predict import subcommand_predict
+    from phold.subcommands.compare import subcommand_compare
+    from phold.features.autotune import run_autotune
+
     # initial logging etc
     start_time = begin_phold(params, "run")
 
@@ -513,6 +520,9 @@ def predict(
         "--hyps": hyps,
     }
 
+    from phold.subcommands.predict import subcommand_predict
+    from phold.features.autotune import run_autotune
+
     # initial logging etc
     start_time = begin_phold(params, "predict")
 
@@ -687,6 +697,8 @@ def compare(
         "--restart": restart
     }
 
+    from phold.subcommands.compare import subcommand_compare
+
     # initial logging etc
     start_time = begin_phold(params, "compare")
 
@@ -799,6 +811,9 @@ def proteins_predict(
         "--finetune": finetune,
         "--vanilla": vanilla,
     }
+
+    from phold.subcommands.predict import subcommand_predict
+    from phold.features.autotune import run_autotune
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-predict")
@@ -1007,6 +1022,8 @@ def proteins_compare(
         "--restart": restart
     }
 
+    from phold.subcommands.compare import subcommand_compare
+
     # initial logging etc
     start_time = begin_phold(params, "proteins-compare")
 
@@ -1146,6 +1163,8 @@ def remote(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
     }
+
+    from phold.subcommands.compare import subcommand_compare
 
     # initial logging etc
     start_time = begin_phold(params, "remote")
@@ -1387,6 +1406,8 @@ def install(
     **kwargs,
 ):
     """Installs ProstT5 model and phold database"""
+
+    from phold.features.predict_3Di import get_T5_model
 
     if database is not None:
         logger.info(
@@ -1754,6 +1775,8 @@ def autotune(
         "--max_batch": max_batch,
         "--sample_seqs": sample_seqs,
     }
+
+    from phold.features.autotune import run_autotune
 
     # initial logging etc
     start_time = begin_phold(params, "autotune")
