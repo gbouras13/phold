@@ -67,15 +67,20 @@ _SUBDBS: Tuple[_SubDB, ...] = (
 )
 
 
-def _write_sub_db_output(merged: pl.DataFrame, spec: _SubDB, database: Path, output: Path) -> None:
-    """Produce one sub-DB's TSV: filter -> join -> drop -> write, or touch_file if no hits."""
+def _write_sub_db_output(hits: pl.DataFrame, spec: _SubDB, database: Path, output: Path) -> None:
+    """Produce one sub-DB's TSV: join -> drop -> write, or touch_file if no hits.
+
+    ``hits`` is the pre-filtered slice of merged_df where ``phrog == spec.phrog``
+    (or an empty frame with the same schema). The dispatcher partitions once
+    upstream so this helper does not re-scan ``merged_df``.
+    """
     out_path = spec.output_path(output)
-    hits = merged.filter(pl.col("phrog") == spec.phrog).rename({"tophit_protein": spec.join_col})
 
     if hits.is_empty():
         touch_file(out_path)
         return
 
+    hits = hits.rename({"tophit_protein": spec.join_col})
     metadata = pl.read_csv(
         Path(database) / spec.metadata_file,
         separator=spec.metadata_sep,
@@ -108,7 +113,19 @@ def create_sub_db_outputs(merged_df: pl.DataFrame, database: Path, output: Path)
     sub_db_tophits_dir = Path(output) / "sub_db_tophits"
     sub_db_tophits_dir.mkdir(parents=True, exist_ok=True)
 
+    # Single-pass split: one ``is_in`` filter over merged_df, then
+    # ``partition_by`` on the (much smaller) sub-DB-only slice. The old
+    # code ran one full O(N) filter per spec — 5 sequential scans of
+    # merged_df. Now: 1 filter scan + 1 partition pass over the filtered
+    # frame. ``partition_by(..., as_dict=True)`` keys are tuples — e.g.
+    # ``('acr',)`` — so the per-spec lookup is ``partitions.get((spec.phrog,), …)``.
+    sub_db_phrogs = [spec.phrog for spec in _SUBDBS]
+    sub_db_hits = merged_df.filter(pl.col("phrog").is_in(sub_db_phrogs))
+    partitions = sub_db_hits.partition_by("phrog", as_dict=True)
+    empty_frame = sub_db_hits.head(0)  # preserves schema for has-no-hits specs
+
     for spec in _SUBDBS:
-        _write_sub_db_output(merged_df, spec, database, output)
+        hits = partitions.get((spec.phrog,), empty_frame)
+        _write_sub_db_output(hits, spec, database, output)
 
     return True
