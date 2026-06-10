@@ -196,16 +196,14 @@ def get_topfunctions(
     # Logic: per query, drop "hypothetical protein" rows unless that's
     # ALL there is. From whatever remains, pick the row with the min
     # evalue (breaking ties on original row order).
-    non_hypo = foldseek_df.filter(pl.col("product") != "hypothetical protein")
-    non_hypo_queries = non_hypo.select(pl.col("query").unique())
-    # Queries where every row was hypothetical — keep all rows for these.
-    all_hypo_queries = (
-        foldseek_df.select(pl.col("query").unique())
-        .join(non_hypo_queries, on="query", how="anti")
-    )
-    all_hypo_rows = foldseek_df.join(all_hypo_queries, on="query", how="semi")
-
-    candidates = pl.concat([non_hypo, all_hypo_rows])
+    #
+    # Single-pass windowed mask: a row is a candidate iff it is non-hypo,
+    # OR no non-hypo row exists for its query at all. Replaces the previous
+    # four-frame pipeline (non_hypo / non_hypo_queries / all_hypo_queries /
+    # all_hypo_rows + concat) — two extra full scans, an anti-join, a
+    # semi-join, and a double-memory concat collapse into a single filter.
+    is_non_hypo = pl.col("product") != "hypothetical protein"
+    candidates = foldseek_df.filter(is_non_hypo | ~is_non_hypo.any().over("query"))
     topfunction_pl = (
         candidates
         .with_columns(pl.col("evalue").cast(pl.Float64).alias("_evalue_f"))
