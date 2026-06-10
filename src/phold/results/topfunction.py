@@ -215,13 +215,12 @@ def get_topfunctions(
     )
 
     # Format evalue as scientific 3-decimal-place strings, e.g. "8.203e-50".
-    # map_elements is needed because polars has no built-in equivalent of
-    # Python's ``"{:.3e}".format``. The dataframe is small (one row per
-    # query, typically thousands) so the Python-callback overhead is fine.
+    # Passing the bound method directly avoids the lambda overhead (closure
+    # construction + GIL re-entry per call); semantics are identical.
     topfunction_pl = topfunction_pl.with_columns(
         pl.col("evalue")
         .cast(pl.Float64)
-        .map_elements(lambda v: f"{v:.3e}", return_dtype=pl.Utf8)
+        .map_elements("{:.3e}".format, return_dtype=pl.Utf8)
     )
 
     # Drop the row-index column from foldseek_df before downstream use —
