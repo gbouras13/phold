@@ -3,26 +3,25 @@
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
 
 
-def mask_low_confidence_aa(sequence, scores, threshold=0.5):
+def mask_low_confidence_aa(sequence: str, scores, threshold: float = 0.5) -> str:
     """
-    Masks all low confidence AA to X if their corresponding ProstT5 confidence score is below the given threshold.
+    Replace amino acids whose ProstT5 confidence score is below *threshold* with 'X'.
 
-    Parameters:
-    sequence (str): The amino acid sequence.
-    scores (List[float]): A list of confidence scores for each amino acid.
-    threshold (float, optional): The confidence threshold below which amino acids are converted to lowercase. Default is 0.5.
-
-    Returns:
-    str: The modified amino acid sequence with low-confidence residues in lowercase.
+    *scores* is a numpy array of shape (1, L) or (L,), or an equivalent nested list.
     """
-    return "".join(
-        "X" if float(score) < threshold else aa for aa, score in zip(sequence, *scores)
-    )
+    score_arr = np.asarray(scores, dtype=np.float64).ravel()
+    mask = score_arr < threshold
+    if not mask.any():
+        return sequence
+    buf = np.frombuffer(bytearray(sequence, "ascii"), dtype=np.uint8).copy()
+    buf[mask] = 88  # ord("X")
+    return buf.tobytes().decode("ascii")
 
 
 def subcommand_predict(
@@ -290,7 +289,7 @@ def subcommand_predict(
                     # this will fail if ProstT5 OOM fails (or fails for some other reason)
                     prot_seq = mask_low_confidence_aa(
                         prot_seq,
-                        prediction_contig_dict[seq_id][2].tolist(),
+                        prediction_contig_dict[seq_id][2],
                         threshold=mask_prop_threshold,
                     )
                 except (KeyError, IndexError):
