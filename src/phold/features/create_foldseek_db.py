@@ -53,19 +53,18 @@ def generate_foldseek_db_from_aa_3di(
             sequences_3di[record.id] = str(record.seq)  # no upper if masked
 
     # assert that we parsed 3Di strings for all sequences in the amino-acid FASTA file
-    for id in sequences_aa.keys():
-        if not id in sequences_3di.keys():
+    to_drop = set()
+    for seq_id in sequences_aa.keys():
+        if seq_id not in sequences_3di:
             logger.warning(
                 "Warning: entry {} in amino-acid FASTA file has no corresponding 3Di string".format(
-                    id
+                    seq_id
                 )
             )
-            logger.warning("Removing: entry {} from the Foldseek database ".format(id))
-            sequences_aa = {
-                id: sequence
-                for id, sequence in sequences_aa.items()
-                if id in sequences_3di
-            }
+            logger.warning("Removing: entry {} from the Foldseek database ".format(seq_id))
+            to_drop.add(seq_id)
+    for seq_id in to_drop:
+        del sequences_aa[seq_id]
 
     # https://github.com/mheinzinger/ProstT5/issues/41
 
