@@ -11,6 +11,7 @@ Exit code 0 = identical (modulo timestamps), non-zero = differences found.
 import json
 import math
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -20,23 +21,86 @@ SKIP_LINE_PATTERNS = [
     re.compile(r"#.*phold.*run"),                 # any phold run pragma
 ]
 
-# file extensions to skip entirely
-SKIP_EXTENSIONS = {".log"}
+# ── in-line substring normalisation (applied to every kept line) ────────────
+# phold stamps each GenBank record with a fresh annotation timestamp, a LOCUS
+# date, and the phold version. These vary per run / per release while the rest
+# of the line is meaningful, so normalise the volatile substring in place
+# rather than dropping the whole line. Goldens stay stable across days and
+# version bumps; everything else on the line is still compared.
+NORMALIZE_SUBS = [
+    (re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"), "<TIMESTAMP>"),  # Annotation Date: ...
+    (re.compile(r"\d{2}-[A-Z]{3}-\d{4}"), "<DATE>"),                       # GenBank LOCUS date e.g. 24-JUN-2026
+    (re.compile(r"(Annotated with Phold )\S+"), r"\1<VERSION>"),           # phold version in the comment
+]
+
+
+def normalize_line(line: str) -> str:
+    """Replace volatile date/version substrings with stable placeholders."""
+    for pat, repl in NORMALIZE_SUBS:
+        line = pat.sub(repl, line)
+    return line
+
+# file extensions to skip entirely. ``.log`` is timestamp noise; the ``.h5``/
+# embedding binaries (from ``phold predict --save_*_embeddings``) and other
+# large binary artefacts are excluded so they are neither committed as goldens
+# nor flagged as "ONLY IN DEV" when present only in a fresh run.
+SKIP_EXTENSIONS = {".log", ".h5", ".hdf5", ".pkl", ".pickle", ".pt", ".npy", ".npz"}
 
 # files to skip by name
 SKIP_FILENAMES = set()
 
-# directory components to skip entirely (any file under these dirs is ignored)
-SKIP_DIRS = {"logs", "logdir"}
+# directory components to skip entirely (any file under these dirs is ignored).
+# Besides log dirs, the Foldseek query/result/temp databases and the optional
+# filtered-structures copy are binary intermediates that are not meaningful to
+# pin as goldens.
+SKIP_DIRS = {
+    "logs", "logdir",
+    "foldseek_db", "result_db", "temp_db", "filtered_structures",
+}
+
+
+def should_skip(rel: Path) -> bool:
+    """True if a path (relative to the output dir root) is excluded from both
+    golden comparison and golden generation."""
+    return (
+        rel.suffix in SKIP_EXTENSIONS
+        or rel.name in SKIP_FILENAMES
+        or bool(SKIP_DIRS.intersection(rel.parts))
+    )
+
+
+def copy_golden(src: Path, dst: Path) -> None:
+    """Copy a produced phold output dir into the golden tree, applying the same
+    skip rules used for comparison so committed goldens stay small and textual.
+
+    Used by ``--update_goldens`` to (re)generate the committed reference set.
+    ``dst`` is replaced wholesale so removed outputs don't linger.
+    """
+    if dst.exists():
+        shutil.rmtree(dst)
+    for f in sorted(src.rglob("*")):
+        if not f.is_file():
+            continue
+        rel = f.relative_to(src)
+        if should_skip(rel):
+            continue
+        target = dst / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f, target)
 
 
 def filter_lines(path: Path) -> list:
-    """Read a file and return lines with timestamp-like content removed."""
+    """Read a file, drop timestamp-like log lines, and normalise volatile
+    date/version substrings on the lines that remain."""
     try:
         lines = path.read_text(errors="replace").splitlines()
     except Exception as e:
         return [f"<ERROR reading {path}: {e}>"]
-    return [l for l in lines if not any(p.search(l) for p in SKIP_LINE_PATTERNS)]
+    return [
+        normalize_line(l)
+        for l in lines
+        if not any(p.search(l) for p in SKIP_LINE_PATTERNS)
+    ]
 
 
 def _tsv_float_cols_differ(lines_dev: list, lines_ref: list, tol: float = 0.01) -> list:
@@ -153,19 +217,74 @@ def _csv_float_differ(lines_dev: list, lines_ref: list, tol: float = 0.5) -> lis
     return row_diffs
 
 
+def _parse_fasta(lines: list) -> dict:
+    """Parse FASTA lines (already filtered/normalised) into {seq_id: sequence}.
+
+    Tolerant of wrapped sequences (concatenates lines until the next header).
+    phold writes one unwrapped sequence per header, but this stays correct
+    either way.
+    """
+    seqs: dict = {}
+    sid = None
+    buf: list = []
+    for l in lines:
+        if l.startswith(">"):
+            if sid is not None:
+                seqs[sid] = "".join(buf)
+            sid = l[1:].strip()
+            buf = []
+        elif sid is not None:
+            buf.append(l.strip())
+    if sid is not None:
+        seqs[sid] = "".join(buf)
+    return seqs
+
+
+def _fasta_3di_differ(lines_dev: list, lines_ref: list, tol: float = 0.0) -> list:
+    """Compare two ``*_3di.fasta`` files with a per-sequence residue tolerance.
+
+    The 3Di sequence is the ProstT5 *argmax* output, so on GPU (MPS/CUDA)
+    non-determinism a handful of residues can flip versus a CPU-generated
+    golden. ``tol`` is the allowed *fraction* of differing residues per
+    sequence; the number of mismatches allowed is ``max(1, round(tol*len))``
+    when ``tol > 0`` (the floor keeps short sequences from failing on a single
+    flipped residue). With ``tol == 0`` (CPU/strict) the comparison is exact.
+
+    The set of seq_ids and every sequence length must still match exactly
+    (those are deterministic) — only which 3Di letter sits at a position may
+    drift. A real regression (re-ordered CDS, changed lengths, or many flipped
+    residues) still fails.
+    """
+    dev = _parse_fasta(lines_dev)
+    ref = _parse_fasta(lines_ref)
+    row_diffs = []
+    for sid in sorted(set(dev) - set(ref)):
+        row_diffs.append(f"    only in dev: {sid}")
+    for sid in sorted(set(ref) - set(dev)):
+        row_diffs.append(f"    only in ref: {sid}")
+    for sid in sorted(set(dev) & set(ref)):
+        a, b = dev[sid], ref[sid]
+        if len(a) != len(b):
+            row_diffs.append(f"    {sid}: length dev={len(a)} ref={len(b)}")
+            continue
+        if not a:
+            continue
+        mism = sum(1 for x, y in zip(a, b) if x != y)
+        allowed = max(1, round(tol * len(a))) if tol > 0 else 0
+        if mism > allowed:
+            row_diffs.append(
+                f"    {sid}: {mism}/{len(a)} 3Di residues differ "
+                f"(allowed {allowed}, tol {tol:.0%})"
+            )
+    return row_diffs
+
+
 def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
     """Recursively compare two directories. Returns list of diff messages."""
     diffs = []
 
     dev_files = {f.relative_to(dir_dev) for f in dir_dev.rglob("*") if f.is_file()}
     ref_files = {f.relative_to(dir_ref) for f in dir_ref.rglob("*") if f.is_file()}
-
-    def should_skip(rel: Path) -> bool:
-        return (
-            rel.suffix in SKIP_EXTENSIONS
-            or rel.name in SKIP_FILENAMES
-            or bool(SKIP_DIRS.intersection(rel.parts))
-        )
 
     for f in sorted(dev_files - ref_files):
         if not should_skip(f):
@@ -184,6 +303,19 @@ def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
 
         ld = filter_lines(fd)
         lr = filter_lines(fr)
+
+        # ``*_3di.fasta``: ProstT5 argmax 3Di sequences. Deterministic on CPU
+        # (strict) but a few residues can flip under GPU non-determinism, so
+        # allow a small per-sequence residue tolerance off-CPU. NB: ``*_aa.fasta``
+        # is the protein translation (deterministic) and is NOT matched here — it
+        # falls through to the exact comparison below.
+        if rel.name.endswith("_3di.fasta"):
+            di_tol = 0.0 if strict else 0.02
+            row_diffs = _fasta_3di_differ(ld, lr, tol=di_tol)
+            if row_diffs:
+                diffs.append(f"  DIFFER (3Di residue tol={di_tol:.0%}) : {rel}")
+                diffs.extend(row_diffs[:22])
+            continue
 
         # For TSV/CSV/TXT where row order may differ, compare sorted.
         # mean_probabilities CSVs always use a tolerance because the values may
