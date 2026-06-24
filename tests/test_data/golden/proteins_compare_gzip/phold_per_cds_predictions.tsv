@@ -1,0 +1,116 @@
+cds_id	phrog	function	product	annotation_method	annotation_confidence	bitscore	fident	evalue	qStart	qEnd	qLen	qCov	tStart	tEnd	tLen	tCov	annotation_source	tophit_protein	function_with_highest_bitscore_proportion	top_bitscore_proportion_not_unknown	head_and_packaging_bitscore_proportion	integration_and_excision_bitscore_proportion	tail_bitscore_proportion	moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion	DNA_RNA_and_nucleotide_metabolism_bitscore_proportion	connector_bitscore_proportion	transcription_regulation_bitscore_proportion	lysis_bitscore_proportion	other_bitscore_proportion	unknown_function_bitscore_proportion	prostt5_confidence
+JCLMPBLZ_CDS_0001	No_PHROG	unknown function	hypothetical protein		low																										82.67
+JCLMPBLZ_CDS_0002	No_PHROG	unknown function	hypothetical protein		low																										47.29
+JCLMPBLZ_CDS_0003	7067	head and packaging	terminase small subunit		high	342.0	1.0	5.591e-08	1.0	55.0	55.0	0.98	1.0	55.0	55.0	0.98	foldseek	protein585122	head and packaging	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	82.96
+JCLMPBLZ_CDS_0004	No_PHROG	unknown function	hypothetical protein		low																										83.79
+JCLMPBLZ_CDS_0005	acr	moron, auxiliary metabolic gene and host takeover	anti-CRISPR protein		medium	275.0	0.945	1.902e-06	2.0	56.0	56.0	0.96	42.0	96.0	96.0	0.56	foldseek	AcrID1_YP_009272954.1	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	51.56
+JCLMPBLZ_CDS_0006	No_PHROG	unknown function	hypothetical protein		low																										95.41
+JCLMPBLZ_CDS_0007	No_PHROG	unknown function	hypothetical protein		low																										43.63
+JCLMPBLZ_CDS_0008	No_PHROG	unknown function	hypothetical protein		low																										78.12
+JCLMPBLZ_CDS_0009	acr	moron, auxiliary metabolic gene and host takeover	anti-CRISPR protein		high	506.0	0.955	1.261e-13	1.0	113.0	113.0	0.99	4.0	116.0	116.0	0.97	foldseek	AcrID1_YP_009272956.1	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	53.03
+JCLMPBLZ_CDS_0010	No_PHROG	unknown function	hypothetical protein		low																										97.12
+JCLMPBLZ_CDS_0011	32900	unknown function	hypothetical protein		high	505.0	0.832	5.390e-11	1.0	131.0	131.0	0.99	1.0	131.0	131.0	0.99	foldseek	protein41653	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	43.8
+JCLMPBLZ_CDS_0012	90579	unknown function	hypothetical protein		high	256.0	1.0	2.443e-06	1.0	48.0	48.0	0.98	1.0	48.0	48.0	0.98	foldseek	singleton11640	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	67.14
+JCLMPBLZ_CDS_0013	No_PHROG	unknown function	hypothetical protein		low																										78.37
+JCLMPBLZ_CDS_0014	acr	moron, auxiliary metabolic gene and host takeover	anti-CRISPR protein		high	500.0	0.923	6.388e-10	15.0	104.0	105.0	0.85	15.0	104.0	105.0	0.85	foldseek	AcrID1_YP_009272959.1	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	62.26
+JCLMPBLZ_CDS_0015	887	moron, auxiliary metabolic gene and host takeover	queuine tRNA-ribosyltransferase		high	1759.0	0.877	1.451e-42	1.0	310.0	310.0	1.0	1.0	310.0	310.0	1.0	foldseek	protein605478	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	59.13
+JCLMPBLZ_CDS_0016	8289	other	aminoacid permease		medium	592.0	1.0	1.272e-12	1.0	148.0	148.0	0.99	252.0	399.0	399.0	0.37	foldseek	protein157262	other	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	66.65
+JCLMPBLZ_CDS_0017	No_PHROG	unknown function	hypothetical protein		low																										59.42
+JCLMPBLZ_CDS_0018	No_PHROG	unknown function	hypothetical protein		low																										96.53
+JCLMPBLZ_CDS_0019	No_PHROG	unknown function	hypothetical protein		low																										60.45
+JCLMPBLZ_CDS_0020	No_PHROG	unknown function	hypothetical protein		low																										59.08
+JCLMPBLZ_CDS_0021	297	lysis	holin		high	372.0	0.976	7.667e-10	1.0	84.0	84.0	0.99	18.0	101.0	101.0	0.82	foldseek	protein250061	lysis	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	70.21
+JCLMPBLZ_CDS_0022	635	lysis	endolysin		high	1592.0	0.936	3.601e-36	1.0	251.0	251.0	1.0	1.0	251.0	251.0	1.0	foldseek	protein158350	lysis	0.849	0.0	0.0	0.025	0.0	0.0	0.0	0.0	0.849	0.127	0.0	51.71
+JCLMPBLZ_CDS_0023	4358	other	kinase		high	823.0	0.877	3.500e-19	1.0	163.0	163.0	0.99	14.0	176.0	176.0	0.92	foldseek	envhog_78cZ3	other	0.606	0.0	0.0	0.0	0.394	0.0	0.0	0.0	0.0	0.606	0.0	51.66
+JCLMPBLZ_CDS_0024	No_PHROG	unknown function	hypothetical protein		low																										57.28
+JCLMPBLZ_CDS_0025	No_PHROG	unknown function	hypothetical protein		low																										87.7
+JCLMPBLZ_CDS_0026	No_PHROG	unknown function	hypothetical protein		low																										82.37
+JCLMPBLZ_CDS_0027	No_PHROG	unknown function	hypothetical protein		low																										88.72
+JCLMPBLZ_CDS_0028	No_PHROG	unknown function	hypothetical protein		low																										75.1
+JCLMPBLZ_CDS_0029	No_PHROG	unknown function	hypothetical protein		low																										59.72
+JCLMPBLZ_CDS_0030	No_PHROG	unknown function	hypothetical protein		low																										52.25
+JCLMPBLZ_CDS_0031	No_PHROG	unknown function	hypothetical protein		low																										83.84
+JCLMPBLZ_CDS_0032	No_PHROG	unknown function	hypothetical protein		low																										52.83
+JCLMPBLZ_CDS_0033	No_PHROG	unknown function	hypothetical protein		low																										84.42
+JCLMPBLZ_CDS_0034	vfdb	moron, auxiliary metabolic gene and host takeover	VFDB virulence factor protein		high	527.0	1.0	2.265e-11	1.0	116.0	116.0	0.99	1.0	116.0	116.0	0.99	foldseek	VFG049879	other	0.575	0.0	0.0	0.0	0.425	0.0	0.0	0.0	0.0	0.575	0.0	66.55
+JCLMPBLZ_CDS_0035	20340	unknown function	hypothetical protein		high	284.0	1.0	3.674e-07	1.0	62.0	63.0	0.97	1.0	62.0	63.0	0.97	foldseek	protein263088	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	73.97
+JCLMPBLZ_CDS_0036	No_PHROG	unknown function	hypothetical protein		low																										64.89
+JCLMPBLZ_CDS_0037	No_PHROG	unknown function	hypothetical protein		low																										79.88
+JCLMPBLZ_CDS_0038	50	DNA, RNA and nucleotide metabolism	DnaC-like helicase loader		high	1555.0	0.945	4.032e-37	1.0	259.0	259.0	1.0	45.0	303.0	303.0	0.85	foldseek	protein699543	DNA, RNA and nucleotide metabolism	0.999	0.0	0.0	0.0	0.0	0.999	0.0	0.0	0.0	0.001	0.0	64.75
+JCLMPBLZ_CDS_0039	8412	unknown function	hypothetical protein		high	334.0	0.987	1.330e-07	1.0	77.0	77.0	0.99	1.0	77.0	77.0	0.99	foldseek	protein354946	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	66.36
+JCLMPBLZ_CDS_0040	351	transcription regulation	RNA polymerase sigma factor		high	1418.0	0.991	1.871e-30	1.0	248.0	248.0	1.0	1.0	248.0	248.0	1.0	foldseek	protein150525	transcription regulation	1.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	76.9
+JCLMPBLZ_CDS_0041	8281	unknown function	hypothetical protein		high	808.0	0.86	8.689e-18	1.0	158.0	158.0	0.99	1.0	158.0	158.0	0.99	foldseek	protein763966	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	46.41
+JCLMPBLZ_CDS_0042	173	DNA, RNA and nucleotide metabolism	nucleoside triphosphate pyrophosphohydrolase		high	1099.0	0.988	1.066e-22	1.0	180.0	180.0	0.99	1.0	180.0	180.0	0.99	foldseek	protein764359	DNA, RNA and nucleotide metabolism	0.99	0.0	0.0	0.0	0.0	0.99	0.0	0.0	0.0	0.01	0.0	73.83
+JCLMPBLZ_CDS_0043	No_PHROG	unknown function	hypothetical protein		low																										81.88
+JCLMPBLZ_CDS_0044	No_PHROG	unknown function	hypothetical protein		low																										50.44
+JCLMPBLZ_CDS_0045	1672	unknown function	hypothetical protein		high	649.0	0.871	4.836e-17	1.0	156.0	156.0	0.99	1.0	156.0	156.0	0.99	foldseek	protein741437	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	50.29
+JCLMPBLZ_CDS_0046	card	moron, auxiliary metabolic gene and host takeover	CARD resistance protein		high	787.0	0.966	2.210e-19	2.0	121.0	121.0	0.98	20.0	139.0	139.0	0.86	foldseek	AAP27834.1	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	69.63
+JCLMPBLZ_CDS_0047	No_PHROG	unknown function	hypothetical protein		low																										40.11
+JCLMPBLZ_CDS_0048	No_PHROG	unknown function	hypothetical protein		low																										90.38
+JCLMPBLZ_CDS_0049	18684	unknown function	hypothetical protein		high	211.0	1.0	9.335e-05	1.0	47.0	56.0	0.82	1.0	47.0	56.0	0.82	foldseek	protein169516	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	80.37
+JCLMPBLZ_CDS_0050	2275	unknown function	hypothetical protein		high	454.0	0.877	1.313e-11	1.0	98.0	99.0	0.98	1.0	98.0	99.0	0.98	foldseek	protein344437	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	55.27
+JCLMPBLZ_CDS_0051	1235	unknown function	hypothetical protein		high	311.0	0.974	4.660e-08	1.0	79.0	79.0	0.99	1.0	79.0	79.0	0.99	foldseek	protein275715	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	57.86
+JCLMPBLZ_CDS_0052	No_PHROG	unknown function	hypothetical protein		low																										87.94
+JCLMPBLZ_CDS_0053	No_PHROG	unknown function	hypothetical protein		low																										75.49
+JCLMPBLZ_CDS_0054	36	transcription regulation	transcriptional regulator		high	660.0	0.969	1.231e-14	1.0	131.0	131.0	0.99	1.0	131.0	131.0	0.99	foldseek	protein645754	transcription regulation	1.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	79.05
+JCLMPBLZ_CDS_0055	No_PHROG	unknown function	hypothetical protein		low																										85.21
+JCLMPBLZ_CDS_0056	10998	unknown function	hypothetical protein		high	346.0	0.739	2.842e-08	1.0	73.0	74.0	0.97	1.0	73.0	74.0	0.97	foldseek	protein110924	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	67.33
+JCLMPBLZ_CDS_0057	2395	unknown function	hypothetical protein		high	212.0	0.933	9.350e-06	1.0	60.0	61.0	0.97	13.0	72.0	73.0	0.81	foldseek	protein796936	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	67.09
+JCLMPBLZ_CDS_0058	9442	unknown function	hypothetical protein		high	598.0	0.865	1.054e-12	1.0	134.0	134.0	0.99	1.0	134.0	134.0	0.99	foldseek	protein317710	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	42.14
+JCLMPBLZ_CDS_0059	No_PHROG	unknown function	hypothetical protein		low																										84.13
+JCLMPBLZ_CDS_0060	1315	unknown function	hypothetical protein		high	464.0	0.963	8.193e-11	1.0	83.0	84.0	0.98	1.0	83.0	84.0	0.98	foldseek	protein685330	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	82.67
+JCLMPBLZ_CDS_0061	16900	unknown function	hypothetical protein		high	312.0	1.0	2.750e-06	1.0	48.0	48.0	0.98	9.0	56.0	56.0	0.84	foldseek	protein16634	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	65.82
+JCLMPBLZ_CDS_0062	9119	unknown function	hypothetical protein		high	210.0	0.672	4.230e-04	1.0	59.0	63.0	0.92	1.0	61.0	65.0	0.92	foldseek	protein265464	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	67.09
+JCLMPBLZ_CDS_0063	4705	unknown function	hypothetical protein		high	366.0	1.0	1.053e-08	1.0	88.0	88.0	0.99	1.0	88.0	88.0	0.99	foldseek	protein191440	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	63.48
+JCLMPBLZ_CDS_0064	144	DNA, RNA and nucleotide metabolism	HNH endonuclease		high	743.0	0.992	1.429e-19	1.0	126.0	127.0	0.98	1.0	126.0	127.0	0.98	foldseek	protein211337	DNA, RNA and nucleotide metabolism	0.967	0.03	0.0	0.0	0.003	0.967	0.0	0.0	0.0	0.0	0.0	71.19
+JCLMPBLZ_CDS_0065	No_PHROG	unknown function	hypothetical protein		low																										78.76
+JCLMPBLZ_CDS_0066	3644	unknown function	hypothetical protein		high	600.0	0.931	3.302e-14	1.0	102.0	103.0	0.98	1.0	102.0	103.0	0.98	foldseek	protein200204	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	59.72
+JCLMPBLZ_CDS_0067	No_PHROG	unknown function	hypothetical protein		low																										34.13
+JCLMPBLZ_CDS_0068	984	DNA, RNA and nucleotide metabolism	endonuclease		high	1492.0	0.94	5.423e-36	1.0	254.0	255.0	0.99	1.0	254.0	255.0	0.99	foldseek	protein791665	DNA, RNA and nucleotide metabolism	0.996	0.0	0.0	0.0	0.004	0.996	0.0	0.0	0.0	0.0	0.0	56.3
+JCLMPBLZ_CDS_0069	2356	unknown function	hypothetical protein		high	620.0	0.864	1.021e-16	1.0	148.0	148.0	0.99	1.0	148.0	148.0	0.99	foldseek	protein793835	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	42.9
+JCLMPBLZ_CDS_0070	No_PHROG	unknown function	hypothetical protein		low																										34.35
+JCLMPBLZ_CDS_0071	1007	unknown function	hypothetical protein		high	1126.0	0.979	1.401e-26	1.0	243.0	243.0	1.0	1.0	243.0	243.0	1.0	foldseek	protein562661	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	61.87
+JCLMPBLZ_CDS_0072	1104	head and packaging	virion structural protein		high	599.0	0.732	1.000e-12	1.0	152.0	152.0	0.99	1.0	152.0	152.0	0.99	foldseek	protein782358	head and packaging	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	45.41
+JCLMPBLZ_CDS_0073	1303	DNA, RNA and nucleotide metabolism	DNA binding protein		high	764.0	0.945	2.663e-18	1.0	147.0	147.0	0.99	1.0	147.0	147.0	0.99	foldseek	protein736248	DNA, RNA and nucleotide metabolism	0.991	0.0	0.0	0.0	0.0	0.991	0.0	0.009	0.0	0.0	0.0	71.34
+JCLMPBLZ_CDS_0074	2726	unknown function	hypothetical protein		high	697.0	0.692	1.194e-18	1.0	234.0	234.0	1.0	1.0	234.0	234.0	1.0	foldseek	protein651523	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	41.99
+JCLMPBLZ_CDS_0075	2863	moron, auxiliary metabolic gene and host takeover	membrane protein		high	670.0	0.931	2.913e-16	1.0	132.0	132.0	0.99	1.0	132.0	132.0	0.99	foldseek	protein573485	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	54.59
+JCLMPBLZ_CDS_0076	3157	unknown function	hypothetical protein		high	362.0	0.898	2.256e-08	1.0	79.0	80.0	0.98	1.0	79.0	80.0	0.98	foldseek	protein343033	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	61.28
+JCLMPBLZ_CDS_0077	No_PHROG	unknown function	hypothetical protein		low																										76.42
+JCLMPBLZ_CDS_0078	No_PHROG	unknown function	hypothetical protein		low																										77.73
+JCLMPBLZ_CDS_0079	3664	DNA, RNA and nucleotide metabolism	DNA sliding clamp inhibitor arrest of S.aureus DNA synthesis		high	244.0	1.0	5.966e-07	1.0	58.0	58.0	0.98	1.0	58.0	58.0	0.98	foldseek	protein827525	DNA, RNA and nucleotide metabolism	1.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	76.86
+JCLMPBLZ_CDS_0080	3854	moron, auxiliary metabolic gene and host takeover	ribulose-1,5-bisphosphate carboxylase/oxygenase small subunit		high	721.0	0.89	6.533e-19	3.0	176.0	177.0	0.98	2.0	175.0	176.0	0.98	foldseek	protein772476	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	56.79
+JCLMPBLZ_CDS_0081	No_PHROG	unknown function	hypothetical protein		low																										81.84
+JCLMPBLZ_CDS_0082	No_PHROG	unknown function	hypothetical protein		low																										75.49
+JCLMPBLZ_CDS_0083	3128	unknown function	hypothetical protein		high	377.0	0.858	6.815e-09	1.0	98.0	98.0	0.99	1.0	98.0	98.0	0.99	foldseek	protein800944	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	47.9
+JCLMPBLZ_CDS_0084	No_PHROG	unknown function	hypothetical protein		low																										80.47
+JCLMPBLZ_CDS_0085	3669	unknown function	hypothetical protein		high	489.0	0.801	2.247e-12	1.0	121.0	122.0	0.98	1.0	121.0	122.0	0.98	foldseek	protein41570	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	45.53
+JCLMPBLZ_CDS_0086	2988	unknown function	hypothetical protein		high	564.0	0.93	9.950e-15	1.0	115.0	115.0	0.99	1.0	115.0	115.0	0.99	foldseek	protein819431	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	58.74
+JCLMPBLZ_CDS_0087	3804	unknown function	hypothetical protein		high	394.0	0.989	4.662e-08	1.0	91.0	92.0	0.98	1.0	91.0	92.0	0.98	foldseek	protein220527	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	66.02
+JCLMPBLZ_CDS_0088	3143	unknown function	hypothetical protein		high	529.0	0.95	9.585e-14	1.0	100.0	101.0	0.98	1.0	100.0	101.0	0.98	foldseek	protein340829	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	54.25
+JCLMPBLZ_CDS_0089	3752	DNA, RNA and nucleotide metabolism	single strand DNA binding protein		high	773.0	0.974	4.763e-16	1.0	116.0	116.0	0.99	1.0	116.0	116.0	0.99	foldseek	protein408971	DNA, RNA and nucleotide metabolism	1.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	56.69
+JCLMPBLZ_CDS_0090	4208	DNA, RNA and nucleotide metabolism	HNH endonuclease		high	831.0	0.865	8.141e-19	1.0	195.0	200.0	0.97	1.0	195.0	200.0	0.97	foldseek	protein584703	DNA, RNA and nucleotide metabolism	0.994	0.002	0.0	0.0	0.0	0.994	0.0	0.0	0.0	0.004	0.0	50.88
+JCLMPBLZ_CDS_0091	3701	unknown function	hypothetical protein		high	345.0	0.947	5.681e-09	1.0	57.0	59.0	0.95	1.0	57.0	59.0	0.95	foldseek	protein678519	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	68.95
+JCLMPBLZ_CDS_0092	No_PHROG	unknown function	hypothetical protein		low																										89.79
+JCLMPBLZ_CDS_0093	1486	moron, auxiliary metabolic gene and host takeover	membrane protein		high	607.0	0.992	2.320e-14	1.0	133.0	133.0	0.99	1.0	133.0	133.0	0.99	foldseek	protein83387	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	74.37
+JCLMPBLZ_CDS_0094	11913	unknown function	hypothetical protein		high	351.0	0.952	4.600e-08	1.0	85.0	86.0	0.98	1.0	85.0	86.0	0.98	foldseek	protein797510	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	59.86
+JCLMPBLZ_CDS_0095	1486	moron, auxiliary metabolic gene and host takeover	membrane protein		high	464.0	0.989	4.832e-11	1.0	95.0	95.0	0.99	1.0	95.0	95.0	0.99	foldseek	protein83477	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	76.27
+JCLMPBLZ_CDS_0096	No_PHROG	unknown function	hypothetical protein		low																										87.79
+JCLMPBLZ_CDS_0097	4584	other	carboxypeptidase		high	285.0	0.958	1.121e-07	1.0	72.0	87.0	0.82	1.0	72.0	72.0	0.99	foldseek	protein573830	other	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	63.13
+JCLMPBLZ_CDS_0098	4743	unknown function	hypothetical protein		high	280.0	0.983	4.747e-07	1.0	59.0	59.0	0.98	1.0	59.0	59.0	0.98	foldseek	protein467896	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	86.28
+JCLMPBLZ_CDS_0099	4418	unknown function	hypothetical protein		high	379.0	0.977	3.232e-09	1.0	87.0	87.0	0.99	1.0	87.0	87.0	0.99	foldseek	protein612205	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	66.41
+JCLMPBLZ_CDS_0100	4081	unknown function	hypothetical protein		high	531.0	0.923	1.121e-13	1.0	105.0	105.0	0.99	1.0	105.0	105.0	0.99	foldseek	protein848425	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	51.37
+JCLMPBLZ_CDS_0101	4650	unknown function	hypothetical protein		high	928.0	0.923	1.686e-23	11.0	219.0	226.0	0.92	11.0	219.0	226.0	0.92	foldseek	protein852003	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	50.29
+JCLMPBLZ_CDS_0102	4430	moron, auxiliary metabolic gene and host takeover	membrane protein		high	220.0	0.725	2.572e-04	1.0	51.0	52.0	0.96	1.0	51.0	52.0	0.96	foldseek	protein614349	moron, auxiliary metabolic gene and host takeover	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	81.98
+JCLMPBLZ_CDS_0103	3453	unknown function	hypothetical protein		high	325.0	1.0	1.363e-07	1.0	66.0	66.0	0.98	1.0	66.0	66.0	0.98	foldseek	protein163379	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	60.74
+JCLMPBLZ_CDS_0104	No_PHROG	unknown function	hypothetical protein		low																										68.85
+JCLMPBLZ_CDS_0105	1099	DNA, RNA and nucleotide metabolism	terminal repeat-encoded protein		high	387.0	0.862	5.523e-10	1.0	102.0	102.0	0.99	1.0	102.0	102.0	0.99	foldseek	protein860388	DNA, RNA and nucleotide metabolism	1.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	46.53
+JCLMPBLZ_CDS_0106	619	other	ribose-phosphate pyrophosphokinase		high	1774.0	0.942	6.128e-43	5.0	301.0	302.0	0.98	5.0	301.0	302.0	0.98	foldseek	protein53654	other	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	62.06
+JCLMPBLZ_CDS_0107	448	other	nicotinamide phosphoribosyl transferase		high	3230.0	0.955	2.487e-75	1.0	489.0	489.0	1.0	1.0	489.0	489.0	1.0	foldseek	protein561422	other	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	61.67
+JCLMPBLZ_CDS_0108	4028	unknown function	hypothetical protein		high	399.0	0.753	6.552e-10	1.0	81.0	81.0	0.99	1.0	81.0	81.0	0.99	foldseek	protein430503	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	52.98
+JCLMPBLZ_CDS_0109	3847	unknown function	hypothetical protein		high	437.0	0.861	1.107e-10	1.0	130.0	130.0	0.99	1.0	130.0	130.0	0.99	foldseek	protein703350	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	55.27
+JCLMPBLZ_CDS_0110	No_PHROG	unknown function	hypothetical protein		low																										62.79
+JCLMPBLZ_CDS_0111	6716	other	lipoprotein		high	295.0	0.289	5.265e-05	2.0	95.0	103.0	0.9	4.0	108.0	114.0	0.91	foldseek	envhog_7tA0g	other	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	66.16
+JCLMPBLZ_CDS_0112	4855	lysis	endolysin		high	927.0	0.917	4.099e-23	1.0	168.0	169.0	0.99	1.0	168.0	169.0	0.99	foldseek	protein152453	lysis	0.903	0.005	0.0	0.092	0.0	0.0	0.0	0.0	0.903	0.0	0.0	56.93
+JCLMPBLZ_CDS_0113	4637	unknown function	hypothetical protein		high	574.0	0.887	9.468e-13	1.0	107.0	109.0	0.97	1.0	107.0	111.0	0.95	foldseek	protein460615	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	52.49
+JCLMPBLZ_CDS_0114	4983	unknown function	hypothetical protein		high	427.0	0.984	9.196e-10	1.0	64.0	64.0	0.98	1.0	64.0	64.0	0.98	foldseek	protein408511	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	67.63
+JCLMPBLZ_CDS_0115	5741	unknown function	hypothetical protein		high	481.0	0.902	2.411e-13	1.0	103.0	104.0	0.98	1.0	103.0	104.0	0.98	foldseek	protein5454	unknown function	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	56.59

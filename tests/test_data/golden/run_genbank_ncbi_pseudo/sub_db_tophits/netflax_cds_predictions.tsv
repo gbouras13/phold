@@ -1,0 +1,2 @@
+contig_id	cds_id	start	end	strand	annotation_confidence	transl_table	bitscore	fident	evalue	qStart	qEnd	qLen	qCov	tStart	tEnd	tLen	tCov	annotation_source	protein	prostt5_confidence	type	node	partner	pdockq	taxa	plddt
+OM418625.1	UNA07128.1	26961	25384	-	medium	11	591.0	0.153	7.632e-12	158.0	523.0	525.0	0.7	2.0	345.0	349.0	0.98	foldseek	WP_069473082.1	58.25	Antitoxin	D51	WP_069471644.1	0.227613	Candidatus Marithrix sp  Canyon 246	88.33011461318051

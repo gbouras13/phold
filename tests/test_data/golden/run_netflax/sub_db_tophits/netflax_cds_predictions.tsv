@@ -1,0 +1,3 @@
+contig_id	cds_id	start	end	strand	annotation_confidence	transl_table	bitscore	fident	evalue	qStart	qEnd	qLen	qCov	tStart	tEnd	tLen	tCov	annotation_source	protein	prostt5_confidence	type	node	partner	pdockq	taxa	plddt
+test_netflax	test_netflax_CDS_0007	6306	6001	-	high	11	597.0	0.969	5.694e-15	3.0	101.0	101.0	0.97	1.0	99.0	99.0	0.99	foldseek	WP_006719989.1	67.53	Toxin	M179	WP_050754937.1	0.640027	Collinsella stercoris DSM 13279	93.79353535353536
+test_netflax	test_netflax_CDS_0008	6585	6310	-	high	11	536.0	1.0	5.168e-14	1.0	91.0	91.0	0.99	1.0	91.0	91.0	0.99	foldseek	WP_050754937.1	76.56	Antitoxin	M179	WP_006719989.1	0.640027	Collinsella stercoris DSM 13279	87.35098901098901

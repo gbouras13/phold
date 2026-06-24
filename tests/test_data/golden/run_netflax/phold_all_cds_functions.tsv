@@ -1,0 +1,17 @@
+Description	Count	Contig
+CDS	10	test_netflax
+connector	0	test_netflax
+DNA, RNA and nucleotide metabolism	3	test_netflax
+head and packaging	0	test_netflax
+integration and excision	1	test_netflax
+lysis	0	test_netflax
+moron, auxiliary metabolic gene and host takeover	2	test_netflax
+other	2	test_netflax
+tail	0	test_netflax
+transcription regulation	0	test_netflax
+unknown function	2	test_netflax
+VFDB_Virulence_Factors	0	test_netflax
+CARD_AMR	0	test_netflax
+ACR_anti_crispr	0	test_netflax
+Defensefinder	0	test_netflax
+Netflax	2	test_netflax

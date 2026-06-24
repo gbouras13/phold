@@ -1,0 +1,2 @@
+contig_id	cds_id	start	end	strand	annotation_confidence	transl_table	bitscore	fident	evalue	qStart	qEnd	qLen	qCov	tStart	tEnd	tLen	tCov	annotation_source	prot_id	prostt5_confidence	genbank_id	species	vf_name	vfid	vf_category	vfcid	short_name	description
+NC_004617.1	NC_004617.1_CDS_0007	4840	5190	+	high	11	527.0	1.0	2.265e-11	1.0	116.0	116.0	0.99	1.0	116.0	116.0	0.99	foldseek	VFG049879	66.55	WP_000702262	Staphylococcus aureus subsp. aureus N315	SCIN	VF0425	Immune modulation	VFC0258	scn	complement inhibitor SCIN
