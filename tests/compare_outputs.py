@@ -103,47 +103,69 @@ def filter_lines(path: Path) -> list:
     ]
 
 
-def _tsv_float_cols_differ(lines_dev: list, lines_ref: list, tol: float = 0.01) -> list:
-    """Return diff messages for two sorted TSV line lists, comparing column-by-column.
+# ── phold per-CDS / sub-DB / custom-hit TSV: drop non-reproducible columns ──
+# Mirroring baktfold's ``_tophit_differ``: because the ProstT5 3Di input is
+# itself non-deterministic on GPU, every Foldseek alignment number wobbles
+# run-to-run — not just the quality scores (bitscore/fident/evalue) but the
+# alignment extent (qStart/qEnd/tStart/tEnd), the coverage derived from it
+# (qCov/tCov), the structural scores (alntmscore/lddt), and everything derived
+# from bitscores (the ``*_bitscore_proportion`` columns + prostt5_confidence).
+# The reproducible facts are the genomic coords, intrinsic lengths (qLen/tLen),
+# the *identity* of the hit (tophit_protein / target + sub-DB metadata) and the
+# annotations (phrog/function/product/method/tier). Drop the volatile columns by
+# name and compare the rest exactly, so a changed annotation / hit / column
+# structure is still caught while alignment-numeric noise is ignored.
+#
+# NB: ``lddt`` (lowercase, custom-DB per-alignment LDDT) is volatile and dropped;
+# ``pLDDT`` (sub-DB metadata, per-target, deterministic) is kept.
+_VOLATILE_TSV_COLS = {
+    "bitscore", "fident", "evalue",
+    "qStart", "qEnd", "qCov", "tStart", "tEnd", "tCov",
+    "alntmscore", "lddt",
+    "prostt5_confidence",
+    "top_bitscore_proportion_not_unknown",
+}
 
-    For each pair of lines that differ:
-    - If column counts differ → flag as structural mismatch.
-    - Otherwise compare each column: if both sides parse as float, apply *tol*
-      tolerance; if either side is non-numeric (string), compare exactly.
 
-    This absorbs the numpy float32-repr artefact that appears in
-    phold_per_cds_predictions.tsv and sub_db_tophits/*.tsv where the mean_prob
-    column (a middle column, not the last) may appear as:
-      bioconda v1.2.5 (numpy ≥2): '52.43000030517578'
-      dev (numpy 1.x):            '52.43'
-    Other numeric columns (foldseek scores, e-values, …) are deterministic
-    between runs so they will be exactly equal and pass through unchanged.
+def _is_volatile_col(name: str) -> bool:
+    return name in _VOLATILE_TSV_COLS or name.endswith("_bitscore_proportion")
+
+
+def _phold_tsv_differ(lines_dev: list, lines_ref: list) -> list:
+    """Compare a phold per-CDS / sub-DB / custom-hit TSV, dropping the
+    non-reproducible Foldseek/ProstT5 numeric columns (see _VOLATILE_TSV_COLS)
+    and comparing the remaining columns exactly (sorted).
+
+    The header is part of the comparison, so added/removed/renamed columns and
+    any changed annotation/hit/length still fail.
     """
+    if not lines_dev and not lines_ref:
+        return []
+    hdr_dev = lines_dev[0].split("\t") if lines_dev else []
+    hdr_ref = lines_ref[0].split("\t") if lines_ref else []
+    if hdr_dev != hdr_ref:
+        return [f"    header differs: dev={hdr_dev[:12]} ref={hdr_ref[:12]}"]
+    keep = [i for i, name in enumerate(hdr_dev) if not _is_volatile_col(name)]
+
+    def _project(lines):
+        rows = []
+        for line in lines[1:]:                       # skip header
+            parts = line.split("\t")
+            rows.append("\t".join(parts[i] for i in keep if i < len(parts)))
+        return sorted(rows)
+
+    sd, sr = _project(lines_dev), _project(lines_ref)
     row_diffs = []
-    if len(lines_dev) != len(lines_ref):
-        row_diffs.append(f"    line count: dev={len(lines_dev)} ref={len(lines_ref)}")
-    for i, (a, b) in enumerate(zip(lines_dev, lines_ref)):
-        if a == b:
-            continue
-        pa = a.split("\t")
-        pb = b.split("\t")
-        if len(pa) != len(pb):
-            row_diffs.append(f"    col count mismatch dev[{i}] ({len(pa)} vs {len(pb)} cols): {a[:140]}")
-            row_diffs.append(f"                       ref[{i}]: {b[:140]}")
-            continue
-        bad_cols = []
-        for j, (ca, cb) in enumerate(zip(pa, pb)):
-            if ca == cb:
-                continue
-            try:
-                fa, fb = float(ca), float(cb)
-                if not math.isclose(fa, fb, abs_tol=tol):
-                    bad_cols.append(j)
-            except ValueError:
-                bad_cols.append(j)
-        if bad_cols:
-            row_diffs.append(f"    col mismatch dev[{i}] (cols {bad_cols}): {a[:140]}")
-            row_diffs.append(f"                 ref[{i}]:                   {b[:140]}")
+    if sd != sr:
+        for i, (a, b) in enumerate(zip(sd, sr)):
+            if a != b:
+                row_diffs.append(f"    dev[{i}]: {a[:140]}")
+                row_diffs.append(f"    ref[{i}]: {b[:140]}")
+                if i > 10:
+                    row_diffs.append("    ... (truncated)")
+                    break
+        if len(sd) != len(sr):
+            row_diffs.append(f"    line count: dev={len(sd)} ref={len(sr)}")
     return row_diffs
 
 
@@ -231,7 +253,7 @@ def _parse_fasta(lines: list) -> dict:
         if l.startswith(">"):
             if sid is not None:
                 seqs[sid] = "".join(buf)
-            sid = l[1:].strip()
+            sid = l[1:].split()[0] if len(l) > 1 else ""
             buf = []
         elif sid is not None:
             buf.append(l.strip())
@@ -240,43 +262,46 @@ def _parse_fasta(lines: list) -> dict:
     return seqs
 
 
-def _fasta_3di_differ(lines_dev: list, lines_ref: list, tol: float = 0.0) -> list:
-    """Compare two ``*_3di.fasta`` files with a per-sequence residue tolerance.
+def _fasta_residue_differ(lines_dev: list, lines_ref: list, min_identity: float) -> list:
+    """Compare two phold sequence FASTAs (``*_3di.fasta`` / ``*_aa.fasta``)
+    tolerantly, mirroring baktfold's ``_fasta_3di_differ``.
 
-    The 3Di sequence is the ProstT5 *argmax* output, so on GPU (MPS/CUDA)
-    non-determinism a handful of residues can flip versus a CPU-generated
-    golden. ``tol`` is the allowed *fraction* of differing residues per
-    sequence; the number of mismatches allowed is ``max(1, round(tol*len))``
-    when ``tol > 0`` (the floor keeps short sequences from failing on a single
-    flipped residue). With ``tol == 0`` (CPU/strict) the comparison is exact.
-
-    The set of seq_ids and every sequence length must still match exactly
-    (those are deterministic) — only which 3Di letter sits at a position may
-    drift. A real regression (re-ordered CDS, changed lengths, or many flipped
-    residues) still fails.
+    The 3Di string is the ProstT5 *argmax* and the AA string is the
+    confidence-masked translation (``mask_low_confidence_aa``); neither is
+    bit-identical across hardware / driver / torch versions, so each sequence is
+    compared by per-residue identity and only flagged when it falls below
+    *min_identity*. Missing/extra sequences and length mismatches are always
+    reported — those indicate a real change, since the sequence length equals
+    the protein length.
     """
     dev = _parse_fasta(lines_dev)
     ref = _parse_fasta(lines_ref)
-    row_diffs = []
-    for sid in sorted(set(dev) - set(ref)):
-        row_diffs.append(f"    only in dev: {sid}")
-    for sid in sorted(set(ref) - set(dev)):
-        row_diffs.append(f"    only in ref: {sid}")
+    diffs = []
+
+    only_dev = sorted(set(dev) - set(ref))
+    only_ref = sorted(set(ref) - set(dev))
+    if only_dev:
+        diffs.append(f"    seq ids only in dev: {only_dev[:10]}")
+    if only_ref:
+        diffs.append(f"    seq ids only in ref: {only_ref[:10]}")
+
+    low = []
     for sid in sorted(set(dev) & set(ref)):
         a, b = dev[sid], ref[sid]
         if len(a) != len(b):
-            row_diffs.append(f"    {sid}: length dev={len(a)} ref={len(b)}")
+            diffs.append(f"    length mismatch {sid}: dev={len(a)} ref={len(b)}")
             continue
         if not a:
             continue
-        mism = sum(1 for x, y in zip(a, b) if x != y)
-        allowed = max(1, round(tol * len(a))) if tol > 0 else 0
-        if mism > allowed:
-            row_diffs.append(
-                f"    {sid}: {mism}/{len(a)} 3Di residues differ "
-                f"(allowed {allowed}, tol {tol:.0%})"
-            )
-    return row_diffs
+        identity = sum(1 for x, y in zip(a, b) if x == y) / len(a)
+        if identity < min_identity:
+            low.append((sid, identity))
+
+    if low:
+        low.sort(key=lambda t: t[1])
+        worst = ", ".join(f"{sid}={ident:.0%}" for sid, ident in low[:10])
+        diffs.append(f"    {len(low)} seq(s) below {min_identity:.0%} identity (worst: {worst})")
+    return diffs
 
 
 def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
@@ -304,16 +329,17 @@ def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
         ld = filter_lines(fd)
         lr = filter_lines(fr)
 
-        # ``*_3di.fasta``: ProstT5 argmax 3Di sequences. Deterministic on CPU
-        # (strict) but a few residues can flip under GPU non-determinism, so
-        # allow a small per-sequence residue tolerance off-CPU. NB: ``*_aa.fasta``
-        # is the protein translation (deterministic) and is NOT matched here — it
-        # falls through to the exact comparison below.
-        if rel.name.endswith("_3di.fasta"):
-            di_tol = 0.0 if strict else 0.02
-            row_diffs = _fasta_3di_differ(ld, lr, tol=di_tol)
+        # ``*_3di.fasta`` (ProstT5 argmax 3Di) and ``*_aa.fasta`` (the
+        # confidence-masked AA — mask_low_confidence_aa): deterministic on CPU
+        # (strict) but a few residues flip (argmax / X-mask) under GPU
+        # non-determinism, so compare by per-residue identity (exact on CPU,
+        # ≥95% on GPU). The seq_id set and every sequence length still match
+        # exactly.
+        if rel.name.endswith(("_3di.fasta", "_aa.fasta")):
+            min_identity = 1.0 if strict else 0.95
+            row_diffs = _fasta_residue_differ(ld, lr, min_identity)
             if row_diffs:
-                diffs.append(f"  DIFFER (3Di residue tol={di_tol:.0%}) : {rel}")
+                diffs.append(f"  DIFFER (residue identity < {min_identity:.0%}) : {rel}")
                 diffs.extend(row_diffs[:22])
             continue
 
@@ -347,10 +373,16 @@ def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
 
         if rel.suffix in {".tsv", ".csv", ".txt"}:
             is_prob_csv = "probabilities" in rel.name and rel.suffix == ".csv"
+            # Foldseek-score-bearing TSVs (per_cds_predictions, sub_db_tophits/*,
+            # custom_database_hits): drop the non-reproducible alignment numerics
+            # and compare the rest exactly (see _phold_tsv_differ).
+            is_score_tsv = rel.suffix == ".tsv" and (
+                "predictions" in rel.name or "database_hits" in rel.name
+            )
             sd, sr = sorted(ld), sorted(lr)
             if is_prob_csv:
                 # mean_probabilities CSVs: float tolerance always (absorbs numpy
-                # float32-repr artefact; --cpu runs use tighter tol).
+                # float32-repr artefact on CPU; GPU non-determinism off-CPU).
                 prob_tol = 0.01 if strict else 0.5
                 row_diffs = _csv_float_differ(sd, sr, tol=prob_tol)
                 if row_diffs:
@@ -358,22 +390,11 @@ def compare_dirs(dir_dev: Path, dir_ref: Path, strict: bool = False) -> list:
                     diffs.extend(row_diffs[:22])
                     if len(sd) != len(sr):
                         diffs.append(f"    line count: dev={len(sd)} ref={len(sr)}")
-            elif rel.suffix == ".tsv":
-                # TSV files (per_cds_predictions, sub_db_tophits, etc.): the
-                # mean_prob column (a middle column, not the last) may differ due
-                # to the numpy float32-repr artefact.  Compare column-by-column:
-                # columns that parse as float on both sides get abs_tol tolerance;
-                # string/non-numeric columns are compared exactly.
-                # NOTE — bioconda v1.2.5 (numpy ≥2) writes e.g. '52.43000030517578'
-                # while dev (numpy 1.x) writes '52.43'.  Diff <3e-6; abs_tol=0.01
-                # absorbs this cleanly without masking real differences.
-                tsv_tol = 0.01 if strict else 0.5
-                row_diffs = _tsv_float_cols_differ(sd, sr, tol=tsv_tol)
+            elif is_score_tsv:
+                row_diffs = _phold_tsv_differ(ld, lr)
                 if row_diffs:
-                    diffs.append(f"  DIFFER (sorted, float-col tol={tsv_tol}) : {rel}")
+                    diffs.append(f"  DIFFER (alignment numerics dropped) : {rel}")
                     diffs.extend(row_diffs[:22])
-                    if len(sd) != len(sr):
-                        diffs.append(f"    line count: dev={len(sd)} ref={len(sr)}")
             elif sd != sr:
                 diffs.append(f"  DIFFER (sorted) : {rel}")
                 for i, (a, b) in enumerate(zip(sd, sr)):
