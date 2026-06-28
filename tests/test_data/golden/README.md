@@ -43,13 +43,17 @@ counts) stay stable. So, mirroring baktfold's `compare_outputs.py`, the engine
   on CPU (`strict`), ≥95 % on GPU. The seq-id set and every sequence length
   must still match exactly.
 - `*_per_cds_predictions.tsv`, `sub_db_tophits/*.tsv` and
-  `*_custom_database_hits.tsv`: the volatile Foldseek/ProstT5 numeric columns
-  are **dropped by name** (`bitscore`, `fident`, `evalue`, `qStart/qEnd/qCov`,
-  `tStart/tEnd/tCov`, `alntmscore`, `lddt`, `prostt5_confidence`, and every
-  `*_bitscore_proportion`); the remaining columns — genomic coords, `qLen/tLen`,
-  the hit identity (`tophit_protein`/`target` + sub-DB metadata incl. per-target
-  `pLDDT`), and the annotations — are compared exactly. A changed annotation,
-  hit, length, row count, or column structure still fails.
+  `*_custom_database_hits.tsv`: the volatile Foldseek/ProstT5 columns are
+  **dropped by name** — `bitscore`, `fident`, `evalue`, `qStart/qEnd/qCov`,
+  `tStart/tEnd/tLen/tCov`, `alntmscore`, `lddt`, `prostt5_confidence`, every
+  `*_bitscore_proportion`, **and the best-hit representative** (`tophit_protein`
+  / `target`). The last one matters because phold's per-protein DB has paralogs:
+  when several proteins in the same PHROG tie on bitscore, the argmax flips
+  between equivalent members run-to-run on GPU (same phrog/function/product). The
+  remaining columns — genomic coords, `qLen`, the **PHROG** + annotations
+  (`phrog/function/product/method/tier`), `annotation_source`, and sub-DB
+  metadata (incl. per-target `pLDDT`) — are compared exactly. A changed
+  annotation, PHROG, row count, or column structure still fails.
 - ProstT5 probability files (`*_mean_probabilities.csv`, `*_all_probabilities.json`)
   are compared with a float tolerance (tight on CPU, `abs_tol=0.5` on GPU).
 - Everything else (`.gbk`, `_all_cds_functions.tsv`, …) is compared exactly,

@@ -120,10 +120,16 @@ def filter_lines(path: Path) -> list:
 # ``pLDDT`` (sub-DB metadata, per-target, deterministic) is kept.
 _VOLATILE_TSV_COLS = {
     "bitscore", "fident", "evalue",
-    "qStart", "qEnd", "qCov", "tStart", "tEnd", "tCov",
+    "qStart", "qEnd", "qCov", "tStart", "tEnd", "tLen", "tCov",
     "alntmscore", "lddt",
     "prostt5_confidence",
     "top_bitscore_proportion_not_unknown",
+    # The specific best-hit representative is not reproducible on GPU: when
+    # several proteins in the same PHROG tie on bitscore, the argmax flips
+    # between equivalent members run-to-run (e.g. protein510919 vs protein510176,
+    # same phrog/function/product). Drop the hit-representative id and its
+    # target length; the reproducible PHROG + annotation columns are kept.
+    "tophit_protein", "target",
 }
 
 
