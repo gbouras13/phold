@@ -38,9 +38,4 @@ dependencies:
   - sentencepiece >=0.1.99
   - tqdm >=4.35.0
   - transformers >=4.34
-
-  # PyPI-only deps installed after the conda solve completes.
-  # will put on conda soon
-  - pip
-  - pip:
-      - pholdlib >=0.1.1
+  - pholdlib >=0.1.2
