@@ -36,9 +36,20 @@ Alternatively, you can specify protein structures that you have pre-computed for
 
 If you have already annotated your phage(s) with Pharokka, `phold` takes the Genbank output of Pharokka as an input option, so you can easily update the annotation with more functional predictions!
 
-# Tutorial
+# Protocols
 
-Check out the `phold` tutorial at [https://phold.readthedocs.io/en/latest/tutorial/](https://phold.readthedocs.io/en/latest/tutorial/).
+We have recently published a [protocols paper](https://doi.org/10.1002/cpz1.70405) in _Current Protocols_ outlining how to run Pharokka, [Phold](https://github.com/gbouras13/phold), [Phynteny](https://github.com/susiegriggo/Phynteny_transformer) for annotation and visualisation via our [Phold Plot Wasm application](https://gbouras13.github.io/phold-plot-wasm-app/).
+
+We highly recommend reading and following this protocol for users new to phage annotation.
+
+If you use this protocol, please cite
+
+> Bouras G., Grigson S.R., Durr L., Papudeshi B., Vreugde S.,
+> Mallawaarachchi V., Vreugde S., Edwards R.A. 
+>  
+> *Decoding Viral Dark Matter: Metagenomic Prokaryotic Virus Characterization With Pharokka, Phold, and Phynteny*  
+> **Current Protocols**, Volume 6, Number 7, 6 July 2026  
+> [https://doi.org/10.1002/cpz1.70405](https://doi.org/10.1002/cpz1.70405)
 
 # Google Colab Notebooks
 
