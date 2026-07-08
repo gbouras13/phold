@@ -13,7 +13,7 @@
 * Adds defensiveness around external tool (Foldseek) failures with clearer error messages
 * Adds a golden-output regression test suite so future code changes are automatically checked in CI against reference annotation outputs
 
-1.2.4 (2026-04-24)
+1.2.5 (2026-04-24)
 ------------------
 * Support `mps` (MacOS) with `phold autotune`
 
