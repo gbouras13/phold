@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
+from typing import Optional
+
+from pholdlib.prostt5.device import cuda_visible_devices_value, parse_gpus
 
 from phold.utils.external_tools import ExternalTool
 
@@ -19,6 +22,7 @@ def run_foldseek_search(
     foldseek_gpu: bool,
     structures: bool,
     clustered_db: bool,
+    gpus: Optional[str] = None,
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -38,6 +42,12 @@ def run_foldseek_search(
         foldseek_gpu (bool): Run Foldseek-GPU with accelerate ungapped prefilter
         structures (bool): Run Foldseek with structures, not ProstT5 3Dis
         clustered_db (bool): Run Foldseek with clustered DB (for benchmarking)
+        gpus (Optional[str]): Comma-separated CUDA indices (e.g. "0,2") to
+            restrict foldseek's GPU prefilter to a subset of devices. When
+            ``foldseek_gpu`` is True and this resolves to ≥1 CUDA device,
+            the foldseek subprocess gets ``CUDA_VISIBLE_DEVICES`` set
+            accordingly. None = use all visible CUDA GPUs (foldseek default).
+            Ignored when ``foldseek_gpu`` is False.
 
     Returns:
         None
@@ -62,12 +72,23 @@ def run_foldseek_search(
     if clustered_db:
         cmd += f" --cluster-search 1"
 
+    # Build optional env for multi-GPU foldseek. Only applies when GPU mode is
+    # on; foldseek selects devices via CUDA_VISIBLE_DEVICES (per its README).
+    env = None
+    if foldseek_gpu and gpus is not None:
+        # parse_gpus validates indices against device_count and errors fast.
+        devices = parse_gpus(cpu=False, gpus=gpus)
+        cvd = cuda_visible_devices_value(devices)
+        if cvd is not None:
+            env = {"CUDA_VISIBLE_DEVICES": cvd}
+
     foldseek_search = ExternalTool(
         tool="foldseek",
         input=f"",
         output=f"",
         params=f"{cmd}",
         logdir=logdir,
+        env=env,
     )
 
     ExternalTool.run_tool(foldseek_search)

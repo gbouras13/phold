@@ -1,6 +1,7 @@
 import hashlib
 import os
 import shutil
+import sys
 import tarfile
 from pathlib import Path
 
@@ -10,7 +11,66 @@ from loguru import logger
 from huggingface_hub import hf_hub_download
 
 from phold.utils.external_tools import ExternalTool
-from phold.utils.util import remove_directory
+from phold.utils.util import atomic_write_path, remove_directory
+
+# (connect_timeout, read_timeout) seconds for HTTP downloads.
+# Connect: generous because Zenodo can be slow to acknowledge. Read: the
+# longest gap we'll tolerate between successive bytes once the stream is
+# established — picks up dead/stalled connections quickly.
+_DOWNLOAD_TIMEOUT = (30, 120)
+
+
+def _safe_extractall(tar: tarfile.TarFile, dest: Path) -> None:
+    """Extract ``tar`` into ``dest`` with path-traversal protection.
+
+    Plain ``TarFile.extractall`` happily honours malicious member names
+    like ``../../etc/passwd`` or absolute paths — so a single MITM or
+    Zenodo-supply-chain compromise could write arbitrary files anywhere
+    the phold process can write. The mitigation:
+
+    * **Python 3.12+**: pass ``filter="data"``. CPython's built-in data
+      filter strips absolute paths, rejects ``..``-escapes, blocks
+      symlinks pointing outside the destination, and disallows special
+      file modes (setuid, device nodes, etc.). This will become the
+      default in Python 3.14; until then it must be requested explicitly.
+
+    * **Python 3.8–3.11**: equivalent checks by hand — resolve each
+      member's destination path under ``dest`` and reject anything that
+      lands outside, including symlink/hardlink targets.
+
+    See https://docs.python.org/3.12/library/tarfile.html#extraction-filters
+    and PEP 706 for the full filter contract.
+    """
+    dest = Path(dest).resolve()
+
+    if sys.version_info >= (3, 12):
+        # CPython's "data" filter is the recommended hardening hook.
+        tar.extractall(path=str(dest), filter="data")
+        return
+
+    # Manual pre-validation on older Pythons. Reject any member whose
+    # resolved path escapes ``dest``; reject symlinks/hardlinks whose
+    # targets escape ``dest``.
+    for member in tar.getmembers():
+        member_dest = (dest / member.name).resolve()
+        try:
+            member_dest.relative_to(dest)
+        except ValueError:
+            raise tarfile.TarError(
+                f"Refusing to extract '{member.name}' from tarball: "
+                f"resolved path {member_dest} escapes destination {dest}"
+            )
+        if member.issym() or member.islnk():
+            link_target = (member_dest.parent / member.linkname).resolve()
+            try:
+                link_target.relative_to(dest)
+            except ValueError:
+                raise tarfile.TarError(
+                    f"Refusing to extract link '{member.name}' "
+                    f"→ '{member.linkname}' from tarball: target {link_target} "
+                    f"escapes destination {dest}"
+                )
+    tar.extractall(path=str(dest))
 
 # set this if changes
 CURRENT_DB_VERSION: str = "1.0.0"
@@ -165,12 +225,16 @@ def install_database(
         tarball_path = Path(f"{db_dir}/{tarball}")
         logdir = Path(db_dir) / "logdir"
 
-        try: 
+        try:
             logger.info(f"Downloading database from HuggingFace")
             download(tarball_path, db_dir, tarball)
-        except:
+        except Exception as e:
+            # Narrowed from bare ``except`` so that KeyboardInterrupt /
+            # SystemExit are not silently absorbed into a Zenodo retry.
+            # Include the underlying error in the warning so transient HF
+            # issues are diagnosable from logs alone.
             logger.warning(
-                f"Could not download file from HuggingFace: path={tarball_path}"
+                f"Could not download file from HuggingFace: path={tarball_path} ({type(e).__name__}: {e})"
             )
             logger.warning(f"Trying now with requests from Zenodo from {db_url}")
             download_requests(db_url, tarball_path)
@@ -180,13 +244,39 @@ def install_database(
         if md5_sum == requiredmd5:
             logger.info(f"Phold database file download OK: {md5_sum}")
         else:
-            logger.error(
-                f"Error: corrupt database file! MD5 should be '{requiredmd5}' but is '{md5_sum}'"
+            # Previously we logged the mismatch and then proceeded to
+            # ``untar()`` regardless — leaving the user with a half-installed
+            # corrupt DB and no clear failure. Now: rename the bad tarball
+            # to ``<name>.corrupt`` so the user can inspect or report it,
+            # and raise so install_database is loud about failing.
+            corrupt_path = tarball_path.with_suffix(tarball_path.suffix + ".corrupt")
+            try:
+                tarball_path.replace(corrupt_path)
+            except OSError:
+                # Rename failed (rare — same FS as the download). Drop the
+                # bad file rather than leaving it where a retry would
+                # md5-check it again and loop.
+                try:
+                    tarball_path.unlink()
+                except FileNotFoundError:
+                    pass
+                corrupt_path = None
+            raise RuntimeError(
+                f"Corrupt Phold database tarball: MD5 should be "
+                f"'{requiredmd5}' but is '{md5_sum}'. "
+                + (
+                    f"Bad file preserved at {corrupt_path} for inspection."
+                    if corrupt_path is not None
+                    else "Bad file removed."
+                )
             )
 
         logger.info(
             f"Extracting Phold database tarball: file={tarball_path}, output={db_dir}"
         )
+        # ``untar`` now raises on extract failure (it used to log + return
+        # silently on OSError), so the unlink below is reached only when
+        # the tarball has been successfully extracted.
         untar(tarball_path, db_dir, DICT)
         tarball_path.unlink()
 
@@ -284,26 +374,57 @@ Use HF (wayyyyyy faster) not aria2c
 
 def download(tarball_path: Path, cache_dir: Path, tarball: str) -> None:
     """
-    Download the database from the given URL using HF.
+    Download the database from HuggingFace.
+
+    Materialises the tarball at ``tarball_path`` while leaving HuggingFace's
+    cache structure under ``cache_dir`` intact, so that re-installs (and any
+    other consumer of the same cache) can reuse the cached blob instead of
+    re-downloading.
+
+    Previously this used ``shutil.move(real_tarball, tarball_path)``, which
+    had three independent problems:
+
+    1. **Broke HF cache integrity** — moving the resolved blob out from
+       under ``cache_dir/datasets--gbouras13--phold-db/blobs/<sha>`` left
+       the ``snapshots/<rev>/<filename>`` symlink dangling. The next
+       ``phold install`` couldn't reuse the cached weights even though the
+       cache directory was still on disk.
+    2. **Cross-device-unsafe** — when ``cache_dir`` and ``tarball_path``
+       landed on different filesystems (common on shared-storage systems),
+       ``shutil.move`` falls back to copy-then-delete. An interrupt
+       mid-copy removed the source before the destination was complete,
+       leaving both ends corrupt.
+    3. **No atomicity** — if the move was interrupted, ``tarball_path``
+       could be left half-written; the subsequent md5 check would either
+       reject it (if #6's fix is in place) or, worse, accept a partial
+       file with a coincidentally-matching hash.
+
+    Fix: copy (don't move) into a sibling temp via ``atomic_write_path``;
+    the temp is atomically renamed onto ``tarball_path`` on success and
+    cleaned up (with ``tarball_path`` left untouched) on any failure,
+    including ``KeyboardInterrupt``.
 
     Args:
-        tarball_path (Path): The path where the downloaded tarball should be saved.
+        tarball_path: Where the downloaded tarball should ultimately live.
+        cache_dir: Root of the HuggingFace cache layout; the blob persists
+            here for reuse on subsequent installs.
+        tarball: Filename within the dataset repo.
     """
 
     hf_tarball_path = hf_hub_download(
         repo_id="gbouras13/phold-db",
         repo_type="dataset",
         filename=tarball,
-        cache_dir=f"{cache_dir}"
+        cache_dir=f"{cache_dir}",
     )
 
-    # move from cache_dir to the base
-    # need to get the actual path not symlink
-
+    # The path HF returns is a symlink under ``snapshots/<rev>/``; resolve
+    # to the actual blob so ``shutil.copyfile`` reads the real bytes.
     real_tarball = Path(hf_tarball_path).resolve()
     tarball_path.parent.mkdir(parents=True, exist_ok=True)
 
-    shutil.move(real_tarball, tarball_path)
+    with atomic_write_path(tarball_path) as tmp_path:
+        shutil.copyfile(real_tarball, tmp_path)
 
     logger.info(f"Tarball saved to {tarball_path}")
 
@@ -317,8 +438,22 @@ def download_requests(db_url: str, tarball_path: Path):
       db_url (str): The URL of the file to download.
       tarball_path (Path): The path to save the downloaded file.
 
-    Returns:
-      None
+    Raises:
+      requests.exceptions.RequestException: on connection failure, timeout,
+        non-2xx HTTP status, or read stall. The target path is left
+        untouched in every failure case (the download streams to a sibling
+        temp file and only atomically replaces ``tarball_path`` on success).
+
+    Notes:
+      Previously this used a bare ``except`` and a bare ``requests.get``
+      with no timeout. That had three failure modes:
+        1. A hung Zenodo connection blocked ``phold install`` forever.
+        2. Ctrl-C / SystemExit was swallowed silently and the function
+           returned as if nothing happened.
+        3. A partial / zero-byte / HTML-error-page tarball was left at
+           ``tarball_path`` for the caller to md5-check and untar.
+      All three are addressed here. The caller now sees a real exception
+      on failure and the on-disk state is unchanged.
     """
 
     headers = {
@@ -326,20 +461,40 @@ def download_requests(db_url: str, tarball_path: Path):
     }
 
     try:
-        with tarball_path.open("wb") as fh_out, requests.get(
-            db_url, stream=True, headers=headers
+        with requests.get(
+            db_url,
+            stream=True,
+            headers=headers,
+            timeout=_DOWNLOAD_TIMEOUT,
         ) as resp:
+            # Turn 4xx/5xx into a real exception instead of writing the
+            # error body to disk and pretending the download succeeded.
+            resp.raise_for_status()
+
             total_length = resp.headers.get("content-length")
             if total_length is not None:  # content length header is set
                 total_length = int(total_length)
-            with alive_bar(total=total_length, scale="SI") as bar:
-                for data in resp.iter_content(chunk_size=1024 * 1024):
-                    fh_out.write(data)
-                    bar(count=len(data))
-    except:
+
+            # Atomic: stream to a sibling temp file; rename on success;
+            # delete the temp (and leave tarball_path untouched) on any
+            # failure — including KeyboardInterrupt, since atomic_write_path
+            # catches BaseException.
+            with atomic_write_path(tarball_path) as tmp_path:
+                with tmp_path.open("wb") as fh_out, alive_bar(
+                    total=total_length, scale="SI"
+                ) as bar:
+                    for data in resp.iter_content(chunk_size=1024 * 1024):
+                        fh_out.write(data)
+                        bar(count=len(data))
+    except requests.exceptions.RequestException:
+        # Network / HTTP-level failure. Log a useful diagnostic and
+        # re-raise so the caller doesn't proceed to md5-check a missing
+        # or corrupt file. KeyboardInterrupt / SystemExit are deliberately
+        # NOT caught here and will propagate.
         logger.error(
-            f"ERROR: Could not download file from Zenodo! url={db_url}, path={tarball_path}"
+            f"ERROR: Could not download file! url={db_url}, path={tarball_path}"
         )
+        raise
 
 
 
@@ -361,14 +516,32 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
     tarball = VERSION_DICTIONARY[CURRENT_DB_VERSION]["prostt5_backup_tarball"]
     tarball_path = Path(f"{model_dir}/{tarball}")
 
-    download_requests(db_url, tarball_path, logdir, threads)
+    download_requests(db_url, tarball_path)
     md5_sum = calc_md5_sum(tarball_path)
 
     if md5_sum == requiredmd5:
         logger.info(f"ProstT5 model backup file download OK: {md5_sum}")
     else:
-        logger.error(
-            f"Error: corrupt file! MD5 should be '{requiredmd5}' but is '{md5_sum}'"
+        # Mirror of the fix in install_database: corrupt tarball is
+        # preserved as ``<name>.corrupt`` and an exception is raised so
+        # extraction never proceeds on a known-bad file.
+        corrupt_path = tarball_path.with_suffix(tarball_path.suffix + ".corrupt")
+        try:
+            tarball_path.replace(corrupt_path)
+        except OSError:
+            try:
+                tarball_path.unlink()
+            except FileNotFoundError:
+                pass
+            corrupt_path = None
+        raise RuntimeError(
+            f"Corrupt ProstT5 model backup tarball: MD5 should be "
+            f"'{requiredmd5}' but is '{md5_sum}'. "
+            + (
+                f"Bad file preserved at {corrupt_path} for inspection."
+                if corrupt_path is not None
+                else "Bad file removed."
+            )
         )
 
     logger.info(
@@ -379,11 +552,17 @@ def download_zenodo_prostT5(model_dir, logdir, threads):
         with tarball_path.open("rb") as fh_in, tarfile.open(
             fileobj=fh_in, mode="r:gz"
         ) as tar_file:
-            tar_file.extractall(path=str(model_dir))
-
-    except OSError:
-        logger.warning("Encountered OSError: {}".format(OSError))
-        logger.error(f"Could not extract {tarball_path} to {model_dir}")
+            _safe_extractall(tar_file, model_dir)
+    except (OSError, tarfile.TarError) as e:
+        # Was: log OSError and ``unlink()`` the tarball anyway → user lost
+        # both the model AND the evidence. Now: log the actual exception
+        # (the old format-string referenced the OSError class instead of
+        # the instance), preserve the tarball for inspection, and re-raise.
+        logger.error(
+            f"Could not extract ProstT5 tarball {tarball_path} to {model_dir}: "
+            f"{type(e).__name__}: {e}. The tarball has been preserved for inspection."
+        )
+        raise
 
     tarball_path.unlink()
 
@@ -463,7 +642,7 @@ def untar(tarball_path: Path, output_path: Path, DICT: dict) -> None:
         with tarball_path.open("rb") as fh_in, tarfile.open(
             fileobj=fh_in, mode="r:gz"
         ) as tar_file:
-            tar_file.extractall(path=str(output_path))
+            _safe_extractall(tar_file, output_path)
 
         tarpath = Path(output_path) / DICT[CURRENT_DB_VERSION]["dir_name"]
 
@@ -477,9 +656,19 @@ def untar(tarball_path: Path, output_path: Path, DICT: dict) -> None:
         # remove the directory
         remove_directory(tarpath)
 
-    except OSError:
-        logger.warning("Encountered OSError: {}".format(OSError))
-        logger.error(f"Could not extract {tarball_path} to {output_path}")
+    except (OSError, tarfile.TarError) as e:
+        # Was: log "Encountered OSError: <class 'OSError'>" (the f-string
+        # referenced the class instead of the instance — so the actual
+        # cause was never shown) and then **return silently**, leaving the
+        # caller to ``unlink()`` the tarball and assume success on a
+        # partially-extracted DB. Now: log the real exception, preserve
+        # the tarball for inspection / retry, and re-raise so the caller
+        # can't proceed.
+        logger.error(
+            f"Could not extract {tarball_path} to {output_path}: "
+            f"{type(e).__name__}: {e}. The tarball has been preserved for inspection."
+        )
+        raise
 
 
 def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:

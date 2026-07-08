@@ -6,32 +6,83 @@ on:
       - '*.*.*'
   workflow_dispatch:
 
+# Prevent two tag pushes from racing each other onto PyPI.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least-privilege: the job only needs to read the repo and (via the PyPI
+# action) use the PYPI_API_TOKEN secret. If you ever migrate to PyPI
+# trusted publishing (no token needed), flip ``id-token`` to ``write`` and
+# drop the ``password:`` line below.
+permissions:
+  contents: read
+  id-token: none
+
 jobs:
   build-n-publish:
     name: Build and publish to PyPI
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: conda-incubator/setup-miniconda@v3
-      with:
-        python-version: 3.13
-        activate-environment: phold_env
-        environment-file: environment.yml
-        auto-activate-base: false
-        channel-priority: strict
-        channels: conda-forge,bioconda,defaults
-        auto-update-conda: true
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-    - name: Build package
-      run: python -m build
-    - name: Publish package to Pypi
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Check out source
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Build host only — phold itself supports 3.8+ (see pyproject.toml).
+          # 3.12 is a stable, fast interpreter for ``python -m build``.
+          python-version: "3.12"
+          cache: pip
 
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      # Sanity check: a release that ships with mismatched tag + pyproject
+      # version is the #1 way release jobs embarrass you (PyPI 400s, or
+      # you publish the wrong version). Hard-fail before building.
+      # Skipped cleanly on workflow_dispatch from a non-tag ref so manual
+      # dry runs still work.
+      - name: Verify tag matches pyproject version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          pyproject_version="$(python -c '
+          import sys, tomllib, pathlib
+          data = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+          print(data["project"]["version"])
+          ')"
+          echo "tag=$tag  pyproject_version=$pyproject_version"
+          if [ "$tag" != "$pyproject_version" ]; then
+            echo "::error::Tag '$tag' does not match pyproject.toml version '$pyproject_version'. Bump pyproject.toml (and src/phold/utils/VERSION) and re-tag." >&2
+            exit 1
+          fi
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      # Keep the built artefacts for 14 days so a botched release can be
+      # inspected from the Actions UI without reproducing the build.
+      - name: Upload dist artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish to PyPI
+        # Only publish when invoked by a tag push. Manual dispatch builds
+        # but doesn't upload — handy for verifying the workflow itself.
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Reject if a wheel for this version already exists on PyPI
+          # rather than 400-ing later.
+          skip-existing: false

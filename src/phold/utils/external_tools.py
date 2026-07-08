@@ -6,18 +6,27 @@ Also used by a variety of other tools (Dnaapler, Plassembler, Pharokka)
 """
 
 import hashlib
+import os
 import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import click
 from loguru import logger
 
 
 class ExternalTool:
-    def __init__(self, tool: str, input: str, output: str, params: str, logdir: Path):
+    def __init__(
+        self,
+        tool: str,
+        input: str,
+        output: str,
+        params: str,
+        logdir: Path,
+        env: Optional[Dict[str, str]] = None,
+    ):
         logdir = Path(logdir)   # <-- ensure Path
         self.command: List[str] = self._build_command(tool, input, output, params)
         logdir.mkdir(parents=True, exist_ok=True)
@@ -26,6 +35,9 @@ class ExternalTool:
         logfile_prefix: Path = logdir / f"{tool_name}_{command_hash}"
         self.out_log = f"{logfile_prefix}.out"
         self.err_log = f"{logfile_prefix}.err"
+        # Extra env vars merged with os.environ for the subprocess (e.g.
+        # CUDA_VISIBLE_DEVICES for multi-GPU foldseek). None == inherit.
+        self.env = env
 
     @property
     def command_as_str(self) -> str:
@@ -42,8 +54,15 @@ class ExternalTool:
     def run(self) -> None:
         with open(self.out_log, "w") as stdout_fh, open(self.err_log, "w") as stderr_fh:
             print(f"Command line: {self.command_as_str}", file=stderr_fh)
+            if self.env:
+                print(f"Extra env: {self.env}", file=stderr_fh)
             logger.info(f"Started running {self.command_as_str} ...")
-            self._run_core(self.command, stdout_fh=stdout_fh, stderr_fh=stderr_fh)
+            self._run_core(
+                self.command,
+                stdout_fh=stdout_fh,
+                stderr_fh=stderr_fh,
+                env=self.env,
+            )
             logger.info(f"Done running {self.command_as_str}")
 
     """
@@ -55,29 +74,51 @@ class ExternalTool:
             print(f"Command line: {self.command_as_str}", file=stderr_fh)
             logger.info(f"Started running {self.command_as_str} ...")
 
-            process = subprocess.Popen(
+            # ``with subprocess.Popen(...)`` guarantees that the child's
+            # stdout pipe is closed and ``wait()`` is called on every exit
+            # path — including exceptions. The inner ``try/except`` makes
+            # sure that if anything inside the read loop raises (e.g.
+            # ``KeyboardInterrupt`` from the user, an OSError on the
+            # tty, an exception from ``stdout_fh.write``) we ``kill()`` the
+            # child before falling into ``Popen.__exit__``'s ``wait()`` —
+            # otherwise an unkilled child can hang that wait indefinitely
+            # and we'd leak a zombie. ``BaseException`` (not ``Exception``)
+            # is intentional so Ctrl-C / SystemExit also trigger cleanup.
+            with subprocess.Popen(
                 self.command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 universal_newlines=True,
-            )
+            ) as process:
+                try:
+                    for line in process.stdout:
+                        print(line, end="")  # Live output to terminal
+                        stdout_fh.write(line)  # Also write to stdout log
+                except BaseException:
+                    process.kill()
+                    raise
 
-            for line in process.stdout:
-                print(line, end="")  # Live output to terminal
-                stdout_fh.write(line)  # Also write to stdout log
-
-            process.stdout.close()
-            return_code = process.wait()
-
+            # ``Popen.__exit__`` has run ``wait()``; ``returncode`` is set.
+            return_code = process.returncode
             logger.info(f"Done running {self.command_as_str}")
 
             if return_code != 0:
                 raise subprocess.CalledProcessError(return_code, self.command)
 
     @staticmethod
-    def _run_core(command: List[str], stdout_fh, stderr_fh) -> None:
-        subprocess.check_call(command, stdout=stdout_fh, stderr=stderr_fh)
+    def _run_core(
+        command: List[str],
+        stdout_fh,
+        stderr_fh,
+        env: Optional[Dict[str, str]] = None,
+    ) -> None:
+        # Merge `env` (if any) with the inherited environment so PATH,
+        # CONDA_PREFIX, etc. survive. None == inherit unchanged.
+        merged_env = {**os.environ, **env} if env else None
+        subprocess.check_call(
+            command, stdout=stdout_fh, stderr=stderr_fh, env=merged_env
+        )
 
     @staticmethod
     def run_tools(

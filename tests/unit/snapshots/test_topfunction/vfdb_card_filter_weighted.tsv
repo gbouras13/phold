@@ -1,0 +1,4 @@
+query	function_with_highest_bitscore_proportion	top_bitscore_proportion_not_unknown	head_and_packaging_bitscore_proportion	integration_and_excision_bitscore_proportion	tail_bitscore_proportion	moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion	DNA_RNA_and_nucleotide_metabolism_bitscore_proportion	connector_bitscore_proportion	transcription_regulation_bitscore_proportion	lysis_bitscore_proportion	other_bitscore_proportion	unknown_function_bitscore_proportion
+NC_043029:NC_043029_CDS_0010	moron, auxiliary metabolic gene and host takeover	1.0	0	0	0	1.0	0.0	0	0	0	0	0
+NC_043029:NC_043029_CDS_0011	moron, auxiliary metabolic gene and host takeover	1.0	0	0	0	1.0	0.0	0	0	0	0	0
+NC_043029:NC_043029_CDS_0012	DNA, RNA and nucleotide metabolism	1.0	0	0	0	0.0	1.0	0	0	0	0	0

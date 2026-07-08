@@ -1,0 +1,65 @@
+Description	Count	Contig
+CDS	9	NC_030884.1
+connector	0	NC_030884.1
+DNA, RNA and nucleotide metabolism	0	NC_030884.1
+head and packaging	1	NC_030884.1
+integration and excision	0	NC_030884.1
+lysis	0	NC_030884.1
+moron, auxiliary metabolic gene and host takeover	4	NC_030884.1
+other	1	NC_030884.1
+tail	0	NC_030884.1
+transcription regulation	0	NC_030884.1
+unknown function	3	NC_030884.1
+VFDB_Virulence_Factors	0	NC_030884.1
+CARD_AMR	0	NC_030884.1
+ACR_anti_crispr	3	NC_030884.1
+Defensefinder	0	NC_030884.1
+Netflax	0	NC_030884.1
+CDS	7	NC_004617.1
+connector	0	NC_004617.1
+DNA, RNA and nucleotide metabolism	0	NC_004617.1
+head and packaging	0	NC_004617.1
+integration and excision	0	NC_004617.1
+lysis	3	NC_004617.1
+moron, auxiliary metabolic gene and host takeover	1	NC_004617.1
+other	1	NC_004617.1
+tail	0	NC_004617.1
+transcription regulation	0	NC_004617.1
+unknown function	2	NC_004617.1
+VFDB_Virulence_Factors	1	NC_004617.1
+CARD_AMR	0	NC_004617.1
+ACR_anti_crispr	0	NC_004617.1
+Defensefinder	0	NC_004617.1
+Netflax	0	NC_004617.1
+CDS	23	NC_007458.1
+connector	0	NC_007458.1
+DNA, RNA and nucleotide metabolism	3	NC_007458.1
+head and packaging	0	NC_007458.1
+integration and excision	0	NC_007458.1
+lysis	0	NC_007458.1
+moron, auxiliary metabolic gene and host takeover	1	NC_007458.1
+other	0	NC_007458.1
+tail	0	NC_007458.1
+transcription regulation	2	NC_007458.1
+unknown function	17	NC_007458.1
+VFDB_Virulence_Factors	0	NC_007458.1
+CARD_AMR	1	NC_007458.1
+ACR_anti_crispr	0	NC_007458.1
+Defensefinder	0	NC_007458.1
+Netflax	0	NC_007458.1
+CDS	49	MW460250_1
+connector	0	MW460250_1
+DNA, RNA and nucleotide metabolism	6	MW460250_1
+head and packaging	1	MW460250_1
+integration and excision	0	MW460250_1
+lysis	1	MW460250_1
+moron, auxiliary metabolic gene and host takeover	5	MW460250_1
+other	4	MW460250_1
+tail	0	MW460250_1
+transcription regulation	0	MW460250_1
+unknown function	32	MW460250_1
+VFDB_Virulence_Factors	0	MW460250_1
+CARD_AMR	0	MW460250_1
+ACR_anti_crispr	0	MW460250_1
+Defensefinder	0	MW460250_1
+Netflax	0	MW460250_1

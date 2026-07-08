@@ -1,161 +1,131 @@
 """
-functions for creating vfdb, card, defensefinder and acr outputs
+Sub-database (ACR / VFDB / CARD / NetFlax / DefenseFinder) output writers.
+
+Each sub-DB filters merged_df for its phrog tag, joins with its metadata
+table, drops the bookkeeping columns, and writes a TSV. When no hits
+exist for a sub-DB, an empty placeholder file is touched.
+
+Pure polars — output formatting (``write_csv(separator="\\t")``) is
+byte-identical to the previous ``pd.DataFrame.to_csv(index=False,
+sep="\\t")`` implementation; verified against the snapshot suite in
+tests/unit/test_sub_db_outputs.py for all 5 sub-DBs.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Tuple
 
-# imports
-import pandas as pd
+import polars as pl
 from loguru import logger
 
 from phold.utils.util import touch_file
 
 
-def create_sub_db_outputs(
-    merged_df: pd.DataFrame, database: Path, output: Path
-) -> bool:
+# Bookkeeping columns produced upstream that should never make it into a
+# sub-DB TSV. They originate from the weighted-bitscore expansion and the
+# topfunction merge in phold.results.topfunction.
+_COMMON_DROP_COLS: Tuple[str, ...] = (
+    "phrog",
+    "function",
+    "product",
+    "annotation_method",
+    "function_with_highest_bitscore_proportion",
+    "top_bitscore_proportion_not_unknown",
+    "head_and_packaging_bitscore_proportion",
+    "integration_and_excision_bitscore_proportion",
+    "tail_bitscore_proportion",
+    "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion",
+    "DNA_RNA_and_nucleotide_metabolism_bitscore_proportion",
+    "connector_bitscore_proportion",
+    "transcription_regulation_bitscore_proportion",
+    "lysis_bitscore_proportion",
+    "other_bitscore_proportion",
+    "unknown_function_bitscore_proportion",
+)
+
+
+@dataclass(frozen=True)
+class _SubDB:
+    """One sub-database's I/O spec."""
+    phrog: str                  # value of the `phrog` column to filter on
+    join_col: str               # column to rename `tophit_protein` to AND join on
+    metadata_file: str          # filename under the phold database dir
+    metadata_sep: str           # CSV/TSV separator for the metadata file
+    drop_join_col: bool         # whether to drop `join_col` from the output too
+    out_name: str               # output TSV name under sub_db_tophits/
+
+    def output_path(self, output: Path) -> Path:
+        return Path(output) / "sub_db_tophits" / self.out_name
+
+
+_SUBDBS: Tuple[_SubDB, ...] = (
+    _SubDB("acr",           "reference",         "acrs_plddt_over_70_metadata.tsv",          "\t", True,  "acr_cds_predictions.tsv"),
+    _SubDB("vfdb",          "prot_id",           "vfdb_description_output.csv",              ",",  False, "vfdb_cds_predictions.tsv"),
+    _SubDB("card",          "Protein Accession", "card_plddt_over_70_metadata.tsv",          "\t", False, "card_cds_predictions.tsv"),
+    _SubDB("netflax",       "protein",           "netflax_annotation_table.tsv",             "\t", False, "netflax_cds_predictions.tsv"),
+    _SubDB("defensefinder", "reference",         "defensefinder_plddt_over_70_metadata.tsv", "\t", True,  "defensefinder_cds_predictions.tsv"),
+)
+
+
+def _write_sub_db_output(hits: pl.DataFrame, spec: _SubDB, database: Path, output: Path) -> None:
+    """Produce one sub-DB's TSV: join -> drop -> write, or touch_file if no hits.
+
+    ``hits`` is the pre-filtered slice of merged_df where ``phrog == spec.phrog``
+    (or an empty frame with the same schema). The dispatcher partitions once
+    upstream so this helper does not re-scan ``merged_df``.
     """
-    Create sub-database (ACR, VFDB, CARD, Defensefinder) outputs based on merged data.
+    out_path = spec.output_path(output)
+
+    if hits.is_empty():
+        touch_file(out_path)
+        return
+
+    hits = hits.rename({"tophit_protein": spec.join_col})
+    metadata = pl.read_csv(
+        Path(database) / spec.metadata_file,
+        separator=spec.metadata_sep,
+        infer_schema_length=10_000,
+    )
+    joined = hits.join(metadata, on=spec.join_col, how="left")
+
+    drop = list(_COMMON_DROP_COLS) + ([spec.join_col] if spec.drop_join_col else [])
+    # Only drop columns that exist (defensive — input frame may evolve)
+    drop_existing = [c for c in drop if c in joined.columns]
+    joined = joined.drop(drop_existing)
+
+    joined.write_csv(out_path, separator="\t")
+
+
+def create_sub_db_outputs(merged_df: pl.DataFrame, database: Path, output: Path) -> bool:
+    """Write per-sub-database TSVs to ``output/sub_db_tophits/``.
 
     Args:
-        merged_df (pd.DataFrame): Merged DataFrame containing predictions.
-        database (Path): Path to the database directory.
-        output (Path): Path to the output directory.
+        merged_df: Per-CDS predictions table (the one populated by phold
+                   compare/topfunction). Must contain at least a ``phrog``
+                   column and a ``tophit_protein`` column.
+        database:  Path to the phold database directory (contains the
+                   per-sub-DB metadata tables).
+        output:    Output root; ``output/sub_db_tophits/`` is created.
 
     Returns:
-        bool: True if the operation is successful.
+        True (always; failures raise rather than return False).
     """
-
     sub_db_tophits_dir = Path(output) / "sub_db_tophits"
     sub_db_tophits_dir.mkdir(parents=True, exist_ok=True)
 
-    # acr df
-    acr_df = merged_df[(merged_df["phrog"] == "acr")]
-    acr_df = acr_df.rename(columns={"tophit_protein": "reference"})
+    # Single-pass split: one ``is_in`` filter over merged_df, then
+    # ``partition_by`` on the (much smaller) sub-DB-only slice. The old
+    # code ran one full O(N) filter per spec — 5 sequential scans of
+    # merged_df. Now: 1 filter scan + 1 partition pass over the filtered
+    # frame. ``partition_by(..., as_dict=True)`` keys are tuples — e.g.
+    # ``('acr',)`` — so the per-spec lookup is ``partitions.get((spec.phrog,), …)``.
+    sub_db_phrogs = [spec.phrog for spec in _SUBDBS]
+    sub_db_hits = merged_df.filter(pl.col("phrog").is_in(sub_db_phrogs))
+    partitions = sub_db_hits.partition_by("phrog", as_dict=True)
+    empty_frame = sub_db_hits.head(0)  # preserves schema for has-no-hits specs
 
-    acr_metadata_path: Path = Path(database) / "acrs_plddt_over_70_metadata.tsv"
-    acr_metadata_df = pd.read_csv(acr_metadata_path, sep="\t")
-
-    columns_to_drop = [
-        "phrog",
-        "function",
-        "product",
-        "annotation_method",
-        "function_with_highest_bitscore_proportion",
-        "top_bitscore_proportion_not_unknown",
-        "top_bitscore_proportion_not_unknown",
-        "head_and_packaging_bitscore_proportion",
-        "integration_and_excision_bitscore_proportion",
-        "tail_bitscore_proportion",
-        "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion",
-        "DNA_RNA_and_nucleotide_metabolism_bitscore_proportion",
-        "connector_bitscore_proportion",
-        "transcription_regulation_bitscore_proportion",
-        "lysis_bitscore_proportion",
-        "other_bitscore_proportion",
-        "unknown_function_bitscore_proportion",
-    ]
-
-    acr_merged_output_path: Path = Path(sub_db_tophits_dir) / "acr_cds_predictions.tsv"
-
-    #  if there is an acr hit
-    if len(acr_df) > 0:
-        acr_merged_df = pd.merge(acr_df, acr_metadata_df, on="reference", how="left")
-
-        acr_merged_df = acr_merged_df.drop(
-            columns=columns_to_drop + ["reference"],
-        )
-        acr_merged_df.to_csv(acr_merged_output_path, index=False, sep="\t")
-    else:
-        touch_file(acr_merged_output_path)
-
-    # vfdb df
-    vfdb_df = merged_df[(merged_df["phrog"] == "vfdb")]
-    vfdb_df = vfdb_df.rename(columns={"tophit_protein": "prot_id"})
-
-    vfdb_metadata_path: Path = Path(database) / "vfdb_description_output.csv"
-
-    vfdb_metadata_df = pd.read_csv(vfdb_metadata_path, sep=",")
-    vfdb_merged_output_path: Path = (
-        Path(sub_db_tophits_dir) / "vfdb_cds_predictions.tsv"
-    )
-
-    # cleanup only if it has a hit
-    if len(vfdb_df) > 0:
-        vfdb_merged_df = pd.merge(vfdb_df, vfdb_metadata_df, on="prot_id", how="left")
-        vfdb_merged_df = vfdb_merged_df.drop(columns=columns_to_drop)
-        vfdb_merged_df.to_csv(vfdb_merged_output_path, index=False, sep="\t")
-
-    else:
-        touch_file(vfdb_merged_output_path)
-
-    # card df
-    card_df = merged_df[(merged_df["phrog"] == "card")]
-    card_df = card_df.rename(columns={"tophit_protein": "Protein Accession"})
-
-    card_metadata_path: Path = Path(database) / "card_plddt_over_70_metadata.tsv"
-    card_metadata_df = pd.read_csv(card_metadata_path, sep="\t")
-    card_merged_output_path: Path = (
-        Path(sub_db_tophits_dir) / "card_cds_predictions.tsv"
-    )
-
-    # cleanup only if it has a hit
-    if len(card_df) > 0:
-        card_merged_df = pd.merge(
-            card_df, card_metadata_df, on="Protein Accession", how="left"
-        )
-        card_merged_df = card_merged_df.drop(columns=columns_to_drop)
-        card_merged_df.to_csv(card_merged_output_path, index=False, sep="\t")
-
-    else:
-        touch_file(card_merged_output_path)
-
-    # netflax df
-    netflax_df = merged_df[(merged_df["phrog"] == "netflax")]
-    netflax_df = netflax_df.rename(columns={"tophit_protein": "protein"})
-
-    netflax_metadata_path: Path = Path(database) / "netflax_annotation_table.tsv"
-    netflax_metadata_df = pd.read_csv(netflax_metadata_path, sep="\t")
-    netflax_merged_output_path: Path = (
-        Path(sub_db_tophits_dir) / "netflax_cds_predictions.tsv"
-    )
-
-    # cleanup only if it has a hit
-    if len(netflax_df) > 0:
-        netflax_merged_df = pd.merge(
-            netflax_df, netflax_metadata_df, on="protein", how="left"
-        )
-        netflax_merged_df = netflax_merged_df.drop(columns=columns_to_drop)
-        netflax_merged_df.to_csv(netflax_merged_output_path, index=False, sep="\t")
-
-    else:
-        touch_file(netflax_merged_output_path)
-
-    # defensefinder df
-    defensefinder_df = merged_df[(merged_df["phrog"] == "defensefinder")]
-    defensefinder_df = defensefinder_df.rename(columns={"tophit_protein": "reference"})
-
-    defensefinder_metadata_path: Path = (
-        Path(database) / "defensefinder_plddt_over_70_metadata.tsv"
-    )
-    defensefinder_metadata_df = pd.read_csv(defensefinder_metadata_path, sep="\t")
-    defensefinder_merged_output_path: Path = (
-        Path(sub_db_tophits_dir) / "defensefinder_cds_predictions.tsv"
-    )
-
-    # cleanup only if it has a hit
-    if len(defensefinder_df) > 0:
-        defensefinder_metadata_df = pd.merge(
-            defensefinder_df, defensefinder_metadata_df, on="reference", how="left"
-        )
-        defensefinder_metadata_df = defensefinder_metadata_df.drop(
-            columns=columns_to_drop + ["reference"]
-        )
-        defensefinder_metadata_df.to_csv(
-            defensefinder_merged_output_path, index=False, sep="\t"
-        )
-
-    else:
-        touch_file(defensefinder_merged_output_path)
+    for spec in _SUBDBS:
+        hits = partitions.get((spec.phrog,), empty_frame)
+        _write_sub_db_output(hits, spec, database, output)
 
     return True

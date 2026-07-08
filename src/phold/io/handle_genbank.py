@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Dict, Union
 
-import pandas as pd
+import polars as pl
 import pyrodigal_gv
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -138,9 +138,29 @@ def get_genbank(genbank: Path) -> dict:
                     logger.error(
                         f"Feature {cds_feature} could not be parsed. Therefore, the input style format for {genbank} could not be detected. Please check your input."
                     )
+                    # The file *is* a parseable Genbank — we just don't
+                    # recognise the CDS qualifier convention. Returning
+                    # ``method=None`` matches the no-CDS branch above and
+                    # binds ``method`` so the return below can't raise
+                    # ``UnboundLocalError`` (which would otherwise be
+                    # silently misclassified as "not a genbank file" by
+                    # the ``except`` clause).
+                    method = None
             return identify_long_ids(gb_dict), method
-        except Exception as e:
-            logger.warning(f"{genbank} is not a genbank file")
+        except (ValueError, AssertionError, IndexError) as e:
+            # ``SeqIO.parse(handle, "gb")`` raises ``ValueError`` (most
+            # commonly) when the handle doesn't actually contain valid
+            # GenBank. We previously caught ``Exception`` here, which
+            # swallowed *all* programming errors in the parser logic
+            # above (e.g. ``UnboundLocalError``) and reported them as
+            # "not a genbank file" — silently misclassifying the format.
+            # Now: narrow to the BioPython-level parser errors, and
+            # include the underlying exception in the log so the cause
+            # is actually diagnosable.
+            logger.warning(
+                f"{genbank} is not a parseable Genbank file "
+                f"({type(e).__name__}: {e})"
+            )
             return {}, None
 
     try:
@@ -150,8 +170,18 @@ def get_genbank(genbank: Path) -> dict:
         else:
             with open(genbank.strip(), "rt") as handle:
                 return parse_records(handle)
-    except Exception as e:
-        logger.warning(f"{genbank} is not a genbank file")
+    except (OSError, EOFError) as e:
+        # File-level failure (not found, permission denied, truncated
+        # gzip stream, etc.). These aren't a "not a genbank file"
+        # condition — they're a "couldn't read the file" condition. The
+        # caller treats an empty ``gb_dict`` as "fall back to FASTA",
+        # which is the wrong behaviour here, but preserving the existing
+        # caller contract is out of scope for this fix. At minimum,
+        # surface the actual error in the log instead of pretending the
+        # file format is the problem.
+        logger.warning(
+            f"Could not read {genbank} ({type(e).__name__}: {e})"
+        )
         return {}, None
 
 def identify_long_ids(gb_dict: dict) -> dict:
@@ -251,6 +281,7 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
         return (record.id, record.seq, genes)
 
     def run_pool(pool, records):
+        result = {}
         for record_id, record_seq, genes in pool.imap(_find_genes, records):
             i = 0
             all_features = []
@@ -281,9 +312,9 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
             seq_record = SeqIO.SeqRecord(
                 seq=Seq(record_seq), id=record_id, description="", features=all_features
             )
-            gb_dict[record_id] = seq_record
+            result[record_id] = seq_record
 
-        return gb_dict
+        return result
 
     with multiprocessing.pool.ThreadPool(threads) as pool:
         if is_gzip_file(input.strip()):
@@ -308,7 +339,7 @@ def write_genbank(
     proteins_flag: bool,
     separate: bool,
     fasta_flag: bool,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Write sequences to GenBank files.
 
@@ -324,7 +355,7 @@ def write_genbank(
         fasta_flag (bool): Flag indicating whether input is a FASTA file.
 
     Returns:
-        pd.DataFrame: DataFrame containing information about each CDS.
+        pl.DataFrame: DataFrame containing information about each CDS.
     """
 
     # separate gbks per contig
@@ -368,6 +399,17 @@ def write_genbank(
         # clean cds_feature and append for dataframe
         for cds_feature in sorted_features:
             if cds_feature.type == "CDS":
+                # Skip pseudo-CDS: NCBI/Bakta pseudogenes survive parsing with
+                # ``type == "CDS"`` but lack the Pharokka-style ``ID`` qualifier
+                # that phold's annotation step would have added (the compare
+                # loop in ``subcommand_compare`` routes them into
+                # ``non_cds_dict`` because they have no translation, but they
+                # still flow through this loop via ``merged_dict``). Keep them
+                # in the output GenBank as-is — just don't try to add them to
+                # the per-CDS dataframe.
+                if "ID" not in cds_feature.qualifiers:
+                    continue
+
                 if proteins_flag is True:
                     cds_info = {
                         "cds_id": cds_feature.qualifiers["ID"],
@@ -477,17 +519,49 @@ def write_genbank(
         # if proteins dummy seq
         else:
             sequence = Seq("")
+
+        # Preserve LOCUS/DEFINITION fields from the input record so that
+        # downstream tools (and human inspection) keep the same accession,
+        # description and topology that Pharokka/NCBI/Bakta emitted
+        # (https://github.com/gbouras13/phold/issues/132).
+        #
+        # NB: in the ``proteins-compare`` flow the "record" passed in via
+        # ``gb_dict`` is a plain ``{prot_id: SeqFeature}`` dict, NOT a
+        # SeqRecord (see ``subcommand_compare`` proteins branch and the
+        # ``sequence = Seq("")`` assignment just above). Dicts don't have
+        # ``.name`` / ``.description`` / ``.annotations``, so guard on
+        # ``proteins_flag`` and fall back to the original empty defaults
+        # for that path — there's no source GenBank to inherit from
+        # anyway.
+        if proteins_flag is True:
+            record_name = record_id
+            record_description = ""
+            record_annotations = {}
+        else:
+            record_name = record.name or record_id
+            record_description = record.description or ""
+            record_annotations = dict(record.annotations)  # copy → don't mutate input
         seq_record = SeqIO.SeqRecord(
-            seq=sequence, id=record_id, description="", features=sorted_features
+            seq=sequence,
+            id=record_id,
+            name=record_name,
+            description=record_description,
+            features=sorted_features,
+            annotations=record_annotations,
         )
         seq_records.append(seq_record)
 
-        # update the molecule type, data file division and date
+        # Phold-specific annotations always win (date is a fresh stamp;
+        # molecule_type / division are required by SeqIO.write for genbank).
         seq_record.annotations["molecule_type"] = "DNA"
         seq_record.annotations["data_file_division"] = "PHG"
         seq_record.annotations["date"] = str(
             datetime.now().strftime("%d-%b-%Y").upper()
         )
+        # Default topology to "linear" only when the input didn't carry
+        # one (FASTA input, or older GenBanks). Preserves "circular" on
+        # complete phage genomes that already declared it.
+        seq_record.annotations.setdefault("topology", "linear")
 
         if separate is True and proteins_flag is False:
             output_gbk_path: Path = Path(separate_output) / f"{record_id}.gbk"
@@ -499,12 +573,21 @@ def write_genbank(
             f"You used Pharokka < v1.8.2 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.2."
         )
 
-    per_cds_df = pd.DataFrame(per_cds_list)
+    # Build the per-CDS table. ``per_cds_list`` is a list of dicts; polars
+    # will infer column dtypes from the first row. ``strand`` comes from
+    # BioPython's ``cds_feature.location.strand`` which is always int
+    # ∈ {-1, 1} for CDS features in valid input.
+    per_cds_df = pl.DataFrame(per_cds_list)
 
     if proteins_flag is False:
-        # convert strand
-        per_cds_df["strand"] = per_cds_df["strand"].apply(
-            lambda x: "-" if x == -1 else ("+" if x == 1 else x)
+        # Convert strand: -1 → "-", +1 → "+", anything else → string repr.
+        # Vectorised pl.when() chain replaces the original row-wise
+        # .apply(lambda) call.
+        per_cds_df = per_cds_df.with_columns(
+            pl.when(pl.col("strand") == -1).then(pl.lit("-"))
+              .when(pl.col("strand") == 1).then(pl.lit("+"))
+              .otherwise(pl.col("strand").cast(pl.Utf8))
+              .alias("strand")
         )
 
         # only write the gbk if proteins_flag is False
@@ -548,7 +631,6 @@ def get_proteins(fasta: Path) -> dict:
                         sequence += line
                 if sequence_id:
                     fasta_dict[sequence_id] = sequence
-            handle.close()
         except ValueError:
             logger.error(f"{fasta.strip()} is not a FASTA file!")
             raise
@@ -570,7 +652,6 @@ def get_proteins(fasta: Path) -> dict:
                         sequence += line
                 if sequence_id:
                     fasta_dict[sequence_id] = sequence
-            handle.close()
         except ValueError:
             logger.error(f"{fasta.strip()} is not a FASTA file!")
             raise

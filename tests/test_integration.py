@@ -5,13 +5,22 @@ Integration tests for phold
 pytest .
 
 # to run with remote and no gpu
-pytest --run_remote .  
+pytest --run_remote .
 
 # to run with remote and with gpu
 pytest --run_remote  --gpu_available .
 
 # to run with NVIDIA gpu and 8 threads
 pytest  --gpu_available --nvidia --threads 8 .
+
+# Golden output regression
+# ------------------------
+# Every output-producing test below also diffs its outputs against a committed
+# golden reference under tests/test_data/golden/<case>/ (via compare_outputs.py).
+# Bootstrap / refresh the goldens (after test_install has populated phold_db),
+# preferably on a CPU run for determinism:
+#   pytest tests/test_integration.py --update_goldens
+# See tests/test_data/golden/README.md.
 
 """
 
@@ -28,6 +37,11 @@ from unittest.mock import patch
 import pytest
 from loguru import logger
 
+# Golden-output diff engine (sibling module). Add the tests/ dir to sys.path so
+# the import works whether or not pytest treats tests/ as a package.
+sys.path.insert(0, str(Path(__file__).parent))
+from compare_outputs import compare_dirs, copy_golden
+
 # import functions
 
 
@@ -38,6 +52,7 @@ ext_database_dir = Path(f"{test_data}/phold_db_3M16")
 pdb_dir = Path(f"{test_data}/NC_043029_pdbs")
 cif_dir = Path(f"{test_data}/NC_043029_af3_cif")
 output_dir = Path(f"{test_data}/outputs")
+golden_dir = Path(f"{test_data}/golden")
 dummy_custom_db = Path(f"{test_data}/dummy_custom_db/dummy_db")
 output_dir.mkdir(parents=True, exist_ok=True)
 run_gbk_dir: Path = f"{output_dir}/combined_truncated_phold_run_gbk"
@@ -113,6 +128,10 @@ def threads(pytestconfig):
 def nvidia(pytestconfig):
     return pytestconfig.getoption("nvidia")
 
+@pytest.fixture(scope="session")
+def update_goldens(pytestconfig):
+    return pytestconfig.getoption("update_goldens")
+
 def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
     """executes shell command and returns stdout if completes exit code 0
     Parameters
@@ -130,11 +149,34 @@ def exec_command(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
     return out.decode("utf8") if out is not None else None
 
 
+def assert_matches_golden(produced_dir, case_name, gpu_available, update_goldens):
+    """Diff a freshly produced phold output dir against the committed golden
+    reference for ``case_name`` (under tests/test_data/golden/).
+
+    With ``--update_goldens`` the produced outputs are copied in as the new
+    golden instead of asserting. Float/timestamp tolerances are handled by
+    tests/compare_outputs.py; they are tighter on CPU
+    (``strict=not gpu_available``) and looser on GPU to absorb non-determinism.
+    """
+    produced = Path(produced_dir)
+    gold = golden_dir / case_name
+    if update_goldens:
+        copy_golden(produced, gold)
+        return
+    if not gold.exists():
+        pytest.skip(
+            f"no golden for '{case_name}' yet — run "
+            f"`pytest tests/test_integration.py --update_goldens` to create it"
+        )
+    diffs = compare_dirs(produced, gold, strict=not gpu_available)
+    assert not diffs, f"golden mismatch for '{case_name}':\n" + "\n".join(diffs)
+
+
 def test_install(threads, nvidia):
     """test phold install"""
     cmd = f"phold install -d {database_dir} -t {threads}"
     if nvidia:
-       cmd = f"{cmd} --foldseek_gpu" 
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
 
 def test_install_extended(threads, nvidia):
@@ -145,7 +187,7 @@ def test_install_extended(threads, nvidia):
     exec_command(cmd)
 
 
-def test_run_genbank(gpu_available, threads, nvidia):
+def test_run_genbank(gpu_available, threads, nvidia, update_goldens):
 
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
@@ -155,8 +197,9 @@ def test_run_genbank(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_pharokka_1_4_1_dir, "run_genbank", gpu_available, update_goldens)
 
-def test_run_genbank_pipe(gpu_available, threads, nvidia):
+def test_run_genbank_pipe(gpu_available, threads, nvidia, update_goldens):
     """test phold run with pipe in header (i.e. issue #86 GenBank format genome)"""
     input_gbk: Path = f"{test_data}/pipe_pharokka.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_pipe} -t {threads} -d {database_dir} -f"
@@ -165,9 +208,15 @@ def test_run_genbank_pipe(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_pharokka_pipe, "run_genbank_pipe", gpu_available, update_goldens)
 
 def test_run_autotune(gpu_available, threads, nvidia):
-    """test phold run with --autotune"""
+    """test phold run with --autotune
+
+    No golden comparison: --autotune picks a batch size by benchmarking the
+    hardware, so its timing/log output is machine-dependent. The annotation
+    outputs are identical to test_run_genbank (same input), which is golden-pinned.
+    """
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_autotune} -t {threads} -d {database_dir} -f --autotune"
     if gpu_available is False:
@@ -177,7 +226,7 @@ def test_run_autotune(gpu_available, threads, nvidia):
     exec_command(cmd)
 
 
-def test_run_hyps(gpu_available, threads, nvidia):
+def test_run_hyps(gpu_available, threads, nvidia, update_goldens):
     """test phold run with --hyps"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_hyps} -t {threads} -d {database_dir} -f --hyps"
@@ -186,8 +235,9 @@ def test_run_hyps(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_hyps, "run_hyps", gpu_available, update_goldens)
 
-def test_run_genbank_ncbi(gpu_available, threads, nvidia):
+def test_run_genbank_ncbi(gpu_available, threads, nvidia, update_goldens):
     """test phold run with genbank input from NCBI"""
     input_gbk: Path = f"{test_data}/NC_043029_ncbi.gbk"
     cmd = (
@@ -198,8 +248,9 @@ def test_run_genbank_ncbi(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_ncbi, "run_genbank_ncbi", gpu_available, update_goldens)
 
-def test_run_genbank_ncbi_pseudo(gpu_available, threads, nvidia):
+def test_run_genbank_ncbi_pseudo(gpu_available, threads, nvidia, update_goldens):
     """test phold run with genbank input from NCBI with a pseudogene (no translation)"""
     input_gbk: Path = f"{test_data}/OM418625_w_pseudo.gbk"
     cmd = (
@@ -210,8 +261,9 @@ def test_run_genbank_ncbi_pseudo(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_ncbi_pseudo, "run_genbank_ncbi_pseudo", gpu_available, update_goldens)
 
-def test_run_genbank_ncbi_no_product(gpu_available, threads, nvidia):
+def test_run_genbank_ncbi_no_product(gpu_available, threads, nvidia, update_goldens):
     """test phold run with genbank input from NCBI with no product"""
     input_gbk: Path = f"{test_data}/OY726582_w_no_product.gbk"
     cmd = (
@@ -222,9 +274,10 @@ def test_run_genbank_ncbi_no_product(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_ncbi_no_product, "run_genbank_ncbi_no_product", gpu_available, update_goldens)
 
 
-def test_run_genbank_bakta(gpu_available, threads, nvidia):
+def test_run_genbank_bakta(gpu_available, threads, nvidia, update_goldens):
     """test phold run with genbank input from bakta"""
     input_gbk: Path = f"{test_data}/NC_043029_bakta.gbk"
     cmd = (
@@ -235,8 +288,9 @@ def test_run_genbank_bakta(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_bakta, "run_genbank_bakta", gpu_available, update_goldens)
 
-def test_run_genbank_extra_foldseek_params(gpu_available, threads, nvidia):
+def test_run_genbank_extra_foldseek_params(gpu_available, threads, nvidia, update_goldens):
     """test phold run with --extra_foldseek_params"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f'phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_extra} -t {threads} -d {database_dir} --extra_foldseek_params "--cov-mode 2" -f '
@@ -245,8 +299,9 @@ def test_run_genbank_extra_foldseek_params(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_pharokka_1_4_1_dir_extra, "run_genbank_extra_foldseek_params", gpu_available, update_goldens)
 
-def test_run_custom_db(gpu_available, threads, nvidia):
+def test_run_custom_db(gpu_available, threads, nvidia, update_goldens):
     """test phold run with --custom_db"""
     input_gbk: Path = f"{test_data}/NC_043029_pharokka1.4.1.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_pharokka_1_4_1_dir_custom} -t {threads} -d {database_dir} --custom_db {dummy_custom_db} -f "
@@ -255,8 +310,9 @@ def test_run_custom_db(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_pharokka_1_4_1_dir_custom, "run_custom_db", gpu_available, update_goldens)
 
-def test_run_genbank_old_pharokka(gpu_available, threads, nvidia):
+def test_run_genbank_old_pharokka(gpu_available, threads, nvidia, update_goldens):
     """test phold run with genbank input from pharokka prior to v1.5.0 no transl_table field (#34)"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_dir} -t {threads} -d {database_dir} -f"
@@ -265,9 +321,10 @@ def test_run_genbank_old_pharokka(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_dir, "run_genbank_old_pharokka", gpu_available, update_goldens)
 
 
-def test_run_genbank_long_header(gpu_available, threads, nvidia):
+def test_run_genbank_long_header(gpu_available, threads, nvidia, update_goldens):
     """test phold run with pharokka genbank with large ID/locus tag (over 54 chars)"""
     input_gbk: Path = f"{test_data}/long_header.gbk"
     cmd = f"phold run -i {input_gbk} -o {run_gbk_long_header_dir} -t {threads} -d {database_dir} -f"
@@ -276,9 +333,10 @@ def test_run_genbank_long_header(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_gbk_long_header_dir, "run_genbank_long_header", gpu_available, update_goldens)
 
 
-def test_run_fasta_long_header(gpu_available, threads, nvidia):
+def test_run_fasta_long_header(gpu_available, threads, nvidia, update_goldens):
     """test phold run with FASTA with large header"""
     input_fasta: Path = f"{test_data}/long_header.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_long_header_dir} -t {threads} -d {database_dir} -f"
@@ -287,9 +345,10 @@ def test_run_fasta_long_header(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_fasta_long_header_dir, "run_fasta_long_header", gpu_available, update_goldens)
 
 
-def test_run_fasta_pipe(gpu_available, threads, nvidia):
+def test_run_fasta_pipe(gpu_available, threads, nvidia, update_goldens):
     """test phold run with pipe in FASTA header"""
     input_fasta: Path = f"{test_data}/pipe.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_long_header_dir} -t {threads} -d {database_dir} -f"
@@ -298,26 +357,29 @@ def test_run_fasta_pipe(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_fasta_long_header_dir, "run_fasta_pipe", gpu_available, update_goldens)
 
-def test_run_fasta(gpu_available, threads):
+def test_run_fasta(gpu_available, threads, update_goldens):
     """test phold run with FASTA input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    assert_matches_golden(run_fasta_dir, "run_fasta", gpu_available, update_goldens)
 
 
-def test_run_efam(gpu_available, threads):
+def test_run_efam(gpu_available, threads, update_goldens):
     """test phold run with a tophit to efam"""
     input_fasta: Path = f"{test_data}/KF623293.1_subset_efam.fasta"
     cmd = f"phold run -i {input_fasta} -o {run_fasta_efam_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    assert_matches_golden(run_fasta_efam_dir, "run_efam", gpu_available, update_goldens)
 
 
-def test_run_netflax(gpu_available, threads, nvidia):
+def test_run_netflax(gpu_available, threads, nvidia, update_goldens):
     """test phold run with a tophit to netflax"""
     input_fasta: Path = f"{test_data}/WP_006719989_subset_test.fasta "
     cmd = f"phold run -i {input_fasta} -o {run_fasta_netflax_dir} -t {threads} -d {database_dir} -f"
@@ -326,149 +388,177 @@ def test_run_netflax(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(run_fasta_netflax_dir, "run_netflax", gpu_available, update_goldens)
 
 
-def test_predict_genbank(gpu_available, threads):
+def test_predict_genbank(gpu_available, threads, update_goldens):
     """test phold predict with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    assert_matches_golden(predict_gbk_dir, "predict_genbank", gpu_available, update_goldens)
 
 def test_predict_genbank_autotune(gpu_available, threads):
-    """test phold predict with --autotune"""
+    """test phold predict with --autotune
+
+    No golden comparison: --autotune benchmarks the hardware to pick a batch
+    size (machine-dependent). The prediction outputs match test_predict_genbank
+    (same input), which is golden-pinned.
+    """
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold predict -i {input_gbk} -o {predict_gbk_dir} -t {threads}  -d {database_dir} -f --autotune"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
-def test_predict_save_embeddings(gpu_available, threads):
+def test_predict_save_embeddings(gpu_available, threads, update_goldens):
     """test phold predict with genbank input and save embeddings"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold predict -i {input_gbk} -o {save_embeddings_predict_gbk_dir} -t {threads}  -d {database_dir} -f --save_per_residue_embeddings --save_per_protein_embeddings"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    # embedding .h5 binaries are excluded by compare_outputs skip rules; the
+    # text predict outputs are still pinned.
+    assert_matches_golden(save_embeddings_predict_gbk_dir, "predict_save_embeddings", gpu_available, update_goldens)
 
 
-def test_compare_genbank(threads, nvidia):
+def test_compare_genbank(gpu_available, threads, nvidia, update_goldens):
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_gbk_dir} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir} -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(compare_gbk_dir, "compare_genbank", gpu_available, update_goldens)
 
 
-def test_compare_pdb(threads, nvidia):
+def test_compare_pdb(gpu_available, threads, nvidia, update_goldens):
     """test phold compare with pdbs input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} -f"
     if nvidia:
-       cmd = f"{cmd} --foldseek_gpu"    
+       cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(compare_pdb_dir, "compare_pdb", gpu_available, update_goldens)
 
-def test_compare_pdb_custom(threads, nvidia):
+def test_compare_pdb_custom(gpu_available, threads, nvidia, update_goldens):
     """test phold compare with pdbs input with custom db"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_pdb_dir_custom} -t {threads} -d {database_dir} --structures --structure_dir {pdb_dir} --custom_db {dummy_custom_db}  -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(compare_pdb_dir_custom, "compare_pdb_custom", gpu_available, update_goldens)
 
-def test_compare_cif(threads, nvidia):
+def test_compare_cif(gpu_available, threads, nvidia, update_goldens):
     """test phold compare with AF3 cif input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
     cmd = f"phold compare -i {input_gbk} -o {compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(compare_cif_dir, "compare_cif", gpu_available, update_goldens)
 
-def test_proteins_compare_pdb(threads, nvidia):
+def test_proteins_compare_pdb(gpu_available, threads, nvidia, update_goldens):
     """test phold proteins-compare with cifs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_pdb_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_compare_pdb_dir, "proteins_compare_pdb", gpu_available, update_goldens)
 
-def test_proteins_compare_cifs_custom_db(threads, nvidia):
+def test_proteins_compare_cifs_custom_db(gpu_available, threads, nvidia, update_goldens):
     """test phold proteins-compare with cifs input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_cif_dir_custom} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir} --custom_db {dummy_custom_db}  -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_compare_cif_dir_custom, "proteins_compare_cifs_custom_db", gpu_available, update_goldens)
 
-def test_proteins_compare_cif(threads, nvidia):
+def test_proteins_compare_cif(gpu_available, threads, nvidia, update_goldens):
     """test phold proteins-compare with AF3 cif input"""
     input_faa: Path = f"{test_data}/NC_043029_aa.fasta"
     cmd = f"phold proteins-compare -i {input_faa} -o {proteins_compare_cif_dir} -t {threads} -d {database_dir} --structures --structure_dir {cif_dir}  -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_compare_cif_dir, "proteins_compare_cif", gpu_available, update_goldens)
 
 
-def test_predict_fasta(gpu_available, threads):
+def test_predict_fasta(gpu_available, threads, update_goldens):
     """test phold predict with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold predict -i {input_fasta} -o {predict_fasta_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    assert_matches_golden(predict_fasta_dir, "predict_fasta", gpu_available, update_goldens)
 
 
-def test_compare_fasta(threads, nvidia):
+def test_compare_fasta(gpu_available, threads, nvidia, update_goldens):
     """test phold compare with fasta input"""
     input_fasta: Path = f"{test_data}/combined_truncated_acr_defense_vfdb_card.fasta"
     cmd = f"phold compare -i {input_fasta} -o {compare_fasta_dir} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir} -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(compare_fasta_dir, "compare_fasta", gpu_available, update_goldens)
 
 
-def test_proteins_predict(gpu_available, threads):
+def test_proteins_predict(gpu_available, threads, update_goldens):
     """test phold proteins-predict"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_predict_dir, "proteins_predict", gpu_available, update_goldens)
 
 def test_proteins_predict_autotune(gpu_available, threads):
-    """test phold proteins-predict"""
+    """test phold proteins-predict with --autotune
+
+    No golden comparison: --autotune benchmarks the hardware to pick a batch
+    size (machine-dependent). The prediction outputs match test_proteins_predict
+    (same input), which is golden-pinned.
+    """
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f --autotune"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
 
-def test_proteins_predict_gzip(gpu_available, threads):
+def test_proteins_predict_gzip(gpu_available, threads, update_goldens):
     """test phold proteins-predict with gzip"""
     input_fasta: Path = f"{test_data}/phanotate.faa.gz"
     cmd = f"phold proteins-predict -i {input_fasta} -o {proteins_predict_dir} -t {threads} -d {database_dir} -f"
     if gpu_available is False:
         cmd = f"{cmd} --cpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_predict_dir, "proteins_predict_gzip", gpu_available, update_goldens)
 
-def test_proteins_compare(threads, nvidia):
+def test_proteins_compare(gpu_available, threads, nvidia, update_goldens):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_compare_dir, "proteins_compare", gpu_available, update_goldens)
 
 
-def test_proteins_compare_gzip(threads, nvidia):
+def test_proteins_compare_gzip(gpu_available, threads, nvidia, update_goldens):
     """test phold proteins-compare"""
     input_fasta: Path = f"{test_data}/phanotate.faa.gz"
     cmd = f"phold proteins-compare -i {input_fasta} --predictions_dir {proteins_predict_dir} -o {proteins_compare_dir} -t {threads} -d {database_dir} -f"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(proteins_compare_dir, "proteins_compare_gzip", gpu_available, update_goldens)
 
 
 def test_plot():
@@ -497,7 +587,7 @@ def test_remote_fasta(run_remote, threads):
 restart
 """
 
-def test_run_restart(gpu_available, threads, nvidia):
+def test_run_restart(gpu_available, threads, nvidia, update_goldens):
     """test phold run with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
 
@@ -515,8 +605,9 @@ def test_run_restart(gpu_available, threads, nvidia):
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(restart_intermediate_dir_run_tmp, "run_restart", gpu_available, update_goldens)
 
-def test_compare_restart(gpu_available, threads, nvidia):
+def test_compare_restart(gpu_available, threads, nvidia, update_goldens):
     """test phold compare with genbank input"""
     input_gbk: Path = f"{test_data}/NC_043029.gbk"
 
@@ -528,15 +619,16 @@ def test_compare_restart(gpu_available, threads, nvidia):
     # Copy recursively
     shutil.copytree(restart_intermediate_dir_compare, restart_intermediate_dir_compare_tmp)
 
+    # NB: `phold compare` has no --cpu flag (only the ProstT5 commands do); the
+    # restart path runs Foldseek only and is deterministic on CPU regardless.
     cmd = f"phold compare -i {input_gbk} -o {restart_intermediate_dir_compare_tmp} --predictions_dir {predict_gbk_dir} -t {threads} -d {database_dir}  --restart"
-    if gpu_available is False:
-        cmd = f"{cmd} --cpu"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(restart_intermediate_dir_compare_tmp, "compare_restart", gpu_available, update_goldens)
 
 
-def test_proteins_compare_restart(gpu_available, threads, nvidia):
+def test_proteins_compare_restart(gpu_available, threads, nvidia, update_goldens):
     """test phold proteins-compare with genbank input"""
     input_fasta: Path = f"{test_data}/phanotate.faa"
 
@@ -548,12 +640,13 @@ def test_proteins_compare_restart(gpu_available, threads, nvidia):
     # Copy recursively
     shutil.copytree(restart_intermediate_dir_proteins, restart_intermediate_dir_proteins_tmp)
 
+    # NB: `phold proteins-compare` has no --cpu flag (only the ProstT5 commands
+    # do); the restart path runs Foldseek only and is deterministic on CPU.
     cmd = f"phold proteins-compare -i {input_fasta} -o {restart_intermediate_dir_proteins_tmp} --predictions_dir {predict_fasta_dir} -t {threads} -d {database_dir}  --restart"
-    if gpu_available is False:
-        cmd = f"{cmd} --cpu"
     if nvidia:
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
+    assert_matches_golden(restart_intermediate_dir_proteins_tmp, "proteins_compare_restart", gpu_available, update_goldens)
 
 
 def test_autotune(gpu_available, threads, nvidia):
@@ -600,7 +693,7 @@ def test_autotune_w_input(gpu_available, threads, nvidia):
 
 class testFails(unittest.TestCase):
     """Tests for fails"""
-   
+
     def test_run_genbank_colon(self):
         """test phold run with genbank input with colon in header"""
         with self.assertRaises(RuntimeError):

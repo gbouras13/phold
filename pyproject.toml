@@ -5,7 +5,7 @@ requires = ["setuptools>=61.0", "wheel>=0.37.1"]
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 name = "phold"
-version = "1.2.5" # change VERSION too
+version = "1.3.0" # change VERSION too
 description = "Phage Annotations using Protein Structures"
 readme = "README.md"
 requires-python = ">=3.8, <4"
@@ -37,7 +37,7 @@ dependencies = [
         "click >=8.0.0",
         "loguru >=0.5.3",
         "pyyaml >=6.0",
-        "pandas >=1.4.2",
+        "polars >=1.0",
         "biopython >=1.80",
         "datasets >=2.15",
         "requests >=2.25",
@@ -48,10 +48,19 @@ dependencies = [
         "pyrodigal-gv >=0.3.1",
         "pyarrow >=14.0.0",
         "alive-progress >=3.0.1",
-        "numpy >=1.20,<2",
+        # numpy Loosened from `>=2.0` to `>=1.24` so Docker base images that ship
+        # numpy 1.26.x via Debian (e.g. pawsey/pytorch:2.7.1-rocm6.3.3)
+        # don't trigger pip's "Cannot uninstall numpy: RECORD file not
+        # found" error — those installs have no pip metadata so pip can't
+        # safely replace them with a 2.x build. phold only uses the stable
+        # numeric API (np.quantile/where/max/abs), which has been in numpy
+        # since 1.20; 1.24 (Dec 2022) is a comfortable floor for the rest
+        # of the dep tree (polars, pyarrow, pandas, torch).
+        "numpy >=1.24",
         "pycirclize >=0.3.1",
         "h5py >=3.5",
-        "tqdm >=4.35.0"
+        "tqdm >=4.35.0",
+        "pholdlib >=0.1.2"  # 0.1.1 relaxed its own numpy floor to >=1.24
     ]
 
 [project.scripts]
@@ -67,8 +76,12 @@ lint = [
     "isort",
     "black"
 ]
-test = ["pytest>=6.2.5",
-"pytest-cov >=3.0.0"]
+test = [
+    "pytest>=6.2.5",
+    "pytest-cov >=3.0.0",
+    "pytest-snapshot >=0.9",
+    "polars >=1.0",
+]
 exe = [
     "setuptools",
     "wheel",

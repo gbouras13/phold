@@ -53,19 +53,18 @@ def generate_foldseek_db_from_aa_3di(
             sequences_3di[record.id] = str(record.seq)  # no upper if masked
 
     # assert that we parsed 3Di strings for all sequences in the amino-acid FASTA file
-    for id in sequences_aa.keys():
-        if not id in sequences_3di.keys():
+    to_drop = set()
+    for seq_id in sequences_aa.keys():
+        if seq_id not in sequences_3di:
             logger.warning(
                 "Warning: entry {} in amino-acid FASTA file has no corresponding 3Di string".format(
-                    id
+                    seq_id
                 )
             )
-            logger.warning("Removing: entry {} from the Foldseek database ".format(id))
-            sequences_aa = {
-                id: sequence
-                for id, sequence in sequences_aa.items()
-                if id in sequences_3di
-            }
+            logger.warning("Removing: entry {} from the Foldseek database ".format(seq_id))
+            to_drop.add(seq_id)
+    for seq_id in to_drop:
+        del sequences_aa[seq_id]
 
     # https://github.com/mheinzinger/ProstT5/issues/41
 
@@ -162,14 +161,16 @@ def generate_foldseek_db_from_structures(
     for record in SeqIO.parse(fasta_aa, "fasta"):
         sequences_aa[record.id] = str(record.seq)
 
-    # lists all the pdb files
-    structure_files = [
-        file
-        for file in os.listdir(structure_dir)
-        if file.endswith(".pdb") or file.endswith(".cif")
-    ]
-
-    num_structures = len(structure_files)
+    # Index structure files by CDS id (filename stem) so the per-CDS lookup
+    # below is O(1). The old O(K) linear scan inside an O(K) outer loop was
+    # the dominant cost on big genomes: 50k CDS × 50k files = 2.5e9 string
+    # equality checks. Single-pass index keeps both ".pdb" and ".cif" hits
+    # under the same key so the same len-check / take-first logic works.
+    structures_by_cds_id: dict = {}
+    for file in os.listdir(structure_dir):
+        if file.endswith(".pdb") or file.endswith(".cif"):
+            stem = file[:-4]  # ".pdb" and ".cif" are both 4 chars
+            structures_by_cds_id.setdefault(stem, []).append(file)
 
     num_structures = 0
 
@@ -182,20 +183,25 @@ def generate_foldseek_db_from_structures(
             # will just be the CDS id if it is proteins-compare
             cds_id = id
         else:
-            # in case the header has a colon in it - this will cause a bug if so
-            cds_id = id.split(":")[1:]
-            cds_id = ":".join(cds_id).strip()
+            # Header format is "contig_id:cds_id"; everything after the first
+            # colon is the CDS id (inner colons are preserved via split max=1).
+            parts = id.split(":", 1)
+            if len(parts) == 1:
+                logger.warning(
+                    f"FASTA header '{id}' has no ':' separator — expected "
+                    "'contig_id:cds_id'. Treating the whole id as cds_id; "
+                    "no matching structure will be found."
+                )
+                cds_id = id
+            else:
+                cds_id = parts[1]
 
         # record_id = id.split(":")[0]
         # this is potentially an issue if a contig has > 9999 AAs
         # need to fix with Pharokka possibly. Unlikely to occur but might!
         # enforce names as  "{cds_id}.pdb" or "{cds_id}.cif" (AF3)
 
-        matching_files = [
-            file
-            for file in structure_files
-            if f"{cds_id}.pdb" == file or f"{cds_id}.cif" == file
-        ]
+        matching_files = structures_by_cds_id.get(cds_id, [])
 
         # delete the copying upon release, but for now do the copying to easy get the > Oct 2021 PDBs
         # with filter_structures

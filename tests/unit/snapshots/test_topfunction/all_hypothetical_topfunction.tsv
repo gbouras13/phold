@@ -1,0 +1,2 @@
+query	bitscore	fident	evalue	qStart	qEnd	qLen	tStart	tEnd	tLen	annotation_source	contig_id	cds_id	phrog	tophit_protein	product	function
+NC_043029:NC_043029_CDS_HYP1	100	0.5	1.000e-10	1	100	100	1	100	100	foldseek	NC_043029	NC_043029_CDS_HYP1	99999	protein001	hypothetical protein	unknown function

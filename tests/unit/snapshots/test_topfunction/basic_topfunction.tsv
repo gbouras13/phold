@@ -1,0 +1,4 @@
+query	bitscore	fident	evalue	qStart	qEnd	qLen	tStart	tEnd	tLen	annotation_source	contig_id	cds_id	phrog	tophit_protein	product	function
+NC_043029:NC_043029_CDS_0001	2019	0.934	8.203e-50	1	351	352	1	351	351	foldseek	NC_043029	NC_043029_CDS_0001	453	protein221399	replication initiation protein	DNA, RNA and nucleotide metabolism
+NC_043029:NC_043029_CDS_0003	342	0.984	5.486e-08	1	66	68	1	66	67	foldseek	NC_043029	NC_043029_CDS_0003	4644	protein855161	tail protein	tail
+NC_043029:NC_043029_CDS_0006	228	0.417	6.119e-05	1	102	104	1	103	109	foldseek	NC_043029	NC_043029_CDS_0006	1242	protein59202	minor head protein	head and packaging

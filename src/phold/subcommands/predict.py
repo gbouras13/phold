@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+from typing import Optional
 
+import numpy as np
 from loguru import logger
 
 from phold.features.predict_3Di import get_embeddings
 
 
-def mask_low_confidence_aa(sequence, scores, threshold=0.5):
+def mask_low_confidence_aa(sequence: str, scores, threshold: float = 0.5) -> str:
     """
-    Masks all low confidence AA to X if their corresponding ProstT5 confidence score is below the given threshold.
+    Replace amino acids whose ProstT5 confidence score is below *threshold* with 'X'.
 
-    Parameters:
-    sequence (str): The amino acid sequence.
-    scores (List[float]): A list of confidence scores for each amino acid.
-    threshold (float, optional): The confidence threshold below which amino acids are converted to lowercase. Default is 0.5.
-
-    Returns:
-    str: The modified amino acid sequence with low-confidence residues in lowercase.
+    *scores* is a numpy array of shape (1, L) or (L,), or an equivalent nested list.
     """
-    return "".join(
-        "X" if float(score) < threshold else aa for aa, score in zip(sequence, *scores)
-    )
+    score_arr = np.asarray(scores, dtype=np.float64).ravel()
+    mask = score_arr < threshold
+    if not mask.any():
+        return sequence
+    buf = np.frombuffer(bytearray(sequence, "ascii"), dtype=np.uint8).copy()
+    buf[mask] = 88  # ord("X")
+    return buf.tobytes().decode("ascii")
 
 
 def subcommand_predict(
@@ -42,6 +42,7 @@ def subcommand_predict(
     threads: int,
     mask_threshold: float,
     hyps: bool,
+    gpus: Optional[str] = None,
 ) -> bool:
     """
     Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
@@ -259,6 +260,7 @@ def subcommand_predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
+        gpus=gpus,
     )
 
     mask_prop_threshold = mask_threshold / 100
@@ -267,33 +269,31 @@ def subcommand_predict(
     ## write the AA CDS to file
     ######
 
-    with open(fasta_aa, "w+") as out_f:
+    with open(fasta_aa, "w") as out_f:
         for contig_id, rest in cds_dict.items():
             aa_contig_dict = cds_dict[contig_id]
             prediction_contig_dict = predictions[contig_id]
             prediction_contig_dict = {
                 k: v for k, v in prediction_contig_dict.items() if len(v[0]) > 0
             }
+            parts = []
             for seq_id, cds_feature in aa_contig_dict.items():
-                if proteins_flag is True:
-                    out_f.write(f">{seq_id}\n")
-                else:
-                    out_f.write(f">{contig_id}:{seq_id}\n")
+                header = f">{seq_id}\n" if proteins_flag else f">{contig_id}:{seq_id}\n"
 
                 prot_seq = cds_feature.qualifiers["translation"]
-                # prediction_contig_dict[seq_id][2] these are teh ProstT5 confidence scores from 0-1 - need to convert to list
 
                 try:
                     # this will fail if ProstT5 OOM fails (or fails for some other reason)
                     prot_seq = mask_low_confidence_aa(
                         prot_seq,
-                        prediction_contig_dict[seq_id][2].tolist(),
+                        prediction_contig_dict[seq_id][2],
                         threshold=mask_prop_threshold,
                     )
                 except (KeyError, IndexError):
                     # in that case, just return 'X' aka masked proteins
                     prot_seq = "X" * len(prot_seq)
 
-                out_f.write(f"{prot_seq}\n")
+                parts.append(f"{header}{prot_seq}\n")
+            out_f.write("".join(parts))
 
     return True

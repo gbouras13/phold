@@ -1,5 +1,10 @@
 name: Build and Push Container to Quay
-on: [push,pull_request]
+on: [push, pull_request]
+
+# Don't queue duplicate builds for the same ref — the previous one wins.
+concurrency:
+  group: build-container-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -8,6 +13,29 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      # The pawsey/pytorch:2.7.1-rocm6.3.3 base image is ~14GB compressed
+      # and exceeds the ~14GB free disk on a fresh ubuntu-latest runner.
+      # Without this step the very first ``FROM`` line dies with
+      # ``ResourceExhausted: ... no space left on device``. The
+      # ``free-disk-space`` action removes pre-installed toolchains we
+      # don't use (Android SDK, .NET, Haskell GHC, large apt packages,
+      # swap file, pre-pulled docker images), freeing ~25-30GB.
+      # ``tool-cache: false`` keeps the runner's node/python toolcache
+      # so other actions (checkout, docker login) still work fast.
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+          docker-images: true
+
+      - name: Show free disk after cleanup
+        run: df -h
 
       - name: Log in to Quay
         run: echo "${{ secrets.QUAY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_USERNAME }}" --password-stdin

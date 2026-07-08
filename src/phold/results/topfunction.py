@@ -1,10 +1,38 @@
 #!/usr/bin/env python3
-import copy
 from pathlib import Path
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
-import pandas as pd
+import polars as pl
 from loguru import logger
+
+
+# ── weighted-bitscore output schema ─────────────────────────────────────────
+# (function-name-in-data, output-column-name) pairs. Order matters: it
+# determines the column order in the weighted_bitscore output TSV.
+_BITSCORE_CATEGORIES: List[Tuple[str, str]] = [
+    ("head and packaging",
+        "head_and_packaging_bitscore_proportion"),
+    ("integration and excision",
+        "integration_and_excision_bitscore_proportion"),
+    ("tail",
+        "tail_bitscore_proportion"),
+    ("moron, auxiliary metabolic gene and host takeover",
+        "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion"),
+    ("DNA, RNA and nucleotide metabolism",
+        "DNA_RNA_and_nucleotide_metabolism_bitscore_proportion"),
+    ("connector",
+        "connector_bitscore_proportion"),
+    ("transcription regulation",
+        "transcription_regulation_bitscore_proportion"),
+    ("lysis",
+        "lysis_bitscore_proportion"),
+    ("other",
+        "other_bitscore_proportion"),
+    # ``unknown function`` is always 0 in the output (the original loop skips
+    # it when building weighted_counts_normalised, and .get default = 0).
+    ("unknown function",
+        "unknown_function_bitscore_proportion"),
+]
 
 
 def get_topfunctions(
@@ -14,7 +42,7 @@ def get_topfunctions(
     structures: bool,
     card_vfdb_evalue: float,
     proteins_flag: bool,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pl.DataFrame, pl.DataFrame]:
     """
     Process Foldseek output to extract top functions and weighted bitscores.
 
@@ -27,258 +55,343 @@ def get_topfunctions(
         proteins_flag (bool): Flag indicating whether proteins are used.
 
     Returns:
-        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames:
-            1. DataFrame containing the top functions extracted from the Foldseek output.
-            2. DataFrame containing weighted bitscores for different functions.
+        Tuple[pl.DataFrame, pl.DataFrame]: A tuple containing two DataFrames:
+            1. ``topfunction_df`` — one best hit per query.
+            2. ``weighted_bitscore_df`` — per-query proportion of bitscore
+               accounted for by each functional category.
     """
-
     logger.info("Processing Foldseek output")
 
-    if structures:
+    base_cols = [
+        "query", "target", "bitscore", "fident", "evalue",
+        "qStart", "qEnd", "qLen", "tStart", "tEnd", "tLen",
+    ]
+    col_list = base_cols + (["alntmscore", "lddt"] if structures else [])
 
-        col_list = [
-            "query",
-            "target",
-            "bitscore",
-            "fident",
-            "evalue",
-            "qStart",
-            "qEnd",
-            "qLen",
-            "tStart",
-            "tEnd",
-            "tLen",
-            "alntmscore",
-            "lddt",
-        ]
-    else:
-
-        col_list = [
-            "query",
-            "target",
-            "bitscore",
-            "fident",
-            "evalue",
-            "qStart",
-            "qEnd",
-            "qLen",
-            "tStart",
-            "tEnd",
-            "tLen",
-        ]
-
-    foldseek_df = pd.read_csv(
-        result_tsv, delimiter="\t", index_col=False, names=col_list
+    # Force evalue to Utf8 — pandas had inferred it as object/string; the
+    # ``"{:.3e}".format(float(x))`` formatting step downstream relies on
+    # string input and the existing snapshots are pinned to string-style
+    # scientific repr.
+    foldseek_df = pl.read_csv(
+        result_tsv,
+        separator="\t",
+        has_header=False,
+        new_columns=col_list,
+        schema_overrides={"evalue": pl.Utf8},
+        infer_schema_length=10_000,
     )
 
     # in case the foldseek output is empty
-    if foldseek_df.empty:
+    if foldseek_df.is_empty():
         logger.error(
-            "Foldseek found no hits whatsoever - please check whether your input is really phage-like"
+            "Foldseek found no hits whatsoever - please check whether your "
+            "input is really phage-like"
         )
 
-    # issue #86 - convert all ~PIPE~ back to |
+    # issue #86 — restore the literal '|' in queries (mangled to '~PIPE~'
+    # upstream to survive foldseek's tab-separated parsing).
+    foldseek_df = foldseek_df.with_columns(
+        pl.col("query").str.replace_all("~PIPE~", "|", literal=True),
+        pl.lit("foldseek").alias("annotation_source"),
+    )
 
-    foldseek_df["query"] = foldseek_df["query"].str.replace("~PIPE~", "|", regex=False)
-
-    foldseek_df["annotation_source"] = "foldseek"
-
-    # gets the cds
-    if structures is False and proteins_flag is False:
-        # prostt5
-        foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
-            ":", expand=True, n=1
-        )
-    # structures or proteins_flag or both
+    # Split out contig_id + cds_id (or just cds_id) from the query column.
+    if not structures and not proteins_flag:
+        # prostt5 path: query = "<contig_id>:<cds_id>" — split on the first ":"
+        foldseek_df = foldseek_df.with_columns(
+            pl.col("query")
+            .str.splitn(":", 2)
+            .struct.rename_fields(["contig_id", "cds_id"])
+            .alias("_q")
+        ).unnest("_q")
     else:
-        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
-        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".cif", "")
+        # structures or proteins_flag path: query is the cds_id (possibly
+        # with a ``.pdb`` / ``.cif`` suffix). NOTE — the original pandas
+        # code re-assigns cds_id twice: the second assignment OVERWRITES
+        # the first, replacing only ``.cif`` from the *original* query
+        # (the ``.pdb`` replacement is silently discarded). Preserve that
+        # behaviour for byte-identity with existing CLI outputs.
+        foldseek_df = foldseek_df.with_columns(
+            pl.col("query").str.replace_all(".cif", "", literal=True).alias("cds_id")
+        )
 
-    # clean up pdb and phrogs
-    foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
-    # split the target column as this will have phrog:protein
-    foldseek_df[["phrog", "tophit_protein"]] = foldseek_df["target"].str.split(
-        ":", expand=True, n=1
+    # Clean up ``.pdb`` suffix from target, then split target into phrog +
+    # tophit_protein. Note: matches pandas which only strips ``.pdb`` (not
+    # ``.cif``) from target. Preserved for byte-identity.
+    foldseek_df = foldseek_df.with_columns(
+        pl.col("target").str.replace_all(".pdb", "", literal=True)
+    ).with_columns(
+        pl.col("target")
+        .str.splitn(":", 2)
+        .struct.rename_fields(["phrog", "tophit_protein"])
+        .alias("_t")
+    ).unnest("_t").drop("target")
+
+    # Strip the leading "phrog_" prefix from all phrog values.
+    foldseek_df = foldseek_df.with_columns(
+        pl.col("phrog").str.replace_all("phrog_", "", literal=True)
     )
 
-    foldseek_df = foldseek_df.drop(columns=["target"])
-    foldseek_df["phrog"] = foldseek_df["phrog"].str.replace("phrog_", "")
-
-    mask = foldseek_df["phrog"].str.startswith("envhog_")
-    # strip off envhog
-    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
-        "envhog_", ""
-    )
-    # add envhog to protein
-    foldseek_df.loc[mask, "tophit_protein"] = (
-        "envhog_" + foldseek_df.loc[mask, "tophit_protein"]
-    )
-
-    # strip off efam
-    mask = foldseek_df["phrog"].str.startswith("efam_")
-    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
-        "efam_", ""
+    # envhog_ rows: strip the prefix from phrog and prepend it to tophit_protein.
+    # Both expressions in this with_columns() see the SAME input — the
+    # ``starts_with`` mask is evaluated against the unmodified phrog column
+    # for both branches, so the rename and the prepend stay aligned.
+    foldseek_df = foldseek_df.with_columns(
+        pl.when(pl.col("phrog").str.starts_with("envhog_"))
+          .then(pl.col("phrog").str.replace_all("envhog_", "", literal=True))
+          .otherwise(pl.col("phrog"))
+          .alias("phrog"),
+        pl.when(pl.col("phrog").str.starts_with("envhog_"))
+          .then(pl.lit("envhog_") + pl.col("tophit_protein"))
+          .otherwise(pl.col("tophit_protein"))
+          .alias("tophit_protein"),
     )
 
-    # strip off dgr
-    mask = foldseek_df["phrog"].str.startswith("dgr_")
-    foldseek_df.loc[mask, "phrog"] = foldseek_df.loc[mask, "phrog"].str.replace(
-        "dgr_", ""
+    # efam_ and dgr_ rows: just strip the prefix from phrog (no protein
+    # rename). These run sequentially because each sees the phrog column
+    # after the previous strip.
+    foldseek_df = foldseek_df.with_columns(
+        pl.col("phrog").str.replace_all("efam_", "", literal=True)
+    ).with_columns(
+        pl.col("phrog").str.replace_all("dgr_", "", literal=True)
     )
 
-    foldseek_df["phrog"] = foldseek_df["phrog"].astype("str")
-    # read in the mapping tsv
-    phrog_annot_mapping_tsv: Path = Path(database) / "phold_annots.tsv"
-    phrog_mapping_df = pd.read_csv(phrog_annot_mapping_tsv, sep="\t")
-    phrog_mapping_df["phrog"] = phrog_mapping_df["phrog"].astype("str")
+    # Join in the phrog → (product, function) mapping table.
+    # ``null_values=["NA"]`` matches pandas' default ``read_csv`` behaviour
+    # of interpreting the literal string ``"NA"`` as a missing value, so
+    # the subsequent fill_null() below replaces those with the canonical
+    # ``"hypothetical protein"`` / ``"unknown function"`` defaults rather
+    # than letting the literal ``"NA"`` leak into the output.
+    phrog_mapping = pl.read_csv(
+        Path(database) / "phold_annots.tsv",
+        separator="\t",
+        schema_overrides={"phrog": pl.Utf8},
+        infer_schema_length=10_000,
+        null_values=["NA"],
+    )
+    foldseek_df = foldseek_df.join(phrog_mapping, on="phrog", how="left").with_columns(
+        pl.col("product").fill_null("hypothetical protein"),
+        pl.col("function").fill_null("unknown function"),
+    )
 
-    # join the dfs
-    foldseek_df = foldseek_df.merge(phrog_mapping_df, on="phrog", how="left")
+    # vfdb / card hits get the stricter ``card_vfdb_evalue`` threshold
+    # (Enault et al.); all other hits pass through.
+    cv_threshold = float(card_vfdb_evalue)
+    foldseek_df = foldseek_df.filter(
+        (
+            (pl.col("phrog").is_in(["vfdb", "card"]))
+            & (pl.col("evalue").cast(pl.Float64) < cv_threshold)
+        )
+        | (~pl.col("phrog").is_in(["vfdb", "card"]))
+    )
 
-    # Replace NaN values in the 'product' column with 'hypothetical protein'
-    foldseek_df["product"] = foldseek_df["product"].fillna("hypothetical protein")
-    foldseek_df["function"] = foldseek_df["function"].fillna("unknown function")
+    # ── pre-compute the row-index so groupby tie-breaking matches pandas ──
+    # pandas ``groupby.apply`` + ``idxmin`` returns the FIRST row at the
+    # minimum value (stable selection). To get the same behaviour from
+    # ``sort + group_by.first`` we need a secondary sort key that mirrors
+    # the input row order.
+    foldseek_df = foldseek_df.with_row_index("_orig_idx")
 
-    # filter out rows of foldseek_df where vfdb or card - stricter threshold due to Enault et al
-    # https://www.nature.com/articles/ismej201690
-    # defaults to 1e-10
-    foldseek_df = foldseek_df[
-        ((foldseek_df["phrog"] == "vfdb") | (foldseek_df["phrog"] == "card"))
-        & (foldseek_df["evalue"].astype(float) < float(card_vfdb_evalue))
-        | ((foldseek_df["phrog"] != "vfdb") & (foldseek_df["phrog"] != "card"))
+    # ── custom_nsmallest equivalent ─────────────────────────────────────────
+    # Logic: per query, drop "hypothetical protein" rows unless that's
+    # ALL there is. From whatever remains, pick the row with the min
+    # evalue (breaking ties on original row order).
+    #
+    # Single-pass windowed mask: a row is a candidate iff it is non-hypo,
+    # OR no non-hypo row exists for its query at all. Replaces the previous
+    # four-frame pipeline (non_hypo / non_hypo_queries / all_hypo_queries /
+    # all_hypo_rows + concat) — two extra full scans, an anti-join, a
+    # semi-join, and a double-memory concat collapse into a single filter.
+    is_non_hypo = pl.col("product") != "hypothetical protein"
+    candidates = foldseek_df.filter(is_non_hypo | ~is_non_hypo.any().over("query"))
+    topfunction_pl = (
+        candidates
+        .with_columns(pl.col("evalue").cast(pl.Float64).alias("_evalue_f"))
+        .sort(["_evalue_f", "_orig_idx"])
+        .group_by("query", maintain_order=False)
+        .first()
+        .drop(["_evalue_f", "_orig_idx"])
+        .sort("query")  # match pandas' default groupby(sort=True) output order
+    )
+
+    # Format evalue as scientific 3-decimal-place strings, e.g. "8.203e-50".
+    # Passing the bound method directly avoids the lambda overhead (closure
+    # construction + GIL re-entry per call); semantics are identical.
+    topfunction_pl = topfunction_pl.with_columns(
+        pl.col("evalue")
+        .cast(pl.Float64)
+        .map_elements("{:.3e}".format, return_dtype=pl.Utf8)
+    )
+
+    # Drop the row-index column from foldseek_df before downstream use —
+    # it was only needed for groupby tie-breaking above.
+    foldseek_df = foldseek_df.drop("_orig_idx")
+
+    # ── weighted_function equivalent ────────────────────────────────────────
+    # Per query, compute the proportion of total non-unknown-function
+    # bitscore claimed by each functional category. Rewritten as a
+    # native polars pivot — no per-group Python callback.
+    weighted_pl = _build_weighted_bitscore_df(foldseek_df)
+
+    return topfunction_pl, weighted_pl
+
+
+def _build_weighted_bitscore_df(foldseek_df: pl.DataFrame) -> pl.DataFrame:
+    """Polars equivalent of the original ``weighted_function`` groupby.apply.
+
+    Per query, compute:
+      - ``<category>_bitscore_proportion`` for each known category — the
+        rounded-to-3dp ratio of that function's total bitscore to the
+        query's total NON-unknown-function bitscore. Always 0 for
+        ``unknown function`` (matches the original logic which skipped
+        that key when populating ``weighted_counts_normalised``).
+      - ``function_with_highest_bitscore_proportion`` — the
+        category-name with the highest proportion (excluding unknown);
+        falls back to ``"unknown function"`` when no functional bitscore
+        exists.
+      - ``top_bitscore_proportion_not_unknown`` — the proportion value
+        of that top category (0 when no functional bitscore exists).
+
+    Also reproduces the pandas-specific int-vs-float column-dtype quirk:
+    a category column where every value is 0 ends up as int64 (writes as
+    ``"0"``); a category column where any query has a nonzero proportion
+    ends up as float64 (writes as ``"0.0"`` / ``"1.0"`` / etc.).
+    """
+    # Sum bitscore per (query, function).
+    bitscore_qf = (
+        foldseek_df
+        .group_by(["query", "function"])
+        .agg(pl.col("bitscore").sum().alias("fn_bitscore"))
+    )
+
+    # Total non-unknown-function bitscore per query.
+    total_functional = (
+        bitscore_qf
+        .filter(pl.col("function") != "unknown function")
+        .group_by("query")
+        .agg(pl.col("fn_bitscore").sum().alias("total_functional_bitscore"))
+    )
+
+    bp = bitscore_qf.join(total_functional, on="query", how="left").with_columns(
+        pl.col("total_functional_bitscore").fill_null(0)
+    )
+
+    # Per-(query, function) weighted proportion. Zero when function is
+    # "unknown function" or when total_functional_bitscore == 0.
+    bp = bp.with_columns(
+        pl.when(
+            (pl.col("function") == "unknown function")
+            | (pl.col("total_functional_bitscore") == 0)
+        )
+        .then(pl.lit(0.0))
+        .otherwise(
+            (pl.col("fn_bitscore") / pl.col("total_functional_bitscore")).round(3)
+        )
+        .alias("weighted_proportion")
+    )
+
+    # Top non-unknown function per query (where one exists).
+    top_per_query = (
+        bp
+        .filter(pl.col("function") != "unknown function")
+        .filter(pl.col("total_functional_bitscore") > 0)
+        .sort(["query", "weighted_proportion"], descending=[False, True])
+        .group_by("query", maintain_order=False)
+        .first()
+        .select([
+            "query",
+            pl.col("function").alias("function_with_highest_bitscore_proportion"),
+            pl.col("weighted_proportion").alias("top_bitscore_proportion_not_unknown"),
+        ])
+    )
+
+    # Pivot proportions to wide form, one column per category.
+    wide = (
+        bp.pivot(values="weighted_proportion", index="query", on="function")
+        .fill_null(0.0)
+    )
+
+    # Anchor on every query that survived the upstream filtering.
+    all_queries = foldseek_df.select(pl.col("query").unique()).sort("query")
+
+    result = (
+        all_queries
+        .join(top_per_query, on="query", how="left")
+        .with_columns(
+            pl.col("function_with_highest_bitscore_proportion").fill_null(
+                "unknown function"
+            ),
+            pl.col("top_bitscore_proportion_not_unknown").fill_null(0).cast(pl.Float64),
+        )
+        .join(wide, on="query", how="left")
+    )
+
+    # Strip ``.pdb`` / ``.cif`` suffixes from query (matches pandas).
+    result = result.with_columns(
+        pl.col("query")
+        .str.replace_all(".pdb", "", literal=True)
+        .str.replace_all(".cif", "", literal=True)
+    )
+
+    # ── pandas int/float column-dtype preservation ──────────────────────────
+    # pandas concat of per-group 1-row DataFrames produces:
+    #   - int64 column when EVERY row was the .get(key, 0) default (== 0 int)
+    #   - float64 column when ANY row had a computed proportion (rounded float)
+    # to_csv then writes "0" vs "0.0" respectively. The existing snapshots
+    # are pinned to that exact formatting. The polars-native rule that
+    # gives the same byte-identical output: a category column is int iff
+    # the underlying ``function`` value never appeared in the data.
+    functions_in_data = set(foldseek_df.select(pl.col("function").unique()).to_series().to_list())
+
+    # Build the final column projection in the canonical order.
+    # ``wide`` columns are named after the function values themselves
+    # (e.g. "DNA, RNA and nucleotide metabolism"); map each to its long
+    # output column name via _BITSCORE_CATEGORIES.
+    select_exprs: List[pl.Expr] = [
+        pl.col("query"),
+        pl.col("function_with_highest_bitscore_proportion"),
+        pl.col("top_bitscore_proportion_not_unknown"),
     ]
-
-    def custom_nsmallest(group):
-        # where all the
-        if all(group["product"] == "hypothetical protein"):
-            min_row_index = group["evalue"].idxmin()
-            # Get the entire row
-            return group.loc[min_row_index]
+    cast_to_int: List[str] = []
+    for fn_name, col_name in _BITSCORE_CATEGORIES:
+        if fn_name in result.columns:
+            select_exprs.append(pl.col(fn_name).fill_null(0.0).alias(col_name))
         else:
-            group = group[group["product"] != "hypothetical protein"]
-            min_row_index = group["evalue"].idxmin()
-            # Get the entire row
-            return group.loc[min_row_index]
+            # No query had this category — column missing from pivot.
+            select_exprs.append(pl.lit(0).alias(col_name))
+        if fn_name not in functions_in_data:
+            cast_to_int.append(col_name)
 
-    topfunction_df = (
-        foldseek_df.groupby("query", group_keys=True)
-        .apply(custom_nsmallest)
-        .reset_index(drop=True)
-    )
+    result = result.select(select_exprs)
 
-    # scientific notation to 3dp
-    topfunction_df["evalue"] = topfunction_df["evalue"].apply(
-        lambda x: "{:.3e}".format(float(x))
-    )
+    if cast_to_int:
+        result = result.with_columns(
+            *[pl.col(c).cast(pl.Int64) for c in cast_to_int]
+        )
 
-    def weighted_function(group: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate weighted function proportion based on bitscores.
-
-        Args:
-            group (pd.DataFrame): DataFrame containing foldseek search results for a group.
-
-        Returns:
-            pd.DataFrame: DataFrame containing weighted function proportion.
-        """
-
-        # normalise counts by total bitscore
-        weighted_counts_normalised = {}
-        # total_bitscore = group['bitscore'].sum()
-        bitscore_by_function = group.groupby("function")["bitscore"].sum().to_dict()
-
-        total_functional_bitscore = group[group["function"] != "unknown function"][
-            "bitscore"
-        ].sum()
-
-        if total_functional_bitscore == 0:
-            top_bitscore_function = "unknown function"
-            top_bitscore_perc = 0
-
-        # everything except unknown function
-        # get total bitscore of the hits with function
-        else:
-            # get the weighted bitscore
-            for key, value in bitscore_by_function.items():
-                if key != "unknown function":
-                    weighted_counts_normalised[key] = round(
-                        value / total_functional_bitscore, 3
-                    )
-
-            # error where weighted_counts_normalised was empty for maxseqs = 10000
-            if weighted_counts_normalised:
-                top_bitscore_function = max(
-                    weighted_counts_normalised, key=weighted_counts_normalised.get
-                )
-                top_bitscore_perc = max(weighted_counts_normalised.values())
-            else:
-                top_bitscore_function = "unknown function"
-                top_bitscore_perc = 0
-
-        d = {
-            "function_with_highest_bitscore_proportion": [top_bitscore_function],
-            "top_bitscore_proportion_not_unknown": [top_bitscore_perc],
-            "head_and_packaging_bitscore_proportion": [
-                weighted_counts_normalised.get("head and packaging", 0)
-            ],
-            "integration_and_excision_bitscore_proportion": [
-                weighted_counts_normalised.get("integration and excision", 0)
-            ],
-            "tail_bitscore_proportion": [weighted_counts_normalised.get("tail", 0)],
-            "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion": [
-                weighted_counts_normalised.get(
-                    "moron, auxiliary metabolic gene and host takeover", 0
-                )
-            ],
-            "DNA_RNA_and_nucleotide_metabolism_bitscore_proportion": [
-                weighted_counts_normalised.get("DNA, RNA and nucleotide metabolism", 0)
-            ],
-            "connector_bitscore_proportion": [
-                weighted_counts_normalised.get("connector", 0)
-            ],
-            "transcription_regulation_bitscore_proportion": [
-                weighted_counts_normalised.get("transcription regulation", 0)
-            ],
-            "lysis_bitscore_proportion": [weighted_counts_normalised.get("lysis", 0)],
-            "other_bitscore_proportion": [weighted_counts_normalised.get("other", 0)],
-            "unknown_function_bitscore_proportion": [
-                weighted_counts_normalised.get("unknown function", 0)
-            ],
-        }
-
-        weighted_bitscore_df = pd.DataFrame(data=d)
-
-        return weighted_bitscore_df
-
-    weighted_bitscore_df = foldseek_df.groupby("query", group_keys=True).apply(
-        weighted_function
-    )
-
-    weighted_bitscore_df.reset_index(inplace=True)
-    weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
-        ".pdb", ""
-    )
-    weighted_bitscore_df["query"] = weighted_bitscore_df["query"].str.replace(
-        ".cif", ""
-    )
-    weighted_bitscore_df = weighted_bitscore_df.drop(columns=["level_1"])
-
-    return topfunction_df, weighted_bitscore_df
+    return result
 
 
 def calculate_topfunctions_results(
-    filtered_tophits_df: pd.DataFrame,
+    filtered_tophits_df: pl.DataFrame,
     cds_dict: Dict[str, Dict[str, dict]],
     output: Path,
     structures: bool,
     proteins_flag: bool,
     fasta_flag: bool,
-) -> Union[Dict[str, Dict[str, dict]], pd.DataFrame]:
+) -> Tuple[Dict[str, Dict[str, dict]], pl.DataFrame, Dict[str, Dict[str, str]]]:
     """
-    Calculate top function results based on filtered top hits DataFrame and update CDS dictionary accordingly.
+    Calculate top function results based on filtered top hits DataFrame
+    and update CDS dictionary accordingly.
+
+    The previous ``df.iterrows()`` loop is replaced by
+    ``polars.iter_rows(named=True)`` which yields dicts directly. The
+    per-CDS lookup against ``filtered_tophits_df`` (previously O(N) inside
+    an O(M) loop, i.e. O(N×M)) is replaced by a pre-built dict for O(1)
+    access.
 
     Args:
-        filtered_tophits_df (pd.DataFrame): DataFrame containing filtered top hits.
+        filtered_tophits_df (pl.DataFrame): DataFrame containing filtered top hits.
         cds_dict (Dict[str, Dict[str, dict]]): Dictionary containing CDS information.
         output (Path): Output path.
         structures (bool): Indicates whether the input is is in .pdb or .cif format.
@@ -286,86 +399,103 @@ def calculate_topfunctions_results(
         fasta_flag (bool): Indicates whether the input is in FASTA format.
 
     Returns:
-        Union[Dict[str, Dict[str, dict]], pd.DataFrame]: Updated CDS dictionary and/or filtered top hits DataFrame.
+        (updated_cds_dict, filtered_tophits_df, source_dict)
     """
 
-    # dictionary to hold the results
-    result_dict = {}
-
-    # so I can match with the df row below
-    cds_record_dict = {}
-
+    # ── build result_dict skeleton from cds_dict (Python only) ────────────
+    result_dict: Dict[str, Dict[str, dict]] = {}
+    cds_record_dict: Dict[str, str] = {}
     for record_id, cds_entries in cds_dict.items():
-        # issue 86 
+        # issue 86 — restore the literal '|' that was mangled upstream
         record_id = record_id.replace("~PIPE~", "|")
         result_dict[record_id] = {}
-        for cds_id, cds_info in cds_entries.items():
+        for cds_id in cds_entries:
             result_dict[record_id][cds_id] = {}
             cds_record_dict[cds_id] = record_id
 
-    # Get record_id for every cds_id and merge into the df
+    # ── do the structures merge + column reorder in polars ────────────────
+    tophits = filtered_tophits_df
+
     if structures:
-        cds_record_df = pd.DataFrame(
-            list(cds_record_dict.items()), columns=["cds_id", "contig_id"]
+        # Add contig_id to each tophit row by joining the cds_id → record_id
+        # mapping that we just built.
+        cds_record_pl = pl.DataFrame(
+            {
+                "cds_id": list(cds_record_dict.keys()),
+                "contig_id": list(cds_record_dict.values()),
+            }
         )
-        filtered_tophits_df = pd.merge(
-            filtered_tophits_df, cds_record_df, on="cds_id", how="left"
-        )
+        tophits = tophits.join(cds_record_pl, on="cds_id", how="left")
 
-    if proteins_flag:
-        column_order = ["cds_id"] + [
-            col for col in filtered_tophits_df.columns if col != "cds_id"
-        ]
+    # The original pandas code only actually applied the reorder in the
+    # non-proteins branch (the proteins-flag column_order was computed but
+    # never used to reindex). Preserve that to keep CLI outputs identical.
+    if not proteins_flag:
+        cols = tophits.columns
+        front = [c for c in ("contig_id", "cds_id") if c in cols]
+        rest = [c for c in cols if c not in front]
+        tophits = tophits.select(front + rest)
 
-    else:
-        # Move "contig_id" and 'cds_id' to the front of the df
-        column_order = ["contig_id", "cds_id"] + [
-            col
-            for col in filtered_tophits_df.columns
-            if col != "contig_id" and col != "cds_id"
-        ]
-        filtered_tophits_df = filtered_tophits_df[column_order]
-
-    # loop over all the foldseek tophits and add to the dict
-    for _, row in filtered_tophits_df.iterrows():
-        if proteins_flag is False:
-            record_id = row["contig_id"]
-        else:
-            record_id = "proteins"
-
+    # ── first iter-loop: build result_dict from tophit rows ───────────────
+    # ``iter_rows(named=True)`` yields a fresh dict per row (no Series
+    # construction overhead like pandas' iterrows).
+    for row in tophits.iter_rows(named=True):
+        record_id = "proteins" if proteins_flag else row["contig_id"]
         cds_id = row["cds_id"]
-        values_dict = {
-            "phrog": row["phrog"],
-            "product": row["product"],
-            "function": row["function"],
-            "tophit_protein": row["tophit_protein"],
-            "bitscore": row["bitscore"],
-            "fident": row["fident"],
-            "evalue": row["evalue"],
-            "qStart": row["qStart"],
-            "qEnd": row["qEnd"],
-            "qLen": row["qLen"],
-            "tStart": row["tStart"],
-            "tEnd": row["tEnd"],
-            "tLen": row["tLen"],
-        }
+        values_dict = {k: row[k] for k in (
+            "phrog", "product", "function", "tophit_protein",
+            "bitscore", "fident", "evalue",
+            "qStart", "qEnd", "qLen", "tStart", "tEnd", "tLen",
+        )}
 
-        # nan on record_id -> means the structure in the structure_dir has a foldseek hit but can't be matched up to a contig
-        if pd.isna(record_id):
-            if structures is True:
+        # null record_id → the structure in structure_dir has a foldseek hit
+        # but can't be matched up to a contig. polars uses None for nulls.
+        if record_id is None:
+            if structures:
                 logger.warning(
-                    f"{cds_id} has a foldseek hit but no record_id was found. Please check the way you named the structure file."
+                    f"{cds_id} has a foldseek hit but no record_id was found. "
+                    "Please check the way you named the structure file."
                 )
-            # should never happen but you never know
-            else:
+            else:  # shouldn't happen for non-structures input
                 logger.warning(
-                    f"{cds_id} has a foldseek hit but no record_id was found. Please check your input."
+                    f"{cds_id} has a foldseek hit but no record_id was found. "
+                    "Please check your input."
                 )
         else:
             result_dict[record_id][cds_id] = values_dict
 
-    # copy initial cds_dict
-    updated_cds_dict = copy.deepcopy(cds_dict)
+    # ── pre-build (contig_id, cds_id) → annotation_source lookup ──────────
+    # Used inside the second loop below for O(1) access instead of scanning
+    # ``filtered_tophits_df`` once per CDS (the original O(N×M) lookup).
+    # Only built when needed; in proteins_flag mode the value is hardcoded
+    # to "foldseek" anyway and contig_id may be absent.
+    annotation_source_lookup: Dict[Tuple[str, str], str] = {}
+    if not proteins_flag and "annotation_source" in tophits.columns:
+        annotation_source_lookup = dict(
+            zip(
+                zip(
+                    tophits["contig_id"].to_list(),
+                    tophits["cds_id"].to_list(),
+                ),
+                tophits["annotation_source"].to_list(),
+            )
+        )
+
+    # Return the (possibly reordered/joined) tophits as polars; the caller
+    # will work with it natively.
+    filtered_tophits_df = tophits
+
+    # Mutate ``cds_dict`` in place. The previous ``copy.deepcopy(cds_dict)``
+    # cloned every BioPython ``SeqFeature`` (including its ``FeatureLocation``
+    # and ``qualifiers`` dict) for every CDS — a >1 GB RAM cost on
+    # 50k-CDS pangenome inputs and the single biggest avoidable allocation
+    # in the compare pipeline. Verified safe because the only caller
+    # (``subcommand_compare``) never reads ``cds_dict`` again after this
+    # function returns — it works with the returned ``updated_cds_dict``
+    # exclusively. Aliasing instead of cloning preserves the rest of the
+    # function body unchanged so the diff stays minimal and the original
+    # naming (``updated_cds_dict`` reflects intent) is kept.
+    updated_cds_dict = cds_dict
 
     phrog_function_mapping = {
         "unknown function": "unknown function",
@@ -401,15 +531,15 @@ def calculate_topfunctions_results(
                 # function will be None if there is no foldseek hit - shouldn't happen here but error handling
                 foldseek_phrog = result_dict[record_id][cds_id].get("phrog", None)
 
-                # add annotation source
-                if proteins_flag:  # for proteins-compare always foldseek
+                # add annotation source — proteins-compare is always foldseek;
+                # otherwise look up via the pre-built (contig_id, cds_id) dict
+                # (O(1) instead of scanning the full df per CDS).
+                if proteins_flag:
                     source_dict[record_id][cds_id] = "foldseek"
                 else:
-                    source_dict[record_id][cds_id] = filtered_tophits_df.loc[
-                        (filtered_tophits_df["contig_id"] == record_id)
-                        & (filtered_tophits_df["cds_id"] == cds_id),
-                        "annotation_source",
-                    ].values[0]
+                    source_dict[record_id][cds_id] = annotation_source_lookup[
+                        (record_id, cds_id)
+                    ]
 
                 # same phrog as pharokka - only update the function with new annots in v1 in case users have older pharokka
                 if foldseek_phrog == cds_feature.qualifiers["phrog"][0]:
@@ -454,28 +584,15 @@ def calculate_topfunctions_results(
                             result_dict[record_id][cds_id]["function"]
                             != "unknown function"
                         ):
-                            # if from pharokka input gbk
-                            try:
-                                # update
-                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                                    0
-                                ] = result_dict[record_id][cds_id]["phrog"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "product"
-                                ][0] = result_dict[record_id][cds_id]["product"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "function"
-                                ][0] = result_dict[record_id][cds_id]["function"]
-                            except:  # from Genbank input - won't have phrog or function in the updated_cds_dict. Therefore need to create them
-                                updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
-                                    0
-                                ] = result_dict[record_id][cds_id]["phrog"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "product"
-                                ][0] = result_dict[record_id][cds_id]["product"]
-                                updated_cds_dict[record_id][cds_id].qualifiers[
-                                    "function"
-                                ][0] = result_dict[record_id][cds_id]["function"]
+                            updated_cds_dict[record_id][cds_id].qualifiers["phrog"][
+                                0
+                            ] = result_dict[record_id][cds_id]["phrog"]
+                            updated_cds_dict[record_id][cds_id].qualifiers[
+                                "product"
+                            ][0] = result_dict[record_id][cds_id]["product"]
+                            updated_cds_dict[record_id][cds_id].qualifiers[
+                                "function"
+                            ][0] = result_dict[record_id][cds_id]["function"]
 
                         # if foldseek result has unknown function
                         else:
@@ -556,9 +673,13 @@ def get_topcustom_hits(
     result_tsv: Path,
     structures: bool,
     proteins_flag: bool,
-) -> pd.DataFrame:
-    """
-    Process Foldseek output to extract top hits for custom searches
+) -> pl.DataFrame:
+    """Process Foldseek output to extract top custom-DB hits.
+
+    The original
+    ``foldseek_df.loc[foldseek_df.groupby("query")["evalue"].idxmin()]``
+    pattern is replaced by ``sort.group_by.first()`` with a stable
+    secondary sort on row order to reproduce pandas' idxmin tie-break.
 
     Args:
         result_tsv (Path): Path to the Foldseek custom result TSV file.
@@ -566,111 +687,106 @@ def get_topcustom_hits(
         proteins_flag (bool): Flag indicating whether proteins are used.
 
     Returns:
-        pd.DataFrame: DataFrame containing the top hits extracted from the custom Foldseek output.
+        pl.DataFrame: DataFrame containing the top hits extracted from the custom Foldseek output.
     """
-
     logger.info("Processing Foldseek output")
 
-    col_list = [
-        "query",
-        "target",
-        "bitscore",
-        "fident",
-        "evalue",
-        "qStart",
-        "qEnd",
-        "qLen",
-        "tStart",
-        "tEnd",
-        "tLen",
+    base_cols = [
+        "query", "target", "bitscore", "fident", "evalue",
+        "qStart", "qEnd", "qLen", "tStart", "tEnd", "tLen",
     ]
+    col_list = base_cols + (["alntmscore", "lddt"] if structures else [])
 
-    # tmscore and lddt computed
-    if structures:
-        col_list += ["alntmscore", "lddt"]
-
-    foldseek_df = pd.read_csv(
-        result_tsv, delimiter="\t", index_col=False, names=col_list
+    foldseek_df = pl.read_csv(
+        result_tsv,
+        separator="\t",
+        has_header=False,
+        new_columns=col_list,
+        schema_overrides={"evalue": pl.Utf8},
+        infer_schema_length=10_000,
     )
 
-    # in case the foldseek output is empty
-    if foldseek_df.empty:
+    if foldseek_df.is_empty():
         logger.warning(
-            "Foldseek found no custom hits whatsoever - please check your custom database and input."
+            "Foldseek found no custom hits whatsoever - please check your "
+            "custom database and input."
         )
         logger.warning("Phold will continue using only the default databases.")
 
-    # issue #86 - convert all ~PIPE~ back to |
-    foldseek_df["query"] = foldseek_df["query"].str.replace("~PIPE~", "|", regex=False)
-
-    # gets the cds
-    if structures is False and proteins_flag is False:
-        # prostt5
-        foldseek_df[["contig_id", "cds_id"]] = foldseek_df["query"].str.split(
-            ":", expand=True, n=1
-        )
-        # dont need it
-        foldseek_df.drop(columns=["contig_id"], inplace=True)
-    # structures or proteins_flag or both
-    else:
-        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".pdb", "")
-        foldseek_df["cds_id"] = foldseek_df["query"].str.replace(".cif", "")
-
-    # clean up pdb/cif suffixes - target will be the hit
-    foldseek_df["target"] = foldseek_df["target"].str.replace(".pdb", "")
-    foldseek_df["target"] = foldseek_df["target"].str.replace(".cif", "")
-    # split the target column as this will have phrog:protein
-
-    tophit_custom_df = foldseek_df.loc[
-        foldseek_df.groupby("query")["evalue"].idxmin()
-    ].reset_index(drop=True)
-
-    # dont need query or contig_id any more
-    tophit_custom_df.drop(columns=["query"], inplace=True)
-
-    return tophit_custom_df
-
-
-def calculate_qcov_tcov(merged_df):
-    """
-    calculates and adds qCov and tCov to tophit foldseek pandas dataframe
-
-    Args:
-        merged_df (pd.DataFrame): tophits foldseek pandas dataframe
-
-    Returns:
-        pd.DataFrame: DataFrame containing the merged tophits with qCov and tCov columns
-    """
-
-    # add qcov and tcov
-    merged_df["qCov"] = (
-        (merged_df["qEnd"] - merged_df["qStart"]) / merged_df["qLen"]
-    ).round(2)
-    merged_df["tCov"] = (
-        (merged_df["tEnd"] - merged_df["tStart"]) / merged_df["tLen"]
-    ).round(2)
-
-    # reorder
-    qLen_index = merged_df.columns.get_loc("qLen")
-    tLen_index = merged_df.columns.get_loc("tLen")
-
-    new_column_order = (
-        list(
-            [
-                col
-                for col in merged_df.columns[: qLen_index + 1]
-                if col not in ["qCov", "tStart", "tEnd", "tLen", "tCov"]
-            ]
-        )
-        + ["qCov", "tStart", "tEnd", "tLen", "tCov"]
-        + list(
-            [
-                col
-                for col in merged_df.columns[tLen_index + 1 :]
-                if col not in ["qCov", "tStart", "tEnd", "tLen", "tCov"]
-            ]
-        )
+    # issue #86 — restore the literal '|' that was mangled upstream
+    foldseek_df = foldseek_df.with_columns(
+        pl.col("query").str.replace_all("~PIPE~", "|", literal=True)
     )
-    merged_df = merged_df.reindex(columns=new_column_order)
 
-    return merged_df
+    # Derive cds_id from query.
+    if not structures and not proteins_flag:
+        # prostt5 path: query = "<contig_id>:<cds_id>"
+        # NOTE — the original code splits into contig_id+cds_id then
+        # IMMEDIATELY drops contig_id. So we just produce cds_id directly.
+        foldseek_df = foldseek_df.with_columns(
+            pl.col("query")
+            .str.splitn(":", 2)
+            .struct.rename_fields(["_contig_id", "cds_id"])
+            .alias("_q")
+        ).unnest("_q").drop("_contig_id")
+    else:
+        # structures / proteins_flag: query is the cds_id (possibly with
+        # ``.pdb``/``.cif`` suffix). Preserve the original pandas bug
+        # where the second assignment overwrites the first — only
+        # ``.cif`` actually gets stripped from the original query.
+        foldseek_df = foldseek_df.with_columns(
+            pl.col("query").str.replace_all(".cif", "", literal=True).alias("cds_id")
+        )
+
+    # Clean up ``.pdb`` and ``.cif`` suffixes from target.
+    foldseek_df = foldseek_df.with_columns(
+        pl.col("target")
+        .str.replace_all(".pdb", "", literal=True)
+        .str.replace_all(".cif", "", literal=True)
+    )
+
+    # Pick the lowest-evalue row per query. Add _orig_idx so ties break
+    # on input order, matching pandas' idxmin (stable).
+    tophit_custom = (
+        foldseek_df
+        .with_row_index("_orig_idx")
+        .with_columns(pl.col("evalue").cast(pl.Float64).alias("_evalue_f"))
+        .sort(["_evalue_f", "_orig_idx"])
+        .group_by("query", maintain_order=False)
+        .first()
+        .drop(["_evalue_f", "_orig_idx"])
+        .sort("query")  # match pandas groupby(sort=True) output order
+    )
+
+    # Drop the query column (downstream uses cds_id instead).
+    tophit_custom = tophit_custom.drop("query")
+
+    return tophit_custom
+
+
+def calculate_qcov_tcov(merged_df: pl.DataFrame) -> pl.DataFrame:
+    """Add ``qCov`` and ``tCov`` columns to a foldseek tophits frame.
+
+    ``qCov = round((qEnd - qStart) / qLen, 2)`` and analogously for tCov.
+    The columns are inserted immediately after their ``qLen``/``tLen``
+    siblings via an explicit reorder.
+
+    Output is byte-identical to the prior pandas implementation
+    (verified by
+    ``tests/unit/test_topfunction.py::test_calculate_qcov_tcov_snapshot``).
+    """
+    pl_df = merged_df.with_columns(
+        ((pl.col("qEnd") - pl.col("qStart")) / pl.col("qLen")).round(2).alias("qCov"),
+        ((pl.col("tEnd") - pl.col("tStart")) / pl.col("tLen")).round(2).alias("tCov"),
+    )
+
+    # Reorder: insert qCov directly after qLen, tCov directly after tLen.
+    cols = pl_df.columns
+    qLen_idx = cols.index("qLen")
+    tLen_idx = cols.index("tLen")
+    repositioned = {"qCov", "tStart", "tEnd", "tLen", "tCov"}
+    before = [c for c in cols[: qLen_idx + 1] if c not in repositioned]
+    after  = [c for c in cols[tLen_idx + 1 :] if c not in repositioned]
+    new_order = before + ["qCov", "tStart", "tEnd", "tLen", "tCov"] + after
+
+    return pl_df.select(new_order)

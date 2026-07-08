@@ -1,0 +1,2 @@
+cds_id	annotation_confidence	bitscore	fident	evalue	qStart	qEnd	qLen	qCov	tStart	tEnd	tLen	tCov	annotation_source	Protein Accession	prostt5_confidence	ARO Accession	CVTERM ID	Model Sequence ID	Model ID	Model Name	ARO Name	DNA Accession	AMR Gene Family	Drug Class	Resistance Mechanism	CARD Short Name	pLDDT
+JCLMPBLZ_CDS_0046	high	787.0	0.966	2.210e-19	2.0	121.0	121.0	0.98	20.0	139.0	139.0	0.86	foldseek	AAP27834.1	69.63	ARO:3005100	43315	6144	3832	FosB2	FosB2	AE016879.1	fosfomycin thiol transferase	phosphonic acid antibiotic	antibiotic inactivation	FosB2	92.6753

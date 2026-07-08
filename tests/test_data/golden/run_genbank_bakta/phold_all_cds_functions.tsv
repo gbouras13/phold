@@ -1,0 +1,17 @@
+Description	Count	Contig
+CDS	15	contig_1
+connector	0	contig_1
+DNA, RNA and nucleotide metabolism	2	contig_1
+head and packaging	0	contig_1
+integration and excision	0	contig_1
+lysis	0	contig_1
+moron, auxiliary metabolic gene and host takeover	1	contig_1
+other	1	contig_1
+tail	1	contig_1
+transcription regulation	1	contig_1
+unknown function	9	contig_1
+VFDB_Virulence_Factors	0	contig_1
+CARD_AMR	0	contig_1
+ACR_anti_crispr	0	contig_1
+Defensefinder	0	contig_1
+Netflax	0	contig_1

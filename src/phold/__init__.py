@@ -7,22 +7,30 @@ import click
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
-from pycirclize.parser import Genbank
 
-from phold.databases.db import install_database, validate_db
+# pycirclize is lazy-imported inside the `plot` subcommand (line ~1561) so
+# the core phold pipeline doesn't drag pandas in transitively just to
+# enable plotting. Users who run `phold plot` need `pip install pandas
+# pycirclize` (pycirclize already requires pandas as a hard dep).
+
+from phold.databases.db import (check_prostT5_download,
+                                  download_zenodo_prostT5, install_database,
+                                  validate_db)
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
-from phold.features.predict_3Di import get_T5_model
 from phold.features.query_remote_3Di import query_remote_3di
 from phold.io.handle_genbank import open_protein_fasta_file
-from phold.plot.plot import create_circos_plot
-from phold.subcommands.compare import subcommand_compare
-from phold.subcommands.predict import subcommand_predict
+# get_T5_model (from predict_3Di) and run_autotune (from autotune) are
+# lazy-imported inside their handler bodies — both transitively import torch.
+# subcommand_predict and subcommand_compare are lazy-imported inside each
+# handler body (see below). subcommands.predict transitively imports torch
+# (~4 s on a cold Python process), so importing it at module level made
+# every phold subcommand — including install, citation, createdb, and plot —
+# pay that cost even though they never call those functions.
 from phold.utils.constants import CNN_DIR, DB_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
                                     validate_input)
-from phold.features.autotune import run_autotune
 from importlib.resources import files
 
 log_fmt = (
@@ -106,6 +114,14 @@ def predict_options(func):
             "--cpu",
             is_flag=True,
             help="Use cpus only.",
+        ),
+        click.option(
+            "--gpus",
+            type=str,
+            default=None,
+            help=('Comma-separated CUDA device indices to use (e.g. "0,2"). '
+                  "Default: all visible CUDA GPUs. Overridden by --cpu. "
+                  "Has no effect on MPS / XPU systems."),
         ),
         click.option(
             "--omit_probs",
@@ -267,6 +283,7 @@ def run(
     batch_size,
     sensitivity,
     cpu,
+    gpus,
     omit_probs,
     keep_tmp_files,
     card_vfdb_evalue,
@@ -306,6 +323,7 @@ def run(
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--omit_probs": omit_probs,
         "--card_vfdb_evalue": card_vfdb_evalue,
         "--separate": separate,
@@ -322,6 +340,10 @@ def run(
         "--vanilla": vanilla,
         "--restart": restart
     }
+
+    from phold.subcommands.predict import subcommand_predict
+    from phold.subcommands.compare import subcommand_compare
+    from phold.features.autotune import run_autotune
 
     # initial logging etc
     start_time = begin_phold(params, "run")
@@ -365,10 +387,12 @@ def run(
                 model_name,
                 cpu,
                 threads,
-                step, 
+                step,
                 min_batch,
-                max_batch, 
-                sample_seqs)
+                max_batch,
+                sample_seqs,
+                gpus=gpus,
+            )
 
         subcommand_predict(
             gb_dict,
@@ -388,6 +412,7 @@ def run(
             threads=threads,
             mask_threshold=mask_threshold,
             hyps=hyps,
+            gpus=gpus,
         )
 
     # phold compare
@@ -415,7 +440,8 @@ def run(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        gpus=gpus,
     )
 
     # cleanup the temp files
@@ -456,6 +482,7 @@ def predict(
     autotune,
     batch_size,
     cpu,
+    gpus,
     omit_probs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
@@ -483,6 +510,7 @@ def predict(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--omit_probs": omit_probs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
@@ -491,6 +519,9 @@ def predict(
         "--vanilla": vanilla,
         "--hyps": hyps,
     }
+
+    from phold.subcommands.predict import subcommand_predict
+    from phold.features.autotune import run_autotune
 
     # initial logging etc
     start_time = begin_phold(params, "predict")
@@ -529,10 +560,12 @@ def predict(
             model_name,
             cpu,
             threads,
-            step, 
+            step,
             min_batch,
-            max_batch, 
-            sample_seqs)
+            max_batch,
+            sample_seqs,
+            gpus=gpus,
+        )
 
     subcommand_predict(
         gb_dict,
@@ -552,6 +585,7 @@ def predict(
         threads=threads,
         mask_threshold=mask_threshold,
         hyps=hyps,
+        gpus=gpus,
     )
 
     # end phold
@@ -594,6 +628,13 @@ compare command
     is_flag=True,
     help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
+@click.option(
+    "--gpus",
+    type=str,
+    default=None,
+    help=('Comma-separated CUDA device indices for Foldseek-GPU (e.g. "0,2"). '
+          "Default: all visible CUDA GPUs. Only meaningful with --foldseek_gpu."),
+)
 @common_options
 @compare_options
 def compare(
@@ -610,6 +651,7 @@ def compare(
     structures,
     structure_dir,
     filter_structures,
+    gpus,
     keep_tmp_files,
     card_vfdb_evalue,
     separate,
@@ -651,8 +693,11 @@ def compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--gpus": gpus,
         "--restart": restart
     }
+
+    from phold.subcommands.compare import subcommand_compare
 
     # initial logging etc
     start_time = begin_phold(params, "compare")
@@ -689,7 +734,8 @@ def compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        gpus=gpus,
     )
 
     # cleanup the temp files
@@ -730,6 +776,7 @@ def proteins_predict(
     autotune,
     batch_size,
     cpu,
+    gpus,
     omit_probs,
     save_per_residue_embeddings,
     save_per_protein_embeddings,
@@ -756,6 +803,7 @@ def proteins_predict(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--omit_probs": omit_probs,
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
@@ -763,6 +811,9 @@ def proteins_predict(
         "--finetune": finetune,
         "--vanilla": vanilla,
     }
+
+    from phold.subcommands.predict import subcommand_predict
+    from phold.features.autotune import run_autotune
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-predict")
@@ -834,10 +885,12 @@ def proteins_predict(
             model_name,
             cpu,
             threads,
-            step, 
+            step,
             min_batch,
-            max_batch, 
-            sample_seqs)
+            max_batch,
+            sample_seqs,
+            gpus=gpus,
+        )
 
     subcommand_predict(
         cds_dict,
@@ -857,6 +910,7 @@ def proteins_predict(
         threads=threads,
         mask_threshold=mask_threshold,
         hyps=False,  # always False for this as no Pharokka genbank to parse on input
+        gpus=gpus,
     )
 
     # end phold
@@ -901,6 +955,13 @@ Runs Foldseek vs phold DB for multiFASTA 3Di sequences (predicted with proteins-
     is_flag=True,
     help="Flag that creates a copy of the .pdb or .cif files structures with matching record IDs found in the input GenBank file. Helpful if you have a directory with lots of .pdb files and want to annotate only e.g. 1 phage.",
 )
+@click.option(
+    "--gpus",
+    type=str,
+    default=None,
+    help=('Comma-separated CUDA device indices for Foldseek-GPU (e.g. "0,2"). '
+          "Default: all visible CUDA GPUs. Only meaningful with --foldseek_gpu."),
+)
 @common_options
 @compare_options
 def proteins_compare(
@@ -917,6 +978,7 @@ def proteins_compare(
     structures,
     structure_dir,
     filter_structures,
+    gpus,
     keep_tmp_files,
     card_vfdb_evalue,
     max_seqs,
@@ -956,8 +1018,11 @@ def proteins_compare(
         "--extra_foldseek_params": extra_foldseek_params,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
+        "--gpus": gpus,
         "--restart": restart
     }
+
+    from phold.subcommands.compare import subcommand_compare
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-compare")
@@ -1024,7 +1089,8 @@ def proteins_compare(
         extra_foldseek_params=extra_foldseek_params,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
-        restart=restart
+        restart=restart,
+        gpus=gpus,
     )
 
     # cleanup the temp files
@@ -1098,6 +1164,8 @@ def remote(
         "--custom_db": custom_db,
     }
 
+    from phold.subcommands.compare import subcommand_compare
+
     # initial logging etc
     start_time = begin_phold(params, "remote")
 
@@ -1134,7 +1202,7 @@ def remote(
     # FASTA -> takes the whole thing
     # Pharokka GBK -> requires just the first entry, the GBK is parsed as a list
 
-    with open(fasta_aa, "w+") as out_f:
+    with open(fasta_aa, "w") as out_f:
         for contig_id, rest in cds_dict.items():
             aa_contig_dict = cds_dict[contig_id]
             # writes the CDS to file
@@ -1339,6 +1407,8 @@ def install(
 ):
     """Installs ProstT5 model and phold database"""
 
+    from phold.features.predict_3Di import get_T5_model
+
     if database is not None:
         logger.info(
             f"You have specified the {database} directory to store the Phold database and ProstT5 model"
@@ -1359,8 +1429,26 @@ def install(
     # always install with cpu mode as guarantee to be present
     cpu = True
 
-    # load model (will be downloaded if not present)
-    model, vocab = get_T5_model(database, model_name, cpu, threads=1)
+    # Load (or download) the ProstT5 model. The check_fn / zenodo_fn
+    # arguments are essential here: pholdlib's ``get_T5_model`` defaults
+    # to ``local_files_only=True`` (offline) unless ``check_fn`` tells it
+    # a download is needed. The first ``phold install`` on a fresh host
+    # has nothing cached, so without check_fn the loader fails with
+    # ``LocalEntryNotFoundError: outgoing traffic has been disabled``.
+    # We pass the same pair that ``predict_3Di.get_embeddings`` uses, so
+    # behaviour stays consistent across commands.
+    #
+    # ``get_T5_model`` returns ``(model, vocab, device)`` — the device
+    # is irrelevant during install (we're only materialising the model
+    # to disk), so we discard it with ``_``.
+    model, vocab, _ = get_T5_model(
+        database,
+        model_name,
+        cpu,
+        threads=1,
+        check_fn=check_prostT5_download,
+        zenodo_fn=download_zenodo_prostT5,
+    )
     del model
     del vocab
     logger.info(f"ProstT5 model downloaded")
@@ -1482,6 +1570,11 @@ def plot(
 ):
     """Creates Phold Circular Genome Plots"""
 
+    # Lazy-imported here (not at module top) so the core phold pipeline
+    # doesn't drag pandas in transitively just to support plotting.
+    from pycirclize.parser import Genbank
+    from phold.plot.plot import create_circos_plot
+
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force)
 
@@ -1546,24 +1639,16 @@ def plot(
             f"You have specified a file {label_ids} containing a list of CDS IDs to force label."
         )
         # check if it is a file
-        if Path(label_ids).exists() is False:
+        if not Path(label_ids).exists():
             logger.error(f"{label_ids} was not found.")
-        # check if it contains text
-        try:
-            # Open the file in read mode
-            with open(Path(label_ids), "r") as file:
-                # Read the first character
-                # will error if file is empty
-                first_char = file.read(1)
-
-                # read all the labels
-                with open(Path(label_ids)) as f:
-                    ignore_dict = {x.rstrip().split()[0] for x in f}
-                # label force list
-                label_force_list = list(ignore_dict)
-
-        except FileNotFoundError:
-            logger.warning(f"{label_ids} contains no text. No contigs will be ignored")
+        else:
+            content = Path(label_ids).read_text()
+            if not content.strip():
+                logger.warning(f"{label_ids} contains no text. No CDS IDs will be force-labelled.")
+            else:
+                label_force_list = [
+                    x.rstrip().split()[0] for x in content.splitlines() if x.strip()
+                ]
 
     # if there is 1 contig, then all the parameters will apply
 
@@ -1604,6 +1689,13 @@ def plot(
     "--cpu",
     is_flag=True,
     help="Use cpus only.",
+)
+@click.option(
+    "--gpus",
+    type=str,
+    default=None,
+    help=('Comma-separated CUDA device indices (e.g. "0,2"). '
+          "Default: lowest visible CUDA GPU. Overridden by --cpu."),
 )
 @click.option(
     "-t",
@@ -1653,6 +1745,7 @@ def autotune(
     ctx,
     input,
     cpu,
+    gpus,
     threads,
     database,
     step,
@@ -1667,12 +1760,15 @@ def autotune(
         "--input": input,
         "--threads": threads,
         "--cpu": cpu,
+        "--gpus": gpus,
         "--database": database,
         "--step": step,
         "--min_batch": min_batch,
         "--max_batch": max_batch,
         "--sample_seqs": sample_seqs,
     }
+
+    from phold.features.autotune import run_autotune
 
     # initial logging etc
     start_time = begin_phold(params, "autotune")
@@ -1694,10 +1790,12 @@ def autotune(
         model_name,
         cpu,
         threads,
-        step, 
+        step,
         min_batch,
-        max_batch, 
-        sample_seqs)
+        max_batch,
+        sample_seqs,
+        gpus=gpus,
+    )
 
 
 @click.command()

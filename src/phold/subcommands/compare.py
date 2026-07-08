@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 from loguru import logger
@@ -19,7 +19,173 @@ from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
                                        calculate_qcov_tcov,
                                        get_topfunctions)
-from phold.utils.util import replace_pipe_in_fastq
+from phold.utils.util import atomic_write_path, replace_pipe_in_fastq
+
+
+def assign_annotation_confidence(row, structures: bool) -> str:
+    """Classify a per-CDS row into a confidence tier.
+
+    Pulled out of subcommand_compare so it's importable for unit tests and
+    so the polars migration can rewrite this as a vectorised pl.when()
+    chain without touching the surrounding orchestration.
+
+    Tiers:
+      - 'none'     : annotation_method == 'none'
+      - 'pharokka' : annotation_method == 'pharokka'
+      - 'high' / 'medium' / 'low' : per the coverage + fident + evalue
+        (+ prostt5_confidence, when structures=False) heuristics described
+        in the inline comment in subcommand_compare.
+    """
+    if row["annotation_method"] == "none":
+        return "none"
+    if row["annotation_method"] == "pharokka":
+        return "pharokka"
+
+    if structures:
+        if (
+            row["qCov"] > 0.8
+            and row["tCov"] > 0.8
+            and (row["fident"] > 0.3 or float(row["evalue"]) < 1e-10)
+        ):
+            return "high"
+        if (row["qCov"] > 0.8 or row["tCov"] > 0.8) and (
+            row["fident"] > 0.3 or float(row["evalue"]) < 1e-5
+        ):
+            return "medium"
+        return "low"
+
+    # not structures: prostt5_confidence factors in
+    if (
+        row["qCov"] > 0.8
+        and row["tCov"] > 0.8
+        and (
+            row["fident"] > 0.3
+            or row["prostt5_confidence"] > 60
+            or float(row["evalue"]) < 1e-10
+        )
+    ):
+        return "high"
+    if (
+        (row["qCov"] > 0.8 or row["tCov"] > 0.8)
+        and (row["fident"] > 0.3 or 45 <= row["prostt5_confidence"] <= 60)
+        and float(row["evalue"]) < 1e-5
+    ):
+        return "medium"
+    return "low"
+
+
+def assign_annotation_confidence_expr(structures: bool) -> pl.Expr:
+    """Vectorised polars equivalent of ``assign_annotation_confidence``.
+
+    Returns a polars expression that classifies every row of a DataFrame
+    into a confidence tier. Equivalent to the scalar Python function on
+    every row, but evaluated as a single ``pl.when().then()`` chain
+    (no row-wise Python callback) — typically ~100× faster on large
+    inputs and the byte-identical migration target.
+
+    Args:
+        structures: True for structure-based input (no prostt5_confidence
+            available); False for the prostt5 path.
+
+    Returns:
+        A polars expression suitable for ``.with_columns(... .alias("annotation_confidence"))``.
+    """
+    evalue_f = pl.col("evalue").cast(pl.Float64)
+    qCov = pl.col("qCov")
+    tCov = pl.col("tCov")
+    fident = pl.col("fident")
+    method = pl.col("annotation_method")
+
+    if structures:
+        high = (
+            (qCov > 0.8) & (tCov > 0.8)
+            & ((fident > 0.3) | (evalue_f < 1e-10))
+        )
+        medium = (
+            ((qCov > 0.8) | (tCov > 0.8))
+            & ((fident > 0.3) | (evalue_f < 1e-5))
+        )
+    else:
+        prostt5 = pl.col("prostt5_confidence")
+        high = (
+            (qCov > 0.8) & (tCov > 0.8)
+            & ((fident > 0.3) | (prostt5 > 60) | (evalue_f < 1e-10))
+        )
+        medium = (
+            ((qCov > 0.8) | (tCov > 0.8))
+            & ((fident > 0.3) | ((prostt5 >= 45) & (prostt5 <= 60)))
+            & (evalue_f < 1e-5)
+        )
+
+    return (
+        pl.when(method == "none").then(pl.lit("none"))
+        .when(method == "pharokka").then(pl.lit("pharokka"))
+        .when(high).then(pl.lit("high"))
+        .when(medium).then(pl.lit("medium"))
+        .otherwise(pl.lit("low"))
+    )
+
+
+# ── per-contig CDS / function / sub-DB counts (writes _all_cds_functions.tsv) ─
+# Output schema matches the original block in subcommand_compare: per
+# contig, one "CDS" row, then 10 function-category rows, then 5 sub-DB
+# rows — in that exact order, with 0-count rows emitted for categories
+# that don't appear.
+
+_FUNCTION_CATEGORIES: List[str] = [
+    "connector",
+    "DNA, RNA and nucleotide metabolism",
+    "head and packaging",
+    "integration and excision",
+    "lysis",
+    "moron, auxiliary metabolic gene and host takeover",
+    "other",
+    "tail",
+    "transcription regulation",
+    "unknown function",
+]
+_SUBDB_CATEGORIES: List[Tuple[str, str]] = [
+    # (description_in_output, phrog_value_to_count)
+    ("VFDB_Virulence_Factors", "vfdb"),
+    ("CARD_AMR",                "card"),
+    ("ACR_anti_crispr",         "acr"),
+    ("Defensefinder",           "defensefinder"),
+    ("Netflax",                 "netflax"),
+]
+
+
+def _write_function_counts_table(merged_df: pl.DataFrame, out_path: Path) -> None:
+    """Build the per-contig function-count summary table and write as TSV.
+
+    Output rows per contig (in this exact order):
+      1. ``CDS`` row with total CDS count for the contig.
+      2. 10 function rows (one per ``_FUNCTION_CATEGORIES`` value, in order;
+         0 if absent).
+      3. 5 sub-DB rows (one per ``_SUBDB_CATEGORIES`` entry, in order;
+         counted on the ``phrog`` column).
+
+    Implementation: single ``group_by("contig_id").agg(...)`` pass over
+    ``merged_df`` computes CDS total + 15 boolean-sum aggregations at once.
+    The previous per-contig ``filter`` then 16 ``.sum()`` calls scanned the
+    frame ``len(contigs)`` times — replaced by one scan.
+    """
+    wide = merged_df.group_by("contig_id", maintain_order=True).agg([
+        pl.len().alias("CDS"),
+        *[(pl.col("function") == cat).sum().alias(cat) for cat in _FUNCTION_CATEGORIES],
+        *[(pl.col("phrog") == phrog_value).sum().alias(description)
+          for description, phrog_value in _SUBDB_CATEGORIES],
+    ])
+
+    rows: List[dict] = []
+    for r in wide.iter_rows(named=True):
+        contig = r["contig_id"]
+        rows.append({"Description": "CDS", "Count": int(r["CDS"]), "Contig": contig})
+        for category in _FUNCTION_CATEGORIES:
+            rows.append({"Description": category, "Count": int(r[category]), "Contig": contig})
+        for description, _ in _SUBDB_CATEGORIES:
+            rows.append({"Description": description, "Count": int(r[description]), "Contig": contig})
+
+    pl.DataFrame(rows).write_csv(out_path, separator="\t")
 
 
 def subcommand_compare(
@@ -46,8 +212,8 @@ def subcommand_compare(
     custom_db: str,
     foldseek_gpu: bool,
     restart: bool = False,
-    clustered_db=False # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
-
+    clustered_db=False, # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
+    gpus: Optional[str] = None,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -191,7 +357,17 @@ def subcommand_compare(
 
             i = 1
             for non_cds_feature in record.features:
-                if non_cds_feature.type != "CDS" or (non_cds_feature.type == "CDS" and "pseudogene" in cds_feature.qualifiers): # captures the pseudos
+                # Capture: anything not a CDS, OR a CDS marked as a pseudogene
+                # (those don't have translations and must be handled as non-CDS).
+                # NB: was previously `cds_feature.qualifiers` here — leftover
+                # closure variable from the outer CDS loop. That checked the
+                # wrong feature (the last CDS of the last record), causing
+                # silent misclassification of pseudo-CDS, and a NameError on
+                # records with zero CDS features.
+                if non_cds_feature.type != "CDS" or (
+                    non_cds_feature.type == "CDS"
+                    and "pseudogene" in non_cds_feature.qualifiers
+                ):
                     try:
                         non_cds_dict[record_id][
                             non_cds_feature.qualifiers["ID"][0]
@@ -214,6 +390,17 @@ def subcommand_compare(
         fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
 
         ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
+        #
+        # All three write paths below go via atomic_write_path so that an
+        # interrupted predict-then-compare leaves the final files exactly
+        # as they were (or absent) — never half-written. Previously the
+        # raw ``shutil.copyfile`` + ``open(..., "w+")`` calls wrote
+        # straight to the final paths; if the process died mid-copy or
+        # mid-loop (OOM, Ctrl-C, disk full), the truncated AA / 3Di
+        # FASTAs sat on disk and ``--restart`` happily picked them up as
+        # if they were complete. atomic_write_path catches BaseException,
+        # cleans up the sibling temp on failure, and only does the
+        # ``os.replace`` swap onto the target on success.
         if structures is False:
             # if remote, these will not exist
             if remote_flag is False:
@@ -221,7 +408,8 @@ def subcommand_compare(
                     logger.info(
                         f"Checked that the 3Di CDS file {fasta_3di_input} exists from phold predict"
                     )
-                    shutil.copyfile(fasta_3di_input, fasta_3di)
+                    with atomic_write_path(fasta_3di) as tmp:
+                        shutil.copyfile(fasta_3di_input, tmp)
                 else:
                     logger.error(
                         f"The 3Di CDS file {fasta_3di_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
@@ -231,7 +419,8 @@ def subcommand_compare(
                     logger.info(
                         f"Checked that the AA CDS file {fasta_aa_input} exists from phold predict."
                     )
-                    shutil.copyfile(fasta_aa_input, fasta_aa)
+                    with atomic_write_path(fasta_aa) as tmp:
+                        shutil.copyfile(fasta_aa_input, tmp)
                 else:
                     logger.error(
                         f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
@@ -240,7 +429,9 @@ def subcommand_compare(
         else:
             ## write the CDS to file
             logger.info(f"Writing the AAs to file {fasta_aa}.")
-            with open(fasta_aa, "w+") as out_f:
+            # ``"w+"`` was unnecessary — the loop only writes — so this is
+            # plain ``"w"`` on the sibling temp file.
+            with atomic_write_path(fasta_aa) as tmp_fasta, open(tmp_fasta, "w") as out_f:
                 for record_id, rest in cds_dict.items():
                     aa_contig_dict = cds_dict[record_id]
 
@@ -338,7 +529,8 @@ def subcommand_compare(
             extra_foldseek_params,
             foldseek_gpu,
             structures,
-            clustered_db
+            clustered_db,
+            gpus=gpus,
         )
 
         
@@ -399,51 +591,85 @@ def subcommand_compare(
         fasta_flag,
     )
 
-    # if prostt5, query will repeat contig_id in query - convert to cds_id
-    if structures is False and proteins_flag is False:
-        weighted_bitscore_df[["contig_id", "cds_id"]] = weighted_bitscore_df[
-            "query"
-        ].str.split(":", expand=True, n=1)
-        weighted_bitscore_df = weighted_bitscore_df.drop(columns=["query", "contig_id"])
-
-    # otherwise for structures or proteins query will just be the cds_id so rename
-    else:
-        weighted_bitscore_df.rename(columns={"query": "cds_id"}, inplace=True)
-
-    if proteins_flag:
-        columns_to_drop = ["phrog", "product", "function"]
-    else:
-        columns_to_drop = ["contig_id", "phrog", "product", "function"]
-    # drop dupe columns
-    filtered_tophits_df = filtered_tophits_df.drop(columns=columns_to_drop)
-
-    merged_df = per_cds_df.merge(filtered_tophits_df, on="cds_id", how="left")
-    merged_df = merged_df.merge(weighted_bitscore_df, on="cds_id", how="left")
-
-    ########
-    #### add annotation source
-    ########
-
-    product_index = merged_df.columns.get_loc("product")
-
-    new_column_order = (
-        list(
-            [
-                col
-                for col in merged_df.columns[: product_index + 1]
-                if col != "annotation_method"
-            ]
+    # ── normalise weighted_bitscore_df's query column → cds_id ────────────
+    # For prostt5 input, ``query`` is "<contig_id>:<cds_id>" — split out
+    # and keep cds_id. For structures / proteins input, query *is* the
+    # cds_id, just rename.
+    if not structures and not proteins_flag:
+        weighted_bitscore_df = (
+            weighted_bitscore_df
+            .with_columns(
+                pl.col("query")
+                .str.splitn(":", 2)
+                .struct.rename_fields(["_contig_id", "cds_id"])
+                .alias("_q")
+            )
+            .unnest("_q")
+            .drop(["query", "_contig_id"])
         )
-        + ["annotation_method"]
-        + list(
-            [
-                col
-                for col in merged_df.columns[product_index + 1 :]
-                if col != "annotation_method"
-            ]
-        )
+    else:
+        weighted_bitscore_df = weighted_bitscore_df.rename({"query": "cds_id"})
+
+    # Drop columns that would otherwise duplicate with per_cds_df during
+    # the subsequent left-join. ``query`` is dropped because cds_id is the
+    # downstream identifier — keeping ``query`` would add a redundant col
+    # (e.g. "<contig>:<cds_id>") to per_cds_predictions.tsv.
+    drop_dupes = ["query", "phrog", "product", "function"]
+    if not proteins_flag:
+        drop_dupes = ["contig_id"] + drop_dupes
+    drop_dupes = [c for c in drop_dupes if c in filtered_tophits_df.columns]
+    filtered_tophits_df = filtered_tophits_df.drop(drop_dupes)
+
+    # Two left-joins to merge tophits + weighted bitscores onto per_cds_df.
+    merged_df = (
+        per_cds_df
+        .join(filtered_tophits_df,    on="cds_id", how="left")
+        .join(weighted_bitscore_df,   on="cds_id", how="left")
     )
-    merged_df = merged_df.reindex(columns=new_column_order)
+
+    # Pandas-parity float casts. The original pandas implementation
+    # left-joined int-typed foldseek/weighted columns onto rows that may
+    # not have a match; pandas upcasts the column to float64 to accommodate
+    # the NaN padding, so the TSV ends up with "2019.0" / "1.0" / "0.0".
+    # Polars supports nullable ints natively and keeps the column as Int64
+    # (writes "2019" / "1" / "0"). Cast explicitly so per_cds_predictions.tsv
+    # stays byte-identical to the pre-migration output (and the CLI
+    # comparison suite keeps passing on exact diff).
+    _pandas_parity_float_cols = [
+        # from filtered_tophits_df
+        "bitscore", "qStart", "qEnd", "qLen", "tStart", "tEnd", "tLen",
+        # from weighted_bitscore_df (the bitscore_proportion columns that
+        # stayed Int64 in topfunction.py's pandas-quirk preservation;
+        # they'd be Float64 after the pandas left-join upcast).
+        "integration_and_excision_bitscore_proportion",
+        "connector_bitscore_proportion",
+        "lysis_bitscore_proportion",
+        "other_bitscore_proportion",
+        "unknown_function_bitscore_proportion",
+        "moron_auxiliary_metabolic_gene_and_host_takeover_bitscore_proportion",
+        "transcription_regulation_bitscore_proportion",
+    ]
+    merged_df = merged_df.with_columns(
+        [pl.col(c).cast(pl.Float64) for c in _pandas_parity_float_cols if c in merged_df.columns]
+    )
+
+    # Move ``annotation_method`` to immediately after ``product``. The
+    # proteins-compare path produces a merged_df without that column —
+    # pandas' .reindex(columns=) used to silently fill it with NaN, so
+    # we replicate that by adding a null column when missing (polars'
+    # .select() would otherwise raise ColumnNotFoundError).
+    if "annotation_method" not in merged_df.columns:
+        merged_df = merged_df.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("annotation_method")
+        )
+    cols = merged_df.columns
+    product_idx = cols.index("product")
+    new_order = (
+        [c for c in cols[: product_idx + 1] if c != "annotation_method"]
+        + ["annotation_method"]
+        + [c for c in cols[product_idx + 1 :] if c != "annotation_method"]
+    )
+    merged_df = merged_df.select(new_order)
 
     # add qcov and tcov
     merged_df = calculate_qcov_tcov(merged_df)
@@ -458,90 +684,42 @@ def subcommand_compare(
             Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
         )
 
-    # merge in confidence scores - only for not structures
-
+    # Merge in ProstT5 confidence scores — only for the non-structures path.
     if not structures:
-        prostT5_conf_df = pd.read_csv(
+        prostT5_conf_df = pl.read_csv(
             mean_probs_out_path,
-            sep=",",
-            header=None,
-            names=["cds_id", "prostt5_confidence"],
+            separator=",",
+            has_header=False,
+            new_columns=["cds_id", "prostt5_confidence"],
         )
-        merged_df = pd.merge(merged_df, prostT5_conf_df, on="cds_id", how="left")
+        merged_df = merged_df.join(prostT5_conf_df, on="cds_id", how="left")
 
-    # confidence
-    # High - 80%+ reciprocal coverage + one of i) >30% seqid cutoff for the light zone (https://doi.org/10.1093/protein/12.2.85) OR ii) ProstT5 confidence > 60% (very good quality ProstT5 prediction) OR evalue < 1e-10 (ditto)
-    # Medium - either query or target 80%+ coverage + one of i ) 30%+ seqid cutoff or ii) ProstT5 confidence 45-60% AND and evalue < 1-e05
-    # Low - everything else - low coverages, or low seqid and low ProstT5 confidence and evalue
-    # with structures, just omit the ProstT5 confidence values
-
-    def assign_annotation_confidence(row):
-        if row["annotation_method"] == "none":
-            return "none"
-        elif row["annotation_method"] == "pharokka":
-            return "pharokka"
-        else:
-            if structures:
-                if (
-                    row["qCov"] > 0.8
-                    and row["tCov"] > 0.8
-                    and (row["fident"] > 0.3 or float(row["evalue"]) < 1e-10)
-                ):
-                    return "high"
-                elif (row["qCov"] > 0.8 or row["tCov"] > 0.8) and (
-                    row["fident"] > 0.3 or float(row["evalue"]) < 1e-5
-                ):
-                    return "medium"
-                else:
-                    return "low"
-            else:
-                if (
-                    row["qCov"] > 0.8
-                    and row["tCov"] > 0.8
-                    and (
-                        row["fident"] > 0.3
-                        or row["prostt5_confidence"] > 60
-                        or float(row["evalue"]) < 1e-10
-                    )
-                ):
-                    return "high"
-                elif (
-                    (row["qCov"] > 0.8 or row["tCov"] > 0.8)
-                    and (row["fident"] > 0.3 or 45 <= row["prostt5_confidence"] <= 60)
-                    and float(row["evalue"]) < 1e-5
-                ):
-                    return "medium"
-                else:
-                    return "low"
-
-    merged_df["annotation_confidence"] = merged_df.apply(
-        assign_annotation_confidence, axis=1
+    # ── confidence classification ──────────────────────────────────────────
+    # High - 80%+ reciprocal coverage + one of i) >30% seqid cutoff for the
+    #        light zone (https://doi.org/10.1093/protein/12.2.85) OR
+    #        ii) ProstT5 confidence > 60% OR evalue < 1e-10
+    # Medium - either qCov or tCov 80%+ + (30%+ seqid OR ProstT5 confidence
+    #          in [45,60]) AND evalue < 1e-5
+    # Low - everything else
+    # Vectorised pl.when() chain replaces the row-wise apply.
+    merged_df = merged_df.with_columns(
+        assign_annotation_confidence_expr(structures=structures)
+        .alias("annotation_confidence")
     )
 
-    method_index = merged_df.columns.get_loc("annotation_method")
-
-    new_column_order = (
-        list(
-            [
-                col
-                for col in merged_df.columns[: method_index + 1]
-                if col != "annotation_confidence"
-            ]
-        )
+    # Move ``annotation_confidence`` to immediately after ``annotation_method``.
+    cols = merged_df.columns
+    method_idx = cols.index("annotation_method")
+    new_order = (
+        [c for c in cols[: method_idx + 1] if c != "annotation_confidence"]
         + ["annotation_confidence"]
-        + list(
-            [
-                col
-                for col in merged_df.columns[method_index + 1 :]
-                if col != "annotation_confidence"
-            ]
-        )
+        + [c for c in cols[method_idx + 1 :] if c != "annotation_confidence"]
     )
-    merged_df = merged_df.reindex(columns=new_column_order)
+    merged_df = merged_df.select(new_order)
 
     # save
     merged_df_path: Path = Path(output) / f"{prefix}_per_cds_predictions.tsv"
-    merged_df.to_csv(merged_df_path, index=False, sep="\t")
+    merged_df.write_csv(merged_df_path, separator="\t")
 
     # custom db output
 
@@ -574,6 +752,7 @@ def subcommand_compare(
             foldseek_gpu,
             structures,
             clustered_db=False,  # no custom db cluster searching
+            gpus=gpus,
         )
 
         # make result tsv
@@ -595,33 +774,22 @@ def subcommand_compare(
         #### merge
         # left merge on the cds_id to get every cds/contig id (make it easier for downstream processing)
 
-        if not proteins_flag:  # if not proteins, need the contig_id
-            all_cds_df = merged_df[["contig_id", "cds_id"]]
-        else:
-            all_cds_df = merged_df[["cds_id"]]
-        tophit_custom_df = all_cds_df.merge(
-            tophit_custom_df, how="left", on="cds_id"
-        )  # cds_id will always be unique
+        # Left-join custom hits onto every CDS so downstream code sees
+        # every cds_id (possibly with NULL custom-hit fields). cds_id is
+        # always unique.
+        all_cds_cols = ["cds_id"] if proteins_flag else ["contig_id", "cds_id"]
+        all_cds_df = merged_df.select(all_cds_cols)
+        tophit_custom_df = all_cds_df.join(tophit_custom_df, how="left", on="cds_id")
 
-        # get the final column order required
-        if proteins_flag:  # no contig_id
-            columns_order = ["cds_id"] + [
-                col
-                for col in tophit_custom_df.columns
-                if col not in ["contig_id", "cds_id"]
-            ]
-        else:  # including structures, will have contig_id too in the merged_df
-            columns_order = ["contig_id", "cds_id"] + [
-                col
-                for col in tophit_custom_df.columns
-                if col not in ["contig_id", "cds_id"]
-            ]
-        tophit_custom_df = tophit_custom_df[columns_order]
+        # Reorder columns: cds_id (and contig_id for non-proteins) first.
+        front_cols = ["cds_id"] if proteins_flag else ["contig_id", "cds_id"]
+        rest = [c for c in tophit_custom_df.columns if c not in ("contig_id", "cds_id")]
+        tophit_custom_df = tophit_custom_df.select(front_cols + rest)
 
         # get coverages
         tophit_custom_df = calculate_qcov_tcov(tophit_custom_df)
         custom_hits_path: Path = Path(output) / f"{prefix}_custom_database_hits.tsv"
-        tophit_custom_df.to_csv(custom_hits_path, index=False, sep="\t")
+        tophit_custom_df.write_csv(custom_hits_path, separator="\t")
 
         # except:
         #     logger.error(f"Foldseek failed to run against your custom database {custom_db}. Please check that it is formatted correctly as a Foldseek database")
@@ -630,152 +798,11 @@ def subcommand_compare(
     # save vfdb card acr defensefinder hits with more metadata
     sub_dbs_created = create_sub_db_outputs(merged_df, database, output)
 
-    # save the function counts is not proteins
-    if proteins_flag is False:
-        contig_ids = merged_df["contig_id"].unique()
-
-        # get list of all functions counts
-        functions_list = []
-
-        for contig in contig_ids:
-            contig_df = merged_df[merged_df["contig_id"] == contig]
-
-            cds_count = len(contig_df)
-            # get counts of functions and cds
-            # all 10 PHROGs categories
-            connector_count = len(contig_df[contig_df["function"] == "connector"])
-            metabolism_count = len(
-                contig_df[contig_df["function"] == "DNA, RNA and nucleotide metabolism"]
-            )
-            head_count = len(contig_df[contig_df["function"] == "head and packaging"])
-            integration_count = len(
-                contig_df[contig_df["function"] == "integration and excision"]
-            )
-            lysis_count = len(contig_df[contig_df["function"] == "lysis"])
-            moron_count = len(
-                contig_df[
-                    contig_df["function"]
-                    == "moron, auxiliary metabolic gene and host takeover"
-                ]
-            )
-            other_count = len(contig_df[contig_df["function"] == "other"])
-            tail_count = len(contig_df[contig_df["function"] == "tail"])
-            transcription_count = len(
-                contig_df[contig_df["function"] == "transcription regulation"]
-            )
-            unknown_count = len(contig_df[contig_df["function"] == "unknown function"])
-
-            acr_count = len(contig_df[contig_df["phrog"] == "acr"])
-
-            vfdb_count = len(contig_df[contig_df["phrog"] == "vfdb"])
-
-            card_count = len(contig_df[contig_df["phrog"] == "card"])
-
-            defensefinder_count = len(contig_df[contig_df["phrog"] == "defensefinder"])
-
-            netflax_count = len(contig_df[contig_df["phrog"] == "netflax"])
-
-            # create count list  for the dataframe
-            count_list = [
-                cds_count,
-                connector_count,
-                metabolism_count,
-                head_count,
-                integration_count,
-                lysis_count,
-                moron_count,
-                other_count,
-                tail_count,
-                transcription_count,
-                unknown_count,
-            ]
-
-            description_list = [
-                "CDS",
-                "connector",
-                "DNA, RNA and nucleotide metabolism",
-                "head and packaging",
-                "integration and excision",
-                "lysis",
-                "moron, auxiliary metabolic gene and host takeover",
-                "other",
-                "tail",
-                "transcription regulation",
-                "unknown function",
-            ]
-            contig_list = [
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-                contig,
-            ]
-            # cds df
-            cds_df = pd.DataFrame(
-                {
-                    "Description": description_list,
-                    "Count": count_list,
-                    "Contig": contig_list,
-                }
-            )
-
-            vfdb_row = pd.DataFrame(
-                {
-                    "Description": ["VFDB_Virulence_Factors"],
-                    "Count": [vfdb_count],
-                    "Contig": [contig],
-                }
-            )
-            card_row = pd.DataFrame(
-                {
-                    "Description": ["CARD_AMR"],
-                    "Count": [card_count],
-                    "Contig": [contig],
-                }
-            )
-
-            acr_row = pd.DataFrame(
-                {
-                    "Description": ["ACR_anti_crispr"],
-                    "Count": [acr_count],
-                    "Contig": [contig],
-                }
-            )
-
-            defensefinder_row = pd.DataFrame(
-                {
-                    "Description": ["Defensefinder"],
-                    "Count": [defensefinder_count],
-                    "Contig": [contig],
-                }
-            )
-
-            netflax_row = pd.DataFrame(
-                {
-                    "Description": ["Netflax"],
-                    "Count": [netflax_count],
-                    "Contig": [contig],
-                }
-            )
-
-            # eappend it all to functions_list
-            functions_list.append(cds_df)
-            functions_list.append(vfdb_row)
-            functions_list.append(card_row)
-            functions_list.append(acr_row)
-            functions_list.append(defensefinder_row)
-            functions_list.append(netflax_row)
-
-        # combine all contigs into one final df
-        description_total_df = pd.concat(functions_list)
-
+    # Per-contig CDS / function / sub-DB count summary written to
+    # <prefix>_all_cds_functions.tsv. Replaces the original ~100-line
+    # block of repeated pd.DataFrame constructions + concat.
+    if not proteins_flag:
         descriptions_total_path: Path = Path(output) / f"{prefix}_all_cds_functions.tsv"
-        description_total_df.to_csv(descriptions_total_path, index=False, sep="\t")
+        _write_function_counts_table(merged_df, descriptions_total_path)
 
     return sub_dbs_created

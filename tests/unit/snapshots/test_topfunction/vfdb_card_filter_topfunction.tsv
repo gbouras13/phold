@@ -1,0 +1,4 @@
+query	bitscore	fident	evalue	qStart	qEnd	qLen	tStart	tEnd	tLen	annotation_source	contig_id	cds_id	phrog	tophit_protein	product	function
+NC_043029:NC_043029_CDS_0010	100	0.5	1.000e-15	1	100	100	1	100	100	foldseek	NC_043029	NC_043029_CDS_0010	vfdb	proteinVF1	VFDB virulence factor protein	moron, auxiliary metabolic gene and host takeover
+NC_043029:NC_043029_CDS_0011	100	0.5	1.000e-12	1	100	100	1	100	100	foldseek	NC_043029	NC_043029_CDS_0011	card	proteinAMR1	CARD resistance protein	moron, auxiliary metabolic gene and host takeover
+NC_043029:NC_043029_CDS_0012	100	0.5	1.000e-03	1	100	100	1	100	100	foldseek	NC_043029	NC_043029_CDS_0012	453	proteinX	replication initiation protein	DNA, RNA and nucleotide metabolism

@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess as sp
 import sys
@@ -135,34 +136,54 @@ def check_dependencies() -> None:
     #############
     # foldseek
     #############
+    # Previously this used a bare ``except`` that logged "Foldseek not found"
+    # and then fell through to ``process.communicate()`` on an undefined
+    # ``process`` → the user's clear error message was followed by an
+    # ``UnboundLocalError`` stack trace. Bare ``except`` also swallowed
+    # Ctrl-C. Now: narrow the catch to the errors ``Popen`` actually raises
+    # for a missing binary, surface the underlying error, and exit cleanly.
     try:
         process = sp.Popen(["foldseek", "version"], stdout=sp.PIPE, stderr=sp.STDOUT)
-    except:
-        logger.error("Foldseek not found. Please reinstall phold.")
+    except (FileNotFoundError, PermissionError, OSError) as e:
+        logger.error(
+            f"Foldseek not found on PATH ({type(e).__name__}: {e}). "
+            "Install foldseek (https://github.com/steineggerlab/foldseek) "
+            "and ensure it is on your PATH, then re-run phold."
+        )
+        sys.exit(1)
 
     foldseek_out, _ = process.communicate()
     foldseek_out = foldseek_out.decode()
 
     foldseek_version = foldseek_out.strip()
 
-    if "941cd33" in foldseek_version:
-        foldseek_major_version = 10
-        foldseek_minor_version = "941cd33"
-        logger.info(
-        f"Foldseek version found is v{foldseek_major_version}.{foldseek_minor_version}"
-    )
-    else:
-        logger.warning(f"Foldseek version found is v{foldseek_version}")
-        logger.warning(f"Phold is recommended to be run with Foldseek v10.941cd33")
+    # Foldseek prints its version as ``<major>.<build_hash>`` (e.g.
+    # ``10.941cd33``), sometimes just ``<major>``, occasionally with a ``v``
+    # prefix. Phold is built against v10.x — any v10 build is expected to
+    # work, but other majors aren't guaranteed. Parse the leading integer
+    # as the major version; everything after is informational.
+    EXPECTED_MAJOR = 10
+    RECOMMENDED_VERSION = "10.941cd33"
+
+    major_match = re.match(r"^v?(\d+)", foldseek_version)
+    if major_match is None:
+        # Unparseable: don't claim success, but don't block either —
+        # phold will still try to run foldseek and the user will see a
+        # more specific error if something is genuinely incompatible.
         logger.warning(
-            f"Using a different Foldseek version is likely to work without issue, but this cannot be guaranteed."
+            f"Could not parse Foldseek version from {foldseek_version!r}. "
+            f"Phold is built against Foldseek v{RECOMMENDED_VERSION}; "
+            "continuing, but if you see Foldseek errors later this is "
+            "the first thing to check."
         )
-
-
-
-    # if foldseek_major_version != 10:
-    #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
-    # if foldseek_minor_version != "941cd33":
-    #    logger.error("Foldseek is the wrong version. Please install v10.941cd33")
-
-    logger.info("Foldseek version is ok")
+    elif int(major_match.group(1)) == EXPECTED_MAJOR:
+        logger.info(
+            f"Foldseek v{foldseek_version} detected (matches expected v{EXPECTED_MAJOR}.x)."
+        )
+    else:
+        detected_major = int(major_match.group(1))
+        logger.warning(
+            f"Foldseek v{foldseek_version} detected (major version {detected_major}). "
+            f"Phold is built and tested against Foldseek v{RECOMMENDED_VERSION}; "
+            f"major version {detected_major} is likely to work but is not guaranteed."
+        )
