@@ -16,6 +16,7 @@ nav:
       - Citation: citation.md
     - RUNNING:
       - Install: install.md
+      - Install (Intel XPU): install_intel_xpu.md
       - Usage: run.md
       - Output: output.md
     - TUTORIAL:

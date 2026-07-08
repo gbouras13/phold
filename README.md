@@ -133,6 +133,10 @@ conda install -c conda-forge -c bioconda phold
 
 If you are have a different non-NVIDIA GPU, or have trouble with `pytorch`, see [this link](https://pytorch.org) for more instructions. If you have an older version of CUDA installed, then you might find [this link useful](https://pytorch.org/get-started/previous-versions/).
 
+If you have an Intel machine with an XPU, see the separate [Intel XPU installation instructions](https://phold.readthedocs.io/en/latest/install/#intel-xpu).
+
+If you have multiple NVIDIA GPUs available, you can specify which to use with `--gpus` (e.g. `--gpus 0,2`) with `phold run`, `predict`, `proteins-predict` and `--foldseek_gpu` compatible commands. By default, all visible CUDA GPUs will be used.
+
 Once `phold` is installed, to download and install the database run:
 
 ```bash

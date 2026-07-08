@@ -26,6 +26,8 @@ For `phold proteins-predict` and `phold proteins-compare`, the input will be a F
 
 `predict` uses the [ProstT5](https://github.com/mheinzinger/ProstT5) protein language model to translate protein amino acid sequences to the 3Di token alphabet used by [foldseek](https://github.com/steineggerlab/foldseek). This module is greatly accelerated if you have a GPU available and is recommended.
 
+If you have multiple NVIDIA GPUs, you can restrict which are used for ProstT5 with `--gpus` (e.g. `--gpus 0,2`). By default all visible CUDA GPUs are used. This has no effect on MPS (Apple Silicon) or Intel XPU systems.
+
 ```bash
 Usage: phold predict [OPTIONS]
 
@@ -48,6 +50,10 @@ Options:
                                  autotuning will add rather than save runtime.
   --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
+  --gpus TEXT                    Comma-separated CUDA device indices to use
+                                 (e.g. "0,2"). Default: all visible CUDA GPUs.
+                                 Overridden by --cpu. Has no effect on MPS /
+                                 XPU systems.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
                                  probabilities will always be output.
@@ -80,6 +86,8 @@ phold predict -i pharokka.gbk -o phold_predict_output
 Alternatively, if you have provided pre-generated .pdb format protein structures for you proteins, you can specify those by specifiying `--structures --structure_dir <directory>`. 
 
 `phold compare` does not use a GPU by default. However, if you have one available, you can utilise Foldseek-GPU acceleration using `--foldseek_gpu`. Note that you need to make sure your also run `phold install` with `--foldseek_gpu` prior. Regardless of whether you use `--foldseek_gpu` or not, it is recommended to use as many CPU threads with `-t` as you can (as the GPU only accelerates Foldseek's prefilter, not the alignment step).
+
+If you have multiple NVIDIA GPUs, you can restrict which are used for Foldseek-GPU with `--gpus` (e.g. `--gpus 0,2`). By default all visible CUDA GPUs are used.
 
 Example usage of `phold compare` following `phold predict`
 
@@ -127,6 +135,10 @@ Options:
                                 found in the input GenBank file. Helpful if
                                 you have a directory with lots of .pdb files
                                 and want to annotate only e.g. 1 phage.
+  --gpus TEXT                   Comma-separated CUDA device indices for
+                                Foldseek-GPU (e.g. "0,2"). Default: all
+                                visible CUDA GPUs. Only meaningful with
+                                --foldseek_gpu.
   -o, --output PATH             Output directory   [default: output_phold]
   -t, --threads INTEGER         Number of threads  [default: 1]
   -p, --prefix TEXT             Prefix for output files  [default: phold]
@@ -191,6 +203,10 @@ Options:
                                  autotuning will add rather than save runtime.
   --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
+  --gpus TEXT                    Comma-separated CUDA device indices to use
+                                 (e.g. "0,2"). Default: all visible CUDA GPUs.
+                                 Overridden by --cpu. Has no effect on MPS /
+                                 XPU systems.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
                                  probabilities will always be output.
@@ -265,6 +281,10 @@ Options:
                                  autotuning will add rather than save runtime.
   --batch_size INTEGER           batch size for ProstT5.  [default: 1]
   --cpu                          Use cpus only.
+  --gpus TEXT                    Comma-separated CUDA device indices to use
+                                 (e.g. "0,2"). Default: all visible CUDA GPUs.
+                                 Overridden by --cpu. Has no effect on MPS /
+                                 XPU systems.
   --omit_probs                   Do not output per residue 3Di probabilities
                                  from ProstT5. Mean per protein 3Di
                                  probabilities will always be output.
@@ -318,6 +338,10 @@ Options:
                                 found in the input GenBank file. Helpful if
                                 you have a directory with lots of .pdb files
                                 and want to annotate only e.g. 1 phage.
+  --gpus TEXT                   Comma-separated CUDA device indices for
+                                Foldseek-GPU (e.g. "0,2"). Default: all
+                                visible CUDA GPUs. Only meaningful with
+                                --foldseek_gpu.
   -o, --output PATH             Output directory   [default: output_phold]
   -t, --threads INTEGER         Number of threads  [default: 1]
   -p, --prefix TEXT             Prefix for output files  [default: phold]
@@ -518,6 +542,9 @@ Options:
                          want to use the default sample of 5000 Phold DB
                          proteins
   --cpu                  Use cpus only.
+  --gpus TEXT            Comma-separated CUDA device indices (e.g. "0,2").
+                         Default: lowest visible CUDA GPU. Overridden by
+                         --cpu.
   -t, --threads INTEGER  Number of threads  [default: 1]
   -d, --database TEXT    Specific path to installed phold database
   --min_batch INTEGER    Minimum batch size to test  [default: 1]
