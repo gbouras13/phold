@@ -1,5 +1,18 @@
 # History
 
+1.3.0 (2026-07-02)
+------------------
+* Adds multi-GPU support - use `--gpus` (e.g. `--gpus 0,2`) to specify which CUDA device indices `phold` and Foldseek-GPU should use. Defaults to all visible CUDA GPUs. Has no effect on MPS/XPU systems
+* Adds Intel XPU (Arc/Data Center GPU Max) support for ProstT5 prediction - thanks @linsalrob. See the [installation documentation](https://phold.readthedocs.io/en/latest/install/) for details
+* Internal migration of `phold`'s analytical/IO code from `pandas` to `polars`, improving performance especially for large datasets
+* Numerous internal performance improvements (faster masking, Foldseek database creation, sub-database and per-contig function count output writing, and faster `phold` startup via streamlined imports)
+* Fixes bugs where NCBI GenBank input containing a pseudogene CDS (no translation) or a CDS with no product would cause `phold run`/`compare` to crash #132
+* Fixes `phold plot` bug affecting genomes with CRISPR repeats and tmRNA features
+* `--restart` is more robust to interruption (fixes potential intermediate OOM issues and ensures the ProstT5 3Di prediction loop can safely resume)
+* Fixes intermittent `phold install` database download issues (adds a timeout, fixes handling of incomplete downloads, fixes database move on some filesystems)
+* Adds defensiveness around external tool (Foldseek) failures with clearer error messages
+* Adds a golden-output regression test suite so future code changes are automatically checked in CI against reference annotation outputs
+
 1.2.4 (2026-04-24)
 ------------------
 * Support `mps` (MacOS) with `phold autotune`
