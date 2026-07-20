@@ -1,5 +1,9 @@
 # History
 
+1.3.1 (2026-07-20)
+------------------
+* `phold citation` now also prints our [protocols paper](https://doi.org/10.1002/cpz1.70405) citation alongside the existing Phold citation
+
 1.3.0 (2026-07-02)
 ------------------
 * Adds multi-GPU support - use `--gpus` (e.g. `--gpus 0,2`) to specify which CUDA device indices `phold` and Foldseek-GPU should use. Defaults to all visible CUDA GPUs. Has no effect on MPS/XPU systems
