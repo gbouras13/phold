@@ -17,6 +17,10 @@ RUN wget https://mmseqs.com/foldseek/foldseek-linux-avx2.tar.gz && \
 
 ENV PATH="/opt/foldseek/bin:${PATH}"
 
+# the base image only provides python3, not python - some tooling (and users)
+# expect `python` to be on PATH, so symlink it
+RUN ln -sf "$(command -v python3)" /usr/local/bin/python
+
 # install phold
 
 RUN pip install --ignore-installed PyYAML
@@ -34,3 +38,4 @@ RUN pip install pytest pytest-cov pytest-snapshot
 RUN foldseek --help
 RUN phold -h
 RUN phold run -h
+RUN python --version
