@@ -7,6 +7,8 @@
 
 # phold - Phage Annotation using Protein Structures
 
+### 🌐 Try `phold` in your browser - no installation required: **[https://phage-annotation.org](https://phage-annotation.org)**
+
 <p align="center">
   <img src="img/phold_logo.png" alt="phold Logo" height=250>
 </p>
