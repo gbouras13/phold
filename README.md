@@ -151,7 +151,7 @@ If you have an NVIDIA GPU and can take advantage of Foldseek's GPU acceleration,
 phold install -t 8 --foldseek_gpu
 ```
 
-* Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are just over 8GB uncompressed).
+* Note: the installed databases (including ProstT5) come to just over 8GB. However, `phold install` downloads the database tarball and extracts it without streaming, so the compressed archive and its extracted contents briefly coexist on disk -- **budget for a peak of around 16GB free space during installation**, even though only ~8GB remains once it completes. On a smaller disk the extraction can fail partway through after appearing to have enough room at the start.
 
 # Quick Start
 

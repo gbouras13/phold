@@ -85,7 +85,7 @@ If you would like to specify a particular location for the database (e.g. if you
 phold install -d <path/to/databse_dir> -t <threads>
 ```
 
-* Note: You will need at least 8GB of free space (the `phold` databases including ProstT5 are 7.7GB uncompressed).
+* Note: the installed databases (including ProstT5) come to 7.7GB. However, `phold install` downloads the database tarball and extracts it without streaming, so the compressed archive and its extracted contents briefly coexist on disk -- **budget for a peak of around 16GB free space during installation**, even though only ~8GB remains once it completes. On a smaller disk the extraction can fail partway through after appearing to have enough room at the start.
 
 If you have an NVIDIA GPU available, you may wish to accelerate Foldseek using GPU. To do this, you will need to format the databases appropriately as follows
 
