@@ -28,6 +28,36 @@ For `phold proteins-predict` and `phold proteins-compare`, the input will be a F
 
 If you have multiple NVIDIA GPUs, you can restrict which are used for ProstT5 with `--gpus` (e.g. `--gpus 0,2`). By default all visible CUDA GPUs are used. This has no effect on MPS (Apple Silicon) or Intel XPU systems.
 
+#### Choosing a model with `--model`
+
+`--model` selects which structure-token model `phold predict` uses. The default `prostt5` is the ProstT5 encoder plus a CNN prediction head and outputs 3Di only.
+
+The `modernprost-*` models are a single encoder that predicts 3Di **and** a 12-state secondary-structure alphabet ("12st") in one forward pass. Foldseek scores both alphabets when the search is run with `--ss-12st 1`, which `phold compare` does automatically.
+
+| `--model` | Size | Output | Foldseek query database |
+|---|---|---|---|
+| `prostt5` (default) | ~1.2B (ProstT5) | 3Di | `_ss` |
+| `modernprost-base` | ~1.0B | 3Di + 12st | combined `_ss` |
+| `modernprost-50M` | ~53M | 3Di + 12st | combined `_ss` |
+| `modernprost-pssm` | ~1.0B | 3Di + 12st profiles | `_profile_ss` / `_profile_ss12` / `_profile` |
+| `modernprost-50M-pssm` | ~53M | 3Di + 12st profiles | `_profile_ss` / `_profile_ss12` / `_profile` |
+
+The `-pssm` checkpoints keep the full per-residue probability distribution rather than collapsing it to a single most-likely state, and are searched as Foldseek profile databases. `--task classification|pssm` overrides this; the default `auto` uses whichever task the chosen model was trained for.
+
+```bash
+# download a ModernProst model alongside the database
+phold install --model modernprost-50M
+
+# predict, then compare — compare detects the model automatically
+phold predict -i pharokka.gbk -o output_phold --model modernprost-50M
+phold compare -i pharokka.gbk -o output_phold_compare --predictions_dir output_phold
+```
+
+Two caveats when using a `modernprost-*` model:
+
+* It requires a Phold search database built with Foldseek 12-state support. Running against a 3Di-only database fails with an explanatory message rather than producing wrong scores.
+* `--mask_threshold` applies to the amino acid FASTA only. The combined 3Di+12st alphabet packs both states into a single byte and has no masked state, so the 3Di string is always written unmasked.
+
 ```bash
 Usage: phold predict [OPTIONS]
 

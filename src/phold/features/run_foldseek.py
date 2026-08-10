@@ -23,6 +23,8 @@ def run_foldseek_search(
     structures: bool,
     clustered_db: bool,
     gpus: Optional[str] = None,
+    ss_12st: bool = False,
+    profiles: bool = False,
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -48,6 +50,11 @@ def run_foldseek_search(
             the foldseek subprocess gets ``CUDA_VISIBLE_DEVICES`` set
             accordingly. None = use all visible CUDA GPUs (foldseek default).
             Ignored when ``foldseek_gpu`` is False.
+        ss_12st (bool): Score with Foldseek's combined 3Di + 12-state alphabet
+            (ModernProst). Requires both query and target databases to carry
+            12-state information.
+        profiles (bool): The query database is a Foldseek profile database
+            (the ModernProst ``-pssm`` models) rather than a sequence database.
 
     Returns:
         None
@@ -61,6 +68,15 @@ def run_foldseek_search(
     # support foldseek gpu only for the regular DB search for now
     if foldseek_gpu:
         cmd = f"search {query_db} {target_db}_gpu {result_db} {temp_db} --threads {str(threads)} -e {evalue}  --gpu 1 --prefilter-mode 1 --max-seqs {max_seqs}"
+
+    # ModernProst: score the 12-state channel alongside 3Di.
+    if ss_12st:
+        cmd += " --ss-12st 1"
+
+    # Profile queries carry their own structural bit-scores, so Foldseek's
+    # structure-bits re-sort would re-rank them by a score they don't have.
+    if profiles:
+        cmd += " --sort-by-structure-bits 0"
 
     if extra_foldseek_params:
         cmd += f" {extra_foldseek_params}"

@@ -10,8 +10,11 @@ from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 from loguru import logger
 
+from phold.databases.db import check_db_12st_support
 from phold.features.create_foldseek_db import (
-    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_structures)
+    generate_foldseek_db_from_aa_3di, generate_foldseek_db_from_aa_3di_12st,
+    generate_foldseek_db_from_structures)
+from phold.features.predict_3di_12st import mean_probs_filename
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
@@ -188,6 +191,26 @@ def _write_function_counts_table(merged_df: pl.DataFrame, out_path: Path) -> Non
     pl.DataFrame(rows).write_csv(out_path, separator="\t")
 
 
+def detect_prediction_mode(predictions_dir: Path, prefix: str) -> Tuple[bool, bool]:
+    """Infer which model produced the predictions in *predictions_dir*.
+
+    ``phold predict`` leaves distinguishable artefacts behind:
+
+    * a ``<prefix>_12st.fasta`` means a ModernProst model ran, so the query and
+      target databases both use the combined 3Di+12-state alphabet;
+    * a ``query_profiledb/<prefix>_profile_ss`` means one of the ``-pssm``
+      checkpoints ran and the search should use profile databases.
+
+    Returns ``(ss_12st, profiles)``. Both False for the ProstT5 path.
+    """
+    predictions_dir = Path(predictions_dir)
+    ss_12st = (predictions_dir / f"{prefix}_12st.fasta").is_file()
+    profiles = (
+        predictions_dir / "query_profiledb" / f"{prefix}_profile_ss"
+    ).is_file()
+    return ss_12st or profiles, profiles
+
+
 def subcommand_compare(
     gb_dict: Dict[str, Dict[str, Union[SeqRecord, SeqFeature]]],
     output: Path,
@@ -214,6 +237,8 @@ def subcommand_compare(
     restart: bool = False,
     clustered_db=False, # always False - keep the code for compatibility if I ever revert later, but clustered DBs were not better
     gpus: Optional[str] = None,
+    ss_12st: Optional[bool] = None,
+    profiles: Optional[bool] = None,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -242,10 +267,62 @@ def subcommand_compare(
         custom_db (str): Custom foldseek database
         foldseek_gpu (bool): Use Foldseek-GPU acceleration and ungappedprefilter
         restart (bool): Restart from foldseek_results.tsv
+        ss_12st (Optional[bool]): Search with Foldseek's combined 3Di+12-state
+            alphabet (ModernProst). None auto-detects from the prediction
+            directory's contents, so `phold compare` needs no extra flag after
+            a ModernProst `phold predict`.
+        profiles (Optional[bool]): Search Foldseek profile databases instead of
+            a sequence database (the ModernProst `-pssm` models). None
+            auto-detects, as for ss_12st.
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
     """
+
+    # ── resolve the ModernProst flags ──────────────────────────────────────
+    # `phold run` passes these explicitly because it knows which model ran.
+    # Standalone `phold compare` infers them from what `phold predict` left
+    # behind, so the two commands cannot silently disagree about the alphabet.
+    detected_12st, detected_profiles = detect_prediction_mode(
+        predictions_dir if predictions_dir is not None else output, prefix
+    )
+    if ss_12st is None:
+        ss_12st = detected_12st
+    if profiles is None:
+        profiles = detected_profiles
+
+    if structures and (ss_12st or profiles):
+        # Structure input goes through `foldseek createdb`, which produces the
+        # target DB's own alphabet; there are no ModernProst predictions to use.
+        logger.warning(
+            "Ignoring the 12-state / profile settings: --structures builds the "
+            "query database directly from structure files."
+        )
+        ss_12st = False
+        profiles = False
+
+    if profiles and not ss_12st:
+        logger.error(
+            "Foldseek profile search was requested without 12-state support. "
+            "The ModernProst profile databases always carry both a 3Di and a "
+            "12-state profile, so this combination is not valid."
+        )
+
+    if ss_12st:
+        logger.info(
+            "Using Foldseek's combined 3Di + 12-state alphabet (--ss-12st 1)"
+            + (" with query profile databases" if profiles else "")
+        )
+        # `phold run` already checked this via validate_db, but standalone
+        # `phold compare` only learns the alphabet here, after auto-detection.
+        if not check_db_12st_support(database):
+            logger.error(
+                f"These predictions use the 12-state alphabet, but the Phold "
+                f"search database in {database} was not built with Foldseek "
+                "12-state support. Install a 12-state Phold database, or re-run "
+                "phold predict with --model prostt5 to use the ProstT5 "
+                "3Di-only pipeline against this database."
+            )
 
     if predictions_dir is None and structures is False:
         logger.error(
@@ -385,9 +462,11 @@ def subcommand_compare(
             # prostT5
             fasta_aa_input: Path = Path(predictions_dir) / f"{prefix}_aa.fasta"
             fasta_3di_input: Path = Path(predictions_dir) / f"{prefix}_3di.fasta"
+            fasta_12st_input: Path = Path(predictions_dir) / f"{prefix}_12st.fasta"
 
         fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
         fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+        fasta_12st: Path = Path(output) / f"{prefix}_12st.fasta"
 
         ## copy the AA and 3Di from predictions directory if structures is false and phold compare is the command
         #
@@ -425,6 +504,18 @@ def subcommand_compare(
                     logger.error(
                         f"The AA CDS file {fasta_aa_input} does not exist. Please run phold predict and/or check the prediction directory {predictions_dir}"
                     )
+                # copy the 12-state file too (ModernProst only)
+                if ss_12st and not profiles:
+                    if fasta_12st_input.exists():
+                        logger.info(
+                            f"Checked that the 12-state CDS file {fasta_12st_input} exists from phold predict"
+                        )
+                        with atomic_write_path(fasta_12st) as tmp:
+                            shutil.copyfile(fasta_12st_input, tmp)
+                    else:
+                        logger.error(
+                            f"The 12-state CDS file {fasta_12st_input} does not exist. Please run phold predict with a ModernProst --model and/or check the prediction directory {predictions_dir}"
+                        )
         ## write the AAs to file if structures is true because can't just copy from prediction_dir
         else:
             ## write the CDS to file
@@ -474,6 +565,17 @@ def subcommand_compare(
                 filter_structures,
                 proteins_flag,
             )
+        elif profiles:
+            # The profile databases were already built by phold predict — it
+            # has the per-residue distributions in memory and writing them out
+            # only to parse them back would be wasteful and lossy.
+            logger.info(
+                "Using the Foldseek query profile databases built by phold predict."
+            )
+        elif ss_12st:
+            generate_foldseek_db_from_aa_3di_12st(
+                fasta_aa, fasta_3di, fasta_12st, foldseek_query_db_path, logdir, prefix
+            )
         else:
             generate_foldseek_db_from_aa_3di(
                 fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
@@ -500,7 +602,21 @@ def subcommand_compare(
         #####
 
 
-        query_db: Path = Path(foldseek_query_db_path) / short_db_name
+        if profiles:
+            profile_db_dir: Path = (
+                Path(predictions_dir if predictions_dir is not None else output)
+                / "query_profiledb"
+            )
+            query_db: Path = profile_db_dir / f"{short_db_name}_profile"
+            if not query_db.is_file():
+                logger.error(
+                    f"The Foldseek query profile database {query_db} does not exist. "
+                    "Please run phold predict with --model modernprost-pssm or "
+                    "--model modernprost-50M-pssm, and/or check the prediction "
+                    f"directory {predictions_dir}"
+                )
+        else:
+            query_db: Path = Path(foldseek_query_db_path) / short_db_name
         target_db: Path = Path(database) / database_name
 
         # make result and temp dirs
@@ -531,9 +647,11 @@ def subcommand_compare(
             structures,
             clustered_db,
             gpus=gpus,
+            ss_12st=ss_12st,
+            profiles=profiles,
         )
 
-        
+
         create_result_tsv(query_db, target_db, result_db, result_tsv, logdir, foldseek_gpu, structures, threads)
 
 
@@ -544,12 +662,19 @@ def subcommand_compare(
     # Won't exist if structures are used
     ######
     
+    # Which of these exist depends on the model: the 12-state FASTA only for
+    # ModernProst, and the profile path may not have copied a 3Di FASTA at all
+    # since its query DB is built from the distributions, not the argmax.
+    # Foldseek query names are un-mangled separately in topfunction.py, so this
+    # is purely about the user-facing FASTAs.
     if not structures:
-        fasta_aa: Path = Path(output) / f"{prefix}_aa.fasta"
-        fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
-
-        replace_pipe_in_fastq(fasta_aa)
-        replace_pipe_in_fastq(fasta_3di)
+        for fasta in (
+            Path(output) / f"{prefix}_aa.fasta",
+            Path(output) / f"{prefix}_3di.fasta",
+            Path(output) / f"{prefix}_12st.fasta",
+        ):
+            if fasta.is_file():
+                replace_pipe_in_fastq(fasta)
 
 
     ########
@@ -674,18 +799,31 @@ def subcommand_compare(
     # add qcov and tcov
     merged_df = calculate_qcov_tcov(merged_df)
 
-    # NEEDS TO READ IN THE f"{prefix}_prostT5_3di_mean_probabilities.csv" - can't pass from the predict function in case using phold compare
-    if predictions_dir is None:  # if running phold run
-        mean_probs_out_path: Path = (
-            Path(output) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
-        )
-    else:  # if running phold compare or phold proteins-compare
-        mean_probs_out_path: Path = (
-            Path(predictions_dir) / f"{prefix}_prostT5_3di_mean_probabilities.csv"
-        )
+    # NEEDS TO READ IN the mean-probabilities CSV - can't pass from the predict
+    # function in case using phold compare. The filename records which model
+    # produced it, so try the one matching the detected mode first and fall
+    # back, rather than assuming ProstT5.
+    probs_dir: Path = Path(output if predictions_dir is None else predictions_dir)
+    candidate_paths = [
+        probs_dir / f"{prefix}_prostT5_3di_mean_probabilities.csv",
+        probs_dir / mean_probs_filename(prefix),
+    ]
+    if ss_12st:
+        candidate_paths.reverse()
 
-    # Merge in ProstT5 confidence scores — only for the non-structures path.
+    # Merge in the per-CDS confidence scores — only for the non-structures path.
     if not structures:
+        mean_probs_out_path = next(
+            (path for path in candidate_paths if path.is_file()), None
+        )
+        if mean_probs_out_path is None:
+            logger.error(
+                "Could not find the mean probabilities CSV. Expected one of:\n"
+                + "\n".join(f"  {path}" for path in candidate_paths)
+                + "\nPlease run phold predict and/or check the prediction "
+                f"directory {probs_dir}"
+            )
+
         prostT5_conf_df = pl.read_csv(
             mean_probs_out_path,
             separator=",",

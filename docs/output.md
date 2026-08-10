@@ -3,7 +3,8 @@
 ## Main Outputs
 
 * `_aa.fasta` which will hold all amino acid sequences of predicted CDSs
-* `_3di.fasta` which will hold all Foldseek 3Di sequences of predicted CDSs as predicted by ProstT5
+* `_3di.fasta` which will hold all Foldseek 3Di sequences of predicted CDSs as predicted by ProstT5 (or ModernProst, with `--model modernprost-*`)
+* `_12st.fasta` which will hold the 12-state secondary structure sequences of predicted CDSs. Only written with `--model modernprost-*`
 * `_.gbk` which will contain a Genbank format file of your phage(s) with all annotations
 * `_all_cds_functions.tsv` which includes for each contig:
     * Total CDS counts
@@ -39,6 +40,13 @@ The columns of `_per_cds_predictions.tsv` include:
     * `netflax_cds_predictions.tsv` - contains all CDS with top hits to NetFlax [toxin-antitoxins](https://doi.org/10.1073/pnas.2305393120).
 *  `_prostT5_3di_mean_probabilities.csv` - contains the mean ProstT5 probability score for each CDS. These are equivalent to the probability of how similar the overall ProstT5 3Di sequence is predicted to be compared to its Alphafold2 baseline
 *  `_prostT5_3di_all_probabilities.json` - contains the ProstT5 probabilities for each residue for each CDS, in the json format
+
+With `--model modernprost-*`, the equivalent files are named `_modernprost_*` instead, and a 12-state confidence file is added:
+
+*  `_modernprost_3di_mean_probabilities.csv` and `_modernprost_3di_all_probabilities.json` - as above, from ModernProst. The mean 3Di confidence is what feeds the `annotation_confidence` heuristics
+*  `_modernprost_12st_mean_probabilities.csv` - the mean 12-state probability score for each CDS
+*  `_profile_3di.txt` and `_profile_12st.txt` - human-readable per-residue probability profiles. Only written by the `-pssm` models
+*  `query_profiledb/` - the Foldseek profile databases searched by `phold compare`. Only written by the `-pssm` models
 
 ## Optional Outputs
 *  `_embeddings_per_protein.h5` - contains the ProstT5 embeddings for each protein in the h5 format

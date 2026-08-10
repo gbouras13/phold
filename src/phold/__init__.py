@@ -38,6 +38,70 @@ log_fmt = (
     "<level>{message}</level>"
 )
 
+# ── model selection ───────────────────────────────────────────────────────────
+# Kept as literal strings rather than importing pholdlib's registry at module
+# level: every subcommand pays for imports here, and pholdlib.databases pulls in
+# the torch-adjacent stack. resolve_model() imports lazily inside its body.
+PROSTT5_MODEL = "prostt5"
+MODERNPROST_MODEL_NAMES = [
+    "modernprost-base",
+    "modernprost-50M",
+    "modernprost-pssm",
+    "modernprost-50M-pssm",
+]
+MODEL_CHOICES = [PROSTT5_MODEL] + MODERNPROST_MODEL_NAMES
+
+
+def resolve_model(model: str, database: Path, finetune: bool, vanilla: bool):
+    """Turn the ``--model`` choice into the arguments subcommand_predict needs.
+
+    Args:
+        model: One of :data:`MODEL_CHOICES`.
+        database: The validated Phold database directory, which doubles as the
+            HuggingFace cache directory so model and DB live together.
+        finetune: ProstT5 only — use the phage-finetuned encoder + CNN head.
+        vanilla: ProstT5 only — use the CASP14-trained CNN head with the
+            finetuned encoder.
+
+    Returns:
+        ``(model_name, model_dir, checkpoint_path, is_modernprost)``.
+    """
+    model = str(model).lower()
+    # Choice(case_sensitive=False) lower-cases the value, so match back onto the
+    # canonical registry spelling ("modernprost-50M", not "modernprost-50m").
+    canonical = {name.lower(): name for name in MODERNPROST_MODEL_NAMES}
+
+    if model in canonical:
+        if finetune or vanilla:
+            logger.warning(
+                "--finetune and --vanilla only apply to --model prostt5; "
+                f"ignoring them for {canonical[model]}."
+            )
+        return canonical[model], database, None, True
+
+    model_name = "Rostlab/ProstT5_fp16"
+    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
+
+    if finetune:
+        model_name = "gbouras13/ProstT5Phold"
+        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
+        if vanilla:
+            checkpoint_path = (
+                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
+            )
+
+    return model_name, database, checkpoint_path, False
+
+
+def _resolved_task(model_name: str, task: str) -> str:
+    """Resolve ``--task auto`` to the task *model_name* was trained for."""
+    task = str(task).lower()
+    if task != "auto":
+        return task
+    from pholdlib.databases.modernprost import default_task_for
+
+    return default_task_for(model_name)
+
 """
 common options
 """
@@ -100,6 +164,32 @@ def predict_options(func):
     """predict command line args"""
     options = [
         click.option(
+            "--model",
+            "model",
+            type=click.Choice(MODEL_CHOICES, case_sensitive=False),
+            default="prostt5",
+            show_default=True,
+            help=(
+                "Structure-token model. 'prostt5' is the ProstT5 encoder + CNN "
+                "head (3Di only). The 'modernprost-*' models predict 3Di and a "
+                "12-state alphabet in one pass and require a Phold database "
+                "built with Foldseek 12-state support. The '-pssm' variants "
+                "emit per-residue profiles and are searched as Foldseek "
+                "profile databases."
+            ),
+        ),
+        click.option(
+            "--task",
+            type=click.Choice(["auto", "classification", "pssm"], case_sensitive=False),
+            default="auto",
+            show_default=True,
+            help=(
+                "ModernProst inference mode. 'auto' uses whichever task the "
+                "chosen model was trained for (pssm for the '-pssm' models, "
+                "classification otherwise). Ignored for --model prostt5."
+            ),
+        ),
+        click.option(
             "--autotune",
             is_flag=True,
             help="Run autotuning to detect and automatically use best batch size for your hardware. Recommended only if you have a large dataset (e.g. thousands of proteins), or else autotuning will add rather than save runtime.",
@@ -109,6 +199,15 @@ def predict_options(func):
             default=1,
             help="batch size for ProstT5.",
             show_default=True,
+        ),
+        click.option(
+            "--max_batch_residues",
+            type=int,
+            default=None,
+            help=(
+                "Maximum residues per inference batch. Defaults to 5000 for "
+                "ProstT5 and 50000 for ModernProst."
+            ),
         ),
         click.option(
             "--cpu",
@@ -279,8 +378,11 @@ def run(
     evalue,
     force,
     database,
+    model,
+    task,
     autotune,
     batch_size,
+    max_batch_residues,
     sensitivity,
     cpu,
     gpus,
@@ -318,8 +420,11 @@ def run(
         "--prefix": prefix,
         "--evalue": evalue,
         "--database": database,
+        "--model": model,
+        "--task": task,
         "--autotune": autotune,
         "--batch_size": batch_size,
+        "--max_batch_residues": max_batch_residues,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
@@ -352,47 +457,47 @@ def run(
     check_dependencies()
 
     # check the database is installed and return it
-    database = validate_db(database, DB_DIR, foldseek_gpu)
+    use_modernprost = model != PROSTT5_MODEL
+    database = validate_db(database, DB_DIR, foldseek_gpu, require_12st=use_modernprost)
 
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
 
+    model_name, model_dir, checkpoint_path, use_modernprost = resolve_model(
+        model, database, finetune, vanilla
+    )
+    profiles_flag = use_modernprost and _resolved_task(model_name, task) == "pssm"
 
     if not restart:
         # phold predict
-        model_dir = database
-        model_name = "Rostlab/ProstT5_fp16"
-        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
-
-        if finetune:
-            model_name = "gbouras13/ProstT5Phold"
-            checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
-            if vanilla:
-                checkpoint_path = (
-                    Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
-                )
-
         if autotune:
+            if use_modernprost:
+                # run_autotune builds a ProstT5 encoder + CNN head; it has no
+                # ModernProst path. Skip rather than fail the whole run.
+                logger.warning(
+                    "--autotune is only supported for --model prostt5; "
+                    f"using --batch_size {batch_size} for {model_name}."
+                )
+            else:
+                input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
 
-            input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+                step = 20
+                min_batch = 1
+                max_batch = 1001
+                sample_seqs = 500
 
-            step = 20
-            min_batch = 1
-            max_batch = 1001
-            sample_seqs = 500
-
-            batch_size = run_autotune(
-                input_path,
-                model_dir,
-                model_name,
-                cpu,
-                threads,
-                step,
-                min_batch,
-                max_batch,
-                sample_seqs,
-                gpus=gpus,
-            )
+                batch_size = run_autotune(
+                    input_path,
+                    model_dir,
+                    model_name,
+                    cpu,
+                    threads,
+                    step,
+                    min_batch,
+                    max_batch,
+                    sample_seqs,
+                    gpus=gpus,
+                )
 
         subcommand_predict(
             gb_dict,
@@ -413,6 +518,9 @@ def run(
             mask_threshold=mask_threshold,
             hyps=hyps,
             gpus=gpus,
+            task=task,
+            max_batch_residues=max_batch_residues,
+            logdir=logdir,
         )
 
     # phold compare
@@ -442,6 +550,8 @@ def run(
         foldseek_gpu=foldseek_gpu,
         restart=restart,
         gpus=gpus,
+        ss_12st=use_modernprost,
+        profiles=profiles_flag,
     )
 
     # cleanup the temp files
@@ -479,8 +589,11 @@ def predict(
     prefix,
     force,
     database,
+    model,
+    task,
     autotune,
     batch_size,
+    max_batch_residues,
     cpu,
     gpus,
     omit_probs,
@@ -492,7 +605,7 @@ def predict(
     hyps,
     **kwargs,
 ):
-    """Uses ProstT5 to predict 3Di tokens - GPU recommended"""
+    """Predicts 3Di (and 12-state, for ModernProst models) tokens - GPU recommended"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force, restart=False)
@@ -507,8 +620,11 @@ def predict(
         "--force": force,
         "--prefix": prefix,
         "--database": database,
+        "--model": model,
+        "--task": task,
         "--autotune": autotune,
         "--batch_size": batch_size,
+        "--max_batch_residues": max_batch_residues,
         "--cpu": cpu,
         "--gpus": gpus,
         "--omit_probs": omit_probs,
@@ -526,46 +642,45 @@ def predict(
     # initial logging etc
     start_time = begin_phold(params, "predict")
 
-    # check the database is installed
+    # check the database is installed. The 12-state target DB is only needed by
+    # `phold compare`, so predict alone does not require it — the model itself
+    # is cached in the database directory either way.
     database = validate_db(database, DB_DIR, foldseek_gpu=False)
 
     # validate input
     fasta_flag, gb_dict, method = validate_input(input, threads)
 
     # runs phold predict subcommand
-    model_dir = database
-    model_name = "Rostlab/ProstT5_fp16"
-    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
-
-    if finetune:
-        model_name = "gbouras13/ProstT5Phold"
-        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
-        if vanilla:
-            checkpoint_path = (
-                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
-            )
+    model_name, model_dir, checkpoint_path, use_modernprost = resolve_model(
+        model, database, finetune, vanilla
+    )
 
     if autotune:
+        if use_modernprost:
+            logger.warning(
+                "--autotune is only supported for --model prostt5; "
+                f"using --batch_size {batch_size} for {model_name}."
+            )
+        else:
+            input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
 
-        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+            step = 20
+            min_batch = 1
+            max_batch = 1001
+            sample_seqs = 500
 
-        step = 20
-        min_batch = 1
-        max_batch = 1001
-        sample_seqs = 500
-
-        batch_size = run_autotune(
-            input_path,
-            model_dir,
-            model_name,
-            cpu,
-            threads,
-            step,
-            min_batch,
-            max_batch,
-            sample_seqs,
-            gpus=gpus,
-        )
+            batch_size = run_autotune(
+                input_path,
+                model_dir,
+                model_name,
+                cpu,
+                threads,
+                step,
+                min_batch,
+                max_batch,
+                sample_seqs,
+                gpus=gpus,
+            )
 
     subcommand_predict(
         gb_dict,
@@ -586,6 +701,9 @@ def predict(
         mask_threshold=mask_threshold,
         hyps=hyps,
         gpus=gpus,
+        task=task,
+        max_batch_residues=max_batch_residues,
+        logdir=logdir,
     )
 
     # end phold
@@ -773,8 +891,11 @@ def proteins_predict(
     prefix,
     force,
     database,
+    model,
+    task,
     autotune,
     batch_size,
+    max_batch_residues,
     cpu,
     gpus,
     omit_probs,
@@ -785,7 +906,7 @@ def proteins_predict(
     vanilla,
     **kwargs,
 ):
-    """Runs ProstT5 on a multiFASTA input - GPU recommended"""
+    """Predicts 3Di (and 12-state, for ModernProst models) from a multiFASTA input - GPU recommended"""
 
     # validates the directory  (need to before phold starts or else no log file is written)
     instantiate_dirs(output, force, restart=False)
@@ -800,8 +921,11 @@ def proteins_predict(
         "--force": force,
         "--prefix": prefix,
         "--database": database,
+        "--model": model,
+        "--task": task,
         "--autotune": autotune,
         "--batch_size": batch_size,
+        "--max_batch_residues": max_batch_residues,
         "--cpu": cpu,
         "--gpus": gpus,
         "--omit_probs": omit_probs,
@@ -856,41 +980,38 @@ def proteins_predict(
         logger.error(f"Error: no AA protein sequences found in {input} file")
 
     # runs phold predict subcommand
-    model_dir = database
-    model_name = "Rostlab/ProstT5_fp16"
-    checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt" / "model.pt"
-
-    if finetune:
-        model_name = "gbouras13/ProstT5Phold"
-        checkpoint_path = Path(CNN_DIR) / "cnn_chkpnt_finetune" / "phold_db_model.pth"
-        if vanilla:
-            checkpoint_path = (
-                Path(CNN_DIR) / "cnn_chkpnt_finetune" / "vanilla_model.pth"
-            )
+    model_name, model_dir, checkpoint_path, use_modernprost = resolve_model(
+        model, database, finetune, vanilla
+    )
 
     method = "pharokka"  # this can be whatever for proteins, it wont matter - it is for genbank input
 
 
     if autotune:
+        if use_modernprost:
+            logger.warning(
+                "--autotune is only supported for --model prostt5; "
+                f"using --batch_size {batch_size} for {model_name}."
+            )
+        else:
+            input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
+            step = 20
+            min_batch = 1
+            max_batch = 1001
+            sample_seqs = 500
 
-        input_path = files("phold.features.autotune_data").joinpath("all_phold_structures_5000.fasta.gz")
-        step = 20
-        min_batch = 1
-        max_batch = 1001
-        sample_seqs = 500
-
-        batch_size = run_autotune(
-            input_path,
-            model_dir,
-            model_name,
-            cpu,
-            threads,
-            step,
-            min_batch,
-            max_batch,
-            sample_seqs,
-            gpus=gpus,
-        )
+            batch_size = run_autotune(
+                input_path,
+                model_dir,
+                model_name,
+                cpu,
+                threads,
+                step,
+                min_batch,
+                max_batch,
+                sample_seqs,
+                gpus=gpus,
+            )
 
     subcommand_predict(
         cds_dict,
@@ -911,6 +1032,9 @@ def proteins_predict(
         mask_threshold=mask_threshold,
         hyps=False,  # always False for this as no Pharokka genbank to parse on input
         gpus=gpus,
+        task=task,
+        max_batch_residues=max_batch_residues,
+        logdir=logdir,
     )
 
     # end phold
@@ -1390,6 +1514,19 @@ install command
     ),
 )
 @click.option(
+    "--model",
+    "models",
+    type=click.Choice(MODEL_CHOICES, case_sensitive=False),
+    multiple=True,
+    default=(PROSTT5_MODEL,),
+    show_default=True,
+    help=(
+        "Model(s) to download. Repeat to install more than one, e.g. "
+        "--model prostt5 --model modernprost-50M. The modernprost-base and "
+        "modernprost-pssm checkpoints are ~4 GB each."
+    ),
+)
+@click.option(
     "-t",
     "--threads",
     help="Number of threads",
@@ -1402,10 +1539,11 @@ def install(
     database,
     foldseek_gpu,
     extended_db,
+    models,
     threads,
     **kwargs,
 ):
-    """Installs ProstT5 model and phold database"""
+    """Installs the structure-token model(s) and phold database"""
 
     from phold.features.predict_3Di import get_T5_model
 
@@ -1420,14 +1558,21 @@ def install(
         )
         database = Path(DB_DIR)
 
-    model_name = "Rostlab/ProstT5_fp16"
-
-    logger.info(
-        f"Checking that the {model_name} ProstT5 model is available in {database}"
-    )
-
     # always install with cpu mode as guarantee to be present
     cpu = True
+
+    for model_choice in models:
+        model_name, model_dir, _, use_modernprost = resolve_model(
+            model_choice, database, finetune=False, vanilla=False
+        )
+
+        if use_modernprost:
+            _install_modernprost(model_name, model_dir, threads)
+            continue
+
+        logger.info(
+            f"Checking that the {model_name} ProstT5 model is available in {database}"
+        )
 
     # Load (or download) the ProstT5 model. The check_fn / zenodo_fn
     # arguments are essential here: pholdlib's ``get_T5_model`` defaults
@@ -1441,20 +1586,51 @@ def install(
     # ``get_T5_model`` returns ``(model, vocab, device)`` — the device
     # is irrelevant during install (we're only materialising the model
     # to disk), so we discard it with ``_``.
-    model, vocab, _ = get_T5_model(
-        database,
-        model_name,
-        cpu,
-        threads=1,
-        check_fn=check_prostT5_download,
-        zenodo_fn=download_zenodo_prostT5,
-    )
-    del model
-    del vocab
-    logger.info(f"ProstT5 model downloaded")
+        model, vocab, _ = get_T5_model(
+            database,
+            model_name,
+            cpu,
+            threads=1,
+            check_fn=check_prostT5_download,
+            zenodo_fn=download_zenodo_prostT5,
+        )
+        del model
+        del vocab
+        logger.info(f"ProstT5 model downloaded")
 
     # will check if db is present, and if not, download it
     install_database(database, foldseek_gpu, extended_db, threads)
+
+
+def _install_modernprost(model_name: str, model_dir: Path, threads: int) -> None:
+    """Materialise a ModernProst checkpoint into the phold database directory.
+
+    Split out of ``install`` so the torch-adjacent imports stay inside the
+    function body — the same reason ``get_T5_model`` is imported lazily there.
+    """
+    from pholdlib.databases.modernprost import resolve_modernprost_model
+    from pholdlib.modernprost.model import get_modernprost_model
+
+    from phold.databases.db import (check_modernprost_download,
+                                    modernprost_zenodo_downloader)
+
+    spec = resolve_modernprost_model(model_name)
+    logger.info(
+        f"Checking that the {spec.hf_name} ModernProst model "
+        f"(~{spec.download_mb} MB) is available in {model_dir}"
+    )
+
+    model, tokenizer, _ = get_modernprost_model(
+        model_dir,
+        model_name,
+        cpu=True,
+        threads=1,
+        check_fn=check_modernprost_download,
+        zenodo_fn=modernprost_zenodo_downloader(model_name),
+    )
+    del model
+    del tokenizer
+    logger.info(f"{spec.hf_name} model downloaded")
 
 
 @main_cli.command()

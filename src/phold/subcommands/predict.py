@@ -6,7 +6,15 @@ from typing import Optional
 import numpy as np
 from loguru import logger
 
+from pholdlib.databases.modernprost import (
+    CLASSIFICATION_TASK,
+    PSSM_TASK,
+    default_task_for,
+    is_modernprost_model,
+)
+
 from phold.features.predict_3Di import get_embeddings
+from phold.features.predict_3di_12st import get_modernprost_predictions
 
 
 def mask_low_confidence_aa(sequence: str, scores, threshold: float = 0.5) -> str:
@@ -43,9 +51,16 @@ def subcommand_predict(
     mask_threshold: float,
     hyps: bool,
     gpus: Optional[str] = None,
+    task: str = "auto",
+    max_batch_residues: Optional[int] = None,
+    logdir: Optional[Path] = None,
 ) -> bool:
     """
-    Wrapper command for phold predict. Predicts embeddings using ProstT5 encoder + CNN prediction head.
+    Wrapper command for phold predict.
+
+    Runs either ProstT5 (encoder + CNN prediction head, 3Di only) or a
+    ModernProst checkpoint (single encoder, 3Di + 12-state), selected by
+    *model_name*.
 
     Args:
         gb_dict (Dict[str, any]): Dictionary containing GenBank records.
@@ -53,16 +68,22 @@ def subcommand_predict(
         output (str): Output directory path.
         prefix (str): Prefix for output file names.
         cpu (bool): Flag indicating whether to use CPU for prediction.
-        omit_probs (bool): Flag indicating whether to omit prediction probabilities from ProstT5.
-        model_dir (str): Directory containing the ProstT5 model.
-        model_name (str): Name of the ProstT5 model.
-        checkpoint_path (Path): Path to ProstT5 CNN checkpoint.
+        omit_probs (bool): Flag indicating whether to omit per-residue prediction probabilities.
+        model_dir (str): Directory containing the model.
+        model_name (str): HuggingFace id or ModernProst registry name.
+        checkpoint_path (Path): Path to the ProstT5 CNN checkpoint. Unused for ModernProst.
         batch_size (int): Batch size for prediction.
         proteins_flag (bool): True if phold proteins-predict, false otherwise
         fasta_flag (bool): True if pyrodigal-gv was used to predict CDS from FASTA input. False otherwise
         save_per_residue_embeddings (bool, optional): Whether to save per residue embeddings to h5 file. Defaults to False.
         save_per_protein_embeddings (bool, optional): Whether to save mean per protein embeddings to h5 file. Defaults to False.
         threads (int): number of cpu threads
+        task (str): "auto", "classification" or "pssm". ModernProst only; "auto"
+            uses the task the checkpoint was trained for.
+        max_batch_residues (Optional[int]): Max residues per inference batch.
+            Defaults to the per-backend value when None.
+        logdir (Optional[Path]): Log directory, needed to build the Foldseek
+            profile database in the pssm task.
 
     Returns:
         bool: True if prediction succeeds, False otherwise.
@@ -225,6 +246,7 @@ def subcommand_predict(
 
 
     fasta_3di: Path = Path(output) / f"{prefix}_3di.fasta"
+    fasta_12st: Path = Path(output) / f"{prefix}_12st.fasta"
     # embeddings h5 - will only be generated if flag is true
     output_h5_per_residue: Path = Path(output) / f"{prefix}_embeddings_per_residue.h5"
     output_h5_per_protein: Path = Path(output) / f"{prefix}_embeddings_per_protein.h5"
@@ -239,29 +261,87 @@ def subcommand_predict(
     else:
         output_probs = True
 
-    predictions = get_embeddings(
-        cds_dict,
-        output,
-        prefix,
-        model_dir,
-        model_name,
-        checkpoint_path,
-        fasta_3di,
-        output_h5_per_residue,
-        output_h5_per_protein,
-        half_precision=half_precision,
-        max_residues=5000,
-        max_seq_len=1000,
-        max_batch=batch_size,
-        cpu=cpu,
-        output_probs=output_probs,
-        proteins_flag=proteins_flag,
-        save_per_residue_embeddings=save_per_residue_embeddings,
-        save_per_protein_embeddings=save_per_protein_embeddings,
-        threads=threads,
-        mask_threshold=mask_threshold,
-        gpus=gpus,
-    )
+    modernprost = is_modernprost_model(model_name)
+    profiles = {}
+
+    if modernprost:
+        resolved_task = (
+            default_task_for(model_name) if task in (None, "auto") else str(task).lower()
+        )
+        if resolved_task not in (CLASSIFICATION_TASK, PSSM_TASK):
+            logger.error(
+                f"--task must be auto, {CLASSIFICATION_TASK} or {PSSM_TASK}; "
+                f"got {task!r}"
+            )
+        if resolved_task != default_task_for(model_name):
+            logger.warning(
+                f"{model_name} was trained for the "
+                f"'{default_task_for(model_name)}' task but --task "
+                f"{resolved_task} was requested."
+            )
+
+        if mask_threshold and mask_threshold > 0:
+            # The combined 3Di+12st Foldseek encoding has no masked state, so
+            # the 3Di FASTA is written unmasked. Masking still applies to the
+            # amino-acid FASTA below.
+            logger.info(
+                f"--mask_threshold {mask_threshold} applies to the amino-acid "
+                "FASTA only when using a ModernProst model: the combined "
+                "3Di+12st Foldseek alphabet cannot represent a masked residue."
+            )
+
+        predictions, predictions_12st, profiles = get_modernprost_predictions(
+            cds_dict,
+            output,
+            prefix,
+            model_dir,
+            model_name,
+            fasta_3di,
+            fasta_12st,
+            output_h5_per_residue,
+            output_h5_per_protein,
+            half_precision=half_precision,
+            task=resolved_task,
+            max_residues=max_batch_residues if max_batch_residues else 50000,
+            max_seq_len=30000,
+            max_batch=batch_size,
+            cpu=cpu,
+            output_probs=output_probs,
+            proteins_flag=proteins_flag,
+            save_per_residue_embeddings=save_per_residue_embeddings,
+            save_per_protein_embeddings=save_per_protein_embeddings,
+            threads=threads,
+            gpus=gpus,
+        )
+    else:
+        if task not in (None, "auto"):
+            logger.warning(
+                f"--task {task} only applies to the ModernProst models; "
+                f"ignoring it for {model_name}."
+            )
+        predictions = get_embeddings(
+            cds_dict,
+            output,
+            prefix,
+            model_dir,
+            model_name,
+            checkpoint_path,
+            fasta_3di,
+            output_h5_per_residue,
+            output_h5_per_protein,
+            half_precision=half_precision,
+            max_residues=max_batch_residues if max_batch_residues else 5000,
+            max_seq_len=1000,
+            max_batch=batch_size,
+            cpu=cpu,
+            output_probs=output_probs,
+            proteins_flag=proteins_flag,
+            save_per_residue_embeddings=save_per_residue_embeddings,
+            save_per_protein_embeddings=save_per_protein_embeddings,
+            threads=threads,
+            mask_threshold=mask_threshold,
+            gpus=gpus,
+        )
 
     mask_prop_threshold = mask_threshold / 100
 
@@ -295,5 +375,24 @@ def subcommand_predict(
 
                 parts.append(f"{header}{prot_seq}\n")
             out_f.write("".join(parts))
+
+    ########
+    ## build the Foldseek query profile DB (pssm task only)
+    ######
+    # Deliberately after the amino-acid FASTA is written: the profile DB reads
+    # its sequences from that file, so the amino-acid channel of the profile
+    # matches the masking that was actually applied.
+    if profiles:
+        from phold.features.create_foldseek_db import generate_foldseek_profile_db
+
+        profile_db_path: Path = Path(output) / "query_profiledb"
+        logger.info(f"Building Foldseek query profile databases in {profile_db_path}")
+        generate_foldseek_profile_db(
+            profiles,
+            fasta_aa,
+            profile_db_path,
+            logdir if logdir is not None else Path(output) / "logs",
+            prefix,
+        )
 
     return True

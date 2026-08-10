@@ -1,5 +1,18 @@
 # History
 
+1.4.0 (unreleased)
+------------------
+* Adds support for the ModernProst family of models, which predict Foldseek 3Di **and** a 12-state secondary-structure alphabet ("12st") in a single forward pass — no ProstT5 encoder and no separate CNN prediction head. Select one with `--model`:
+    * `--model modernprost-base` (~1.0B parameters) and `--model modernprost-50M` (~53M) write both a `_3di.fasta` and a `_12st.fasta`, which are packed into one combined Foldseek `_ss` database and searched with `--ss-12st 1`
+    * `--model modernprost-pssm` and `--model modernprost-50M-pssm` emit per-residue profiles instead of argmax states, and are searched as Foldseek profile databases (`_profile_ss` / `_profile_ss12` / `_profile`)
+    * `--task classification|pssm` overrides the task a checkpoint was trained for; the default `auto` picks it from the model name
+* `--model prostt5` remains the default, and the ProstT5 code path is unchanged
+* `phold install --model` downloads a specific model (repeat the flag for more than one); defaults to ProstT5
+* `phold compare` auto-detects whether `phold predict` used ProstT5 or a ModernProst model, so no extra flags are needed to chain the two commands
+* Adds `--max_batch_residues` to control the number of residues per inference batch
+* ModernProst requires a Phold search database built with Foldseek 12-state support; `phold` fails with an explanatory message rather than silently searching a 3Di-only database
+* The 3Di/12st inference engine and Foldseek database builders live in [pholdlib](https://github.com/gbouras13/phold-lib) v0.2.0, shared with `baktfold`
+
 1.3.1 (2026-07-20)
 ------------------
 * `phold citation` now also prints our [protocols paper](https://doi.org/10.1002/cpz1.70405) citation alongside the existing Phold citation

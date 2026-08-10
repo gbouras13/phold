@@ -11,9 +11,17 @@ https://github.com/mheinzinger/ProstT5/blob/main/scripts/generate_foldseek_db.py
 import os
 import shutil
 from pathlib import Path
+from typing import Dict
 
 from Bio import SeqIO
 from loguru import logger
+
+from pholdlib.modernprost.foldseek_db import (
+    generate_combined_foldseek_db,
+    generate_sequence_foldseek_db,
+    read_fasta,
+)
+from pholdlib.modernprost.profile_db import write_profile_foldseek_dbs
 
 from phold.utils.external_tools import ExternalTool
 from phold.utils.util import remove_file
@@ -127,6 +135,132 @@ def foldseek_tsv2db(
     )
 
     ExternalTool.run_tool(foldseek_tsv2db)
+
+
+def phold_tsv2db_runner(logdir: Path):
+    """Build the ``tsv2db`` callback pholdlib's DB builders expect.
+
+    pholdlib does not know about phold's ExternalTool wrapper, so it takes a
+    ``(in_tsv, out_db, dbtype)`` callable. Binding *logdir* here keeps every
+    ``foldseek tsv2db`` invocation logged in the same place as the rest of the
+    run's external tool calls.
+    """
+
+    def _run(in_tsv: Path, out_db: Path, dbtype: int) -> None:
+        foldseek_tsv2db(in_tsv, out_db, dbtype, logdir)
+
+    return _run
+
+
+def generate_foldseek_db_from_aa_3di_12st(
+    fasta_aa: Path,
+    fasta_3di: Path,
+    fasta_12st: Path,
+    foldseek_db_path: Path,
+    logdir: Path,
+    prefix: str,
+) -> None:
+    """
+    Generate a combined 3Di + 12-state Foldseek database (ModernProst path).
+
+    Both alphabets are packed into a single byte per residue in ``<prefix>_ss``
+    (``c = 3di_index * 12 + ss12_index``). Search the result with
+    ``--ss-12st 1``.
+
+    Args:
+        fasta_aa (Path): Path to the amino-acid FASTA file.
+        fasta_3di (Path): Path to the 3Di FASTA file (must be unmasked).
+        fasta_12st (Path): Path to the 12-state FASTA file.
+        foldseek_db_path (Path): Directory the Foldseek database is written to.
+        logdir (Path): Directory where logs are stored.
+        prefix (str): Prefix for the Foldseek database.
+
+    Returns:
+        None
+    """
+    generate_combined_foldseek_db(
+        fasta_aa,
+        fasta_3di,
+        fasta_12st,
+        foldseek_db_path,
+        prefix,
+        phold_tsv2db_runner(logdir),
+    )
+
+
+def generate_foldseek_profile_db(
+    profiles: Dict[str, Dict[str, Dict]],
+    fasta_aa: Path,
+    profile_db_path: Path,
+    logdir: Path,
+    prefix: str,
+) -> Path:
+    """
+    Generate Foldseek 3Di / 12-state / amino-acid profile databases.
+
+    Used by the ``-pssm`` ModernProst checkpoints, whose per-residue softmax
+    distributions are scored directly rather than collapsed to a single state.
+
+    Args:
+        profiles (Dict): Nested ``{contig_id: {seq_id: {"3di": ndarray,
+            "12st": ndarray}}}`` from ``get_modernprost_predictions``.
+        fasta_aa (Path): Path to the amino-acid FASTA written by phold predict.
+            Supplies both the sequences and the header formatting, so the
+            profile DB keys match what the combined-DB path would produce.
+        profile_db_path (Path): Directory the profile databases are written to.
+        logdir (Path): Directory where logs are stored.
+        prefix (str): Prefix for the Foldseek database.
+
+    Returns:
+        Path: prefix of the query profile DB to hand to ``foldseek search``.
+    """
+    aa_sequences = read_fasta(fasta_aa)
+
+    # Re-key the nested profiles onto the FASTA headers ("contig:cds" or plain
+    # "cds"), which is what the amino-acid FASTA — and therefore the DB lookup
+    # — uses. Anything the FASTA does not contain was dropped upstream (failed
+    # inference, zero-length prediction) and must be dropped here too.
+    flat_3di: Dict = {}
+    flat_12st: Dict = {}
+    for contig_id, contig_profiles in profiles.items():
+        for seq_id, heads in contig_profiles.items():
+            header = seq_id if seq_id in aa_sequences else f"{contig_id}:{seq_id}"
+            if header not in aa_sequences:
+                logger.warning(
+                    f"Skipping {seq_id} in the Foldseek profile database: it has "
+                    f"no entry in {fasta_aa}"
+                )
+                continue
+            flat_3di[header] = heads["3di"]
+            flat_12st[header] = heads["12st"]
+
+    # Only build the DB over records that have a profile, so the amino-acid
+    # profile DB cannot end up with keys the structural profile DBs lack.
+    aa_sequences = {k: v for k, v in aa_sequences.items() if k in flat_3di}
+    if not aa_sequences:
+        logger.error(
+            "No ModernProst profiles could be matched to the amino-acid FASTA; "
+            "cannot build a Foldseek profile database."
+        )
+
+    profile_db_path = Path(profile_db_path)
+    profile_db_path.mkdir(parents=True, exist_ok=True)
+
+    source_db, lookup = generate_sequence_foldseek_db(
+        aa_sequences, profile_db_path, prefix, phold_tsv2db_runner(logdir)
+    )
+
+    write_profile_foldseek_dbs(
+        flat_3di,
+        flat_12st,
+        aa_sequences,
+        lookup,
+        profile_db_path,
+        prefix,
+        source_db,
+    )
+
+    return profile_db_path / f"{prefix}_profile"
 
 
 def generate_foldseek_db_from_structures(

@@ -4,11 +4,20 @@ import shutil
 import sys
 import tarfile
 from pathlib import Path
+from typing import Dict
 
 import requests
 from alive_progress import alive_bar
 from loguru import logger
 from huggingface_hub import hf_hub_download
+
+from pholdlib.databases.modernprost import (
+    # Re-exported so phold's model-loading call sites take their check_fn from
+    # phold.databases.db, the same way they take check_prostT5_download.
+    check_modernprost_download,  # noqa: F401
+    download_zenodo_modernprost,
+    resolve_modernprost_model,
+)
 
 from phold.utils.external_tools import ExternalTool
 from phold.utils.util import atomic_write_path, remove_directory
@@ -185,6 +194,100 @@ PROSTT5_FINETUNE_MD5_DICTIONARY = {
 
 
 PHOLD_DB_FOLDSEEK_GPU_NAMES = ["all_phold_structures_gpu"]
+
+
+# ---------------------------------------------------------------------------
+# ModernProst (3Di + 12-state)
+# ---------------------------------------------------------------------------
+#
+# Zenodo backups for the ModernProst checkpoints, used when the HuggingFace
+# download fails. Keyed by the model's short name (see
+# pholdlib.databases.modernprost.MODERNPROST_MODELS). An entry with an empty
+# ``url`` means no backup has been published yet: the HuggingFace download is
+# still attempted, and only the fallback is unavailable.
+MODERNPROST_BACKUP_DICTIONARY: Dict[str, Dict[str, str]] = {
+    "modernprost-base": {
+        "url": "",
+        "tarball": "models--gbouras13--modernprost-base.tar.gz",
+        "md5": "",
+    },
+    "modernprost-50M": {
+        "url": "",
+        "tarball": "models--gbouras13--modernprost-50M.tar.gz",
+        "md5": "",
+    },
+    "modernprost-pssm": {
+        "url": "",
+        "tarball": "models--gbouras13--modernprost-pssm.tar.gz",
+        "md5": "",
+    },
+    "modernprost-50M-pssm": {
+        "url": "",
+        "tarball": "models--gbouras13--modernprost-50M-pssm.tar.gz",
+        "md5": "",
+    },
+}
+
+
+# Files that only exist in a phold search database built with Foldseek's
+# 12-state mode (``foldseek createdb ... --ss-12st 1``). The 12-state states
+# are packed into the existing ``_ss`` database rather than a new file, so
+# presence alone cannot distinguish a 12st DB from a 3Di-only one — the marker
+# file below is written by the DB build and shipped in the tarball.
+PHOLD_DB_12ST_MARKER = "all_phold_structures_ss12.marker"
+
+
+# Target database built with Foldseek 12-state support. Populate ``db_url`` and
+# ``md5`` once the 12st phold search DB has been built and uploaded; until then
+# ``validate_db(..., require_12st=True)`` fails with instructions rather than
+# silently searching a 3Di-only database with --ss-12st 1, which would score
+# every target's 12-state channel against uninitialised bytes.
+CURRENT_DB_12ST_VERSION: str = "1.1.0"
+
+VERSION_DICTIONARY_12ST = {
+    "1.1.0": {
+        "md5": "",
+        "major": 1,
+        "minor": 1,
+        "minorest": 0,
+        "db_url": "",
+        "dir_name": "phold_search_db_12st_v_1_1_0",
+        "tarball": "phold_search_db_12st_v_1_1_0.tar.gz",
+    }
+}
+
+
+def modernprost_zenodo_downloader(model_name: str):
+    """Build the ``zenodo_fn`` callback for a ModernProst checkpoint.
+
+    ``pholdlib``'s loader calls ``zenodo_fn(model_dir, logdir, threads)`` with
+    no model argument, so the backup URL/md5/tarball for *model_name* are bound
+    here. Returns ``None`` when no backup has been published, which makes the
+    loader surface the original HuggingFace error instead of a confusing
+    secondary failure.
+    """
+    spec = resolve_modernprost_model(model_name)
+    backup = MODERNPROST_BACKUP_DICTIONARY.get(spec.short_name)
+
+    if not backup or not backup.get("url"):
+        return None
+
+    def _download(model_dir, logdir, threads):
+        download_zenodo_modernprost(
+            model_dir,
+            logdir,
+            threads,
+            backup_url=backup["url"],
+            backup_md5=backup["md5"],
+            backup_tarball=backup["tarball"],
+        )
+
+    return _download
+
+
+def check_db_12st_support(database: Path) -> bool:
+    """True when the installed phold search DB carries 12-state information."""
+    return (Path(database) / PHOLD_DB_12ST_MARKER).is_file()
 
 
 def install_database(
@@ -702,7 +805,12 @@ def check_db_installation(db_dir: Path, foldseek_gpu: bool) -> bool:
     return downloaded_flag, gpu_flag
 
 
-def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
+def validate_db(
+    database: str,
+    default_dir: str,
+    foldseek_gpu: bool,
+    require_12st: bool = False,
+) -> Path:
     """
     Validates the Phold database is installed.
 
@@ -710,9 +818,12 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
         database str: The directory where the database is installed.
         default_dir str: Default DB location
         foldseek_gpu bool: Whether to install foldseek-gpu compatible phold db
+        require_12st bool: Whether the search database must carry 12-state
+            information, i.e. have been built with ``foldseek createdb
+            --ss-12st 1``. Set when a ModernProst model is in use.
 
     Returns:
-        bool: True if all required files are present, False otherwise.
+        Path: the resolved database directory.
     """
     # set default DB if not specified
     if database is not None:
@@ -743,6 +854,20 @@ def validate_db(database: str, default_dir: str, foldseek_gpu: bool) -> Path:
             logger.error(
                 f"Phold database files compatible with Foldseek-GPU not found. Please run phold install -d {database} --foldseek_gpu"
             )
+
+    if require_12st and not check_db_12st_support(database):
+        # Searching a 3Di-only target DB with --ss-12st 1 does not fail loudly;
+        # Foldseek would read the target's 3Di bytes as combined 3Di+12st codes
+        # and score nonsense. Refuse up front instead.
+        logger.error(
+            f"The Phold search database in {database} was not built with Foldseek "
+            "12-state support, but a ModernProst model was requested. ModernProst "
+            "predicts 3Di *and* a 12-state alphabet, and both query and target "
+            "database must carry 12-state information.\n"
+            "Either install a 12-state Phold database, or run with "
+            "--model prostt5 to use the ProstT5 3Di-only pipeline against this "
+            "database."
+        )
 
     return database
 

@@ -60,7 +60,10 @@ dependencies = [
         "pycirclize >=0.3.1",
         "h5py >=3.5",
         "tqdm >=4.35.0",
-        "pholdlib >=0.1.2"  # 0.1.1 relaxed its own numpy floor to >=1.24
+        # 0.2.0 adds pholdlib.modernprost — the ModernProst 3Di+12-state
+        # inference engine and Foldseek 12-state / profile DB builders that
+        # `--model modernprost-*` depends on.
+        "pholdlib >=0.2.0"
     ]
 
 [project.scripts]
