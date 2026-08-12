@@ -232,3 +232,41 @@ class TestFoldseekSearchFlags:
     def test_extra_params_come_after_the_12st_flag(self):
         cmd = _search_cmd(ss_12st=True, extra_foldseek_params="--alignment-mode 3")
         assert cmd.index("--ss-12st 1") < cmd.index("--alignment-mode 3")
+
+
+class TestEvalue12stProfileComp:
+    """Foldseek's --evalue-12st-profile-comp, only meaningful on profile queries."""
+
+    def test_applied_on_the_profile_path(self):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp="1")
+        assert "--evalue-12st-profile-comp 1" in cmd
+
+    @pytest.mark.parametrize("value", ["0", "1", "2"])
+    def test_all_composition_sources_pass_through(self, value):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp=value)
+        assert f"--evalue-12st-profile-comp {value}" in cmd
+
+    def test_off_omits_the_flag_entirely(self):
+        # "off" must leave Foldseek's own default in place rather than
+        # pinning a value, so an A/B against the default is possible.
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp="off")
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_none_omits_the_flag_entirely(self):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp=None)
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_not_applied_without_profiles(self):
+        # The flag only affects profile queries; adding it to a sequence
+        # search would be noise at best and a Foldseek error at worst.
+        cmd = _search_cmd(ss_12st=True, evalue_12st_profile_comp="1")
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_not_applied_on_the_prostt5_path(self):
+        cmd = _search_cmd(evalue_12st_profile_comp="1")
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_accompanies_sort_by_structure_bits(self):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp="1")
+        assert "--sort-by-structure-bits 0" in cmd
+        assert "--ss-12st 1" in cmd

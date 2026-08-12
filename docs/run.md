@@ -44,6 +44,8 @@ The `modernprost-*` models are a single encoder that predicts 3Di **and** a 12-s
 
 The `-pssm` checkpoints keep the full per-residue probability distribution rather than collapsing it to a single most-likely state, and are searched as Foldseek profile databases. `--task classification|pssm` overrides this; the default `auto` uses whichever task the chosen model was trained for.
 
+Profile searches are additionally run with `--evalue-12st-profile-comp 1`, which reconstructs residue frequencies from the profile and derives the 12-state e-value from those rather than from the profile's centre sequence. Change it with `--evalue_12st_profile_comp 0|1|2|off` (`off` leaves Foldseek's default). It only takes effect when Foldseek is using its neural-net e-value model (`--evalue-nn-mode 2`) — add that via `--extra_foldseek_params` if it is not the default in your Foldseek build.
+
 ```bash
 # download a ModernProst model alongside the database
 phold install --model modernprost-50M

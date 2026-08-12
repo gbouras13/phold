@@ -319,6 +319,22 @@ def compare_options(func):
             help="Runs phold with maximum sensitivity by skipping Foldseek prefilter. Not recommended for large datasets.",
         ),
         click.option(
+            "--evalue_12st_profile_comp",
+            type=click.Choice(["0", "1", "2", "off"], case_sensitive=False),
+            default="1",
+            show_default=True,
+            help=(
+                "Composition source for Foldseek's 12-state e-value neural net "
+                "on profile queries (--model modernprost-pssm / "
+                "modernprost-50M-pssm). 1 reconstructs frequencies from the "
+                "profile and uses those, rather than its centre sequence. "
+                "0 = legacy whole-query, 2 = legacy whole-query 3Di+12-state, "
+                "off = leave Foldseek's default. Only takes effect with "
+                "Foldseek's NN e-value model (--evalue-nn-mode 2); no effect "
+                "outside the profile path."
+            ),
+        ),
+        click.option(
             "--extra_foldseek_params", type=str, help="Extra foldseek search params"
         ),
         click.option("--custom_db", type=str, help="Path to custom database"),
@@ -396,6 +412,7 @@ def run(
     ultra_sensitive,
     mask_threshold,
     extra_foldseek_params,
+    evalue_12st_profile_comp,
     custom_db,
     foldseek_gpu,
     hyps,
@@ -438,6 +455,7 @@ def run(
         "--ultra_sensitive": ultra_sensitive,
         "--mask_threshold": mask_threshold,
         "--extra_foldseek_params": extra_foldseek_params,
+        "--evalue_12st_profile_comp": evalue_12st_profile_comp,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
         "--hyps": hyps,
@@ -546,6 +564,7 @@ def run(
         max_seqs=max_seqs,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
+        evalue_12st_profile_comp=evalue_12st_profile_comp,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
@@ -776,6 +795,7 @@ def compare(
     max_seqs,
     ultra_sensitive,
     extra_foldseek_params,
+    evalue_12st_profile_comp,
     custom_db,
     foldseek_gpu,
     restart,
@@ -809,6 +829,7 @@ def compare(
         "--max_seqs": max_seqs,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
+        "--evalue_12st_profile_comp": evalue_12st_profile_comp,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
         "--gpus": gpus,
@@ -850,6 +871,7 @@ def compare(
         max_seqs=max_seqs,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
+        evalue_12st_profile_comp=evalue_12st_profile_comp,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
@@ -1108,6 +1130,7 @@ def proteins_compare(
     max_seqs,
     ultra_sensitive,
     extra_foldseek_params,
+    evalue_12st_profile_comp,
     custom_db,
     foldseek_gpu,
     restart,
@@ -1140,6 +1163,7 @@ def proteins_compare(
         "--max_seqs": max_seqs,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
+        "--evalue_12st_profile_comp": evalue_12st_profile_comp,
         "--custom_db": custom_db,
         "--foldseek_gpu": foldseek_gpu,
         "--gpus": gpus,
@@ -1211,6 +1235,7 @@ def proteins_compare(
         max_seqs=max_seqs,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
+        evalue_12st_profile_comp=evalue_12st_profile_comp,
         custom_db=custom_db,
         foldseek_gpu=foldseek_gpu,
         restart=restart,
@@ -1259,6 +1284,7 @@ def remote(
     max_seqs,
     ultra_sensitive,
     extra_foldseek_params,
+    evalue_12st_profile_comp,
     custom_db,
     **kwargs,
 ):
@@ -1285,6 +1311,7 @@ def remote(
         "--max_seqs": max_seqs,
         "--ultra_sensitive": ultra_sensitive,
         "--extra_foldseek_params": extra_foldseek_params,
+        "--evalue_12st_profile_comp": evalue_12st_profile_comp,
         "--custom_db": custom_db,
     }
 
@@ -1366,6 +1393,7 @@ def remote(
         max_seqs=max_seqs,
         ultra_sensitive=ultra_sensitive,
         extra_foldseek_params=extra_foldseek_params,
+        evalue_12st_profile_comp=evalue_12st_profile_comp,
         custom_db=custom_db,
         foldseek_gpu=False,  # doesn't make sense for remote to do this as you wouldn't probably have a GPU
     )

@@ -6,6 +6,7 @@
     * `--model modernprost-base` (~1.0B parameters) and `--model modernprost-50M` (~53M) write both a `_3di.fasta` and a `_12st.fasta`, which are packed into one combined Foldseek `_ss` database and searched with `--ss-12st 1`
     * `--model modernprost-pssm` and `--model modernprost-50M-pssm` emit per-residue profiles instead of argmax states, and are searched as Foldseek profile databases (`_profile_ss` / `_profile_ss12` / `_profile`)
     * `--task classification|pssm` overrides the task a checkpoint was trained for; the default `auto` picks it from the model name
+    * profile searches also pass `--evalue-12st-profile-comp 1`, deriving the 12-state e-value from frequencies reconstructed from the profile rather than from its centre sequence. Control with `--evalue_12st_profile_comp 0|1|2|off`
 * `--model prostt5` remains the default, and the ProstT5 code path is unchanged
 * `phold install --model` downloads a specific model (repeat the flag for more than one); defaults to ProstT5
 * `phold compare` auto-detects whether `phold predict` used ProstT5 or a ModernProst model, so no extra flags are needed to chain the two commands

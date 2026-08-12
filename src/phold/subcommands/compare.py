@@ -239,6 +239,7 @@ def subcommand_compare(
     gpus: Optional[str] = None,
     ss_12st: Optional[bool] = None,
     profiles: Optional[bool] = None,
+    evalue_12st_profile_comp: Optional[str] = None,
 ) -> bool:
     """
     Compare 3Di or PDB structures to the Phold DB
@@ -274,6 +275,9 @@ def subcommand_compare(
         profiles (Optional[bool]): Search Foldseek profile databases instead of
             a sequence database (the ModernProst `-pssm` models). None
             auto-detects, as for ss_12st.
+        evalue_12st_profile_comp (Optional[str]): Composition source for
+            Foldseek's 12-state e-value neural net on profile queries. Only
+            used on the profile path — see run_foldseek_search.
 
     Returns:
         bool: True if sub-databases are created successfully, False otherwise.
@@ -649,6 +653,7 @@ def subcommand_compare(
             gpus=gpus,
             ss_12st=ss_12st,
             profiles=profiles,
+            evalue_12st_profile_comp=evalue_12st_profile_comp,
         )
 
 
@@ -870,6 +875,18 @@ def subcommand_compare(
         logger.info(
             f"Foldseek will also be run against your custom database {custom_db}"
         )
+        if ss_12st:
+            # The query DB packs 3Di+12st into one byte, so the search has to be
+            # told — otherwise Foldseek reads codes 0-239 as bare 3Di states.
+            # That means the custom target DB must carry 12-state information
+            # too, which phold cannot verify the way it does for its own DB.
+            logger.warning(
+                f"Your custom database {custom_db} will be searched with "
+                "--ss-12st 1, since the query uses the combined 3Di+12-state "
+                "alphabet. It must have been built with Foldseek 12-state "
+                "support (foldseek createdb ... --ss-12st 1) or the results "
+                "will be meaningless."
+            )
         # make result and temp dirs
         result_db_custom: Path = Path(result_db_base) / "result_db_custom"
         result_tsv_custom: Path = Path(output) / "foldseek_results_custom.tsv"
@@ -891,6 +908,9 @@ def subcommand_compare(
             structures,
             clustered_db=False,  # no custom db cluster searching
             gpus=gpus,
+            ss_12st=ss_12st,
+            profiles=profiles,
+            evalue_12st_profile_comp=evalue_12st_profile_comp,
         )
 
         # make result tsv

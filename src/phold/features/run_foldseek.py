@@ -25,6 +25,7 @@ def run_foldseek_search(
     gpus: Optional[str] = None,
     ss_12st: bool = False,
     profiles: bool = False,
+    evalue_12st_profile_comp: Optional[str] = None,
 ) -> None:
     """
     Run a Foldseek search using given parameters.
@@ -55,6 +56,12 @@ def run_foldseek_search(
             12-state information.
         profiles (bool): The query database is a Foldseek profile database
             (the ModernProst ``-pssm`` models) rather than a sequence database.
+        evalue_12st_profile_comp (Optional[str]): Composition source for the
+            12-state e-value neural net on profile queries — Foldseek's
+            ``--evalue-12st-profile-comp``: ``"0"`` legacy whole-query,
+            ``"1"`` windowed query/target, ``"2"`` legacy whole-query
+            3Di+12-state. Only applied on the profile path. ``None`` (or
+            ``"off"``) omits the flag so Foldseek's own default applies.
 
     Returns:
         None
@@ -77,6 +84,14 @@ def run_foldseek_search(
     # structure-bits re-sort would re-rank them by a score they don't have.
     if profiles:
         cmd += " --sort-by-structure-bits 0"
+
+        # Derive the 12-state e-value NN's composition from the reconstructed
+        # profile frequencies rather than the profile's centre sequence. Only
+        # takes effect when Foldseek is using the NN e-value model
+        # (--evalue-nn-mode 2); pass that via --extra_foldseek_params if it is
+        # not the default in your Foldseek build.
+        if evalue_12st_profile_comp not in (None, "off"):
+            cmd += f" --evalue-12st-profile-comp {evalue_12st_profile_comp}"
 
     if extra_foldseek_params:
         cmd += f" {extra_foldseek_params}"

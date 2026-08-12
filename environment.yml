@@ -37,5 +37,5 @@ dependencies:
   - requests >=2.25
   - sentencepiece >=0.1.99
   - tqdm >=4.35.0
-  - transformers >=4.34
-  - pholdlib >=0.1.2
+  - transformers >=4.34   # ModernProst (--model modernprost-*) needs >=5.0
+  - pholdlib >=0.2.0
