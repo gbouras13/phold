@@ -16,12 +16,13 @@ from typing import Dict
 from Bio import SeqIO
 from loguru import logger
 
-from pholdlib.modernprost.foldseek_db import (
-    generate_combined_foldseek_db,
-    generate_sequence_foldseek_db,
-    read_fasta,
-)
-from pholdlib.modernprost.profile_db import write_profile_foldseek_dbs
+# The pholdlib.modernprost builders are imported lazily inside the two
+# functions that need them. phold/__init__.py imports this module at the top
+# level for `generate_foldseek_db_from_aa_3di`, so an import here is paid by
+# every subcommand — including `--help`. pholdlib's package __init__ is lazy
+# too, but importing its submodules eagerly would still drag numpy in on that
+# path, and the indirection is easy to lose track of; keeping the import next
+# to its use makes the cost local and obvious.
 
 from phold.utils.external_tools import ExternalTool
 from phold.utils.util import remove_file
@@ -178,6 +179,8 @@ def generate_foldseek_db_from_aa_3di_12st(
     Returns:
         None
     """
+    from pholdlib.modernprost.foldseek_db import generate_combined_foldseek_db
+
     generate_combined_foldseek_db(
         fasta_aa,
         fasta_3di,
@@ -214,6 +217,10 @@ def generate_foldseek_profile_db(
     Returns:
         Path: prefix of the query profile DB to hand to ``foldseek search``.
     """
+    from pholdlib.modernprost.foldseek_db import (generate_sequence_foldseek_db,
+                                                  read_fasta)
+    from pholdlib.modernprost.profile_db import write_profile_foldseek_dbs
+
     aa_sequences = read_fasta(fasta_aa)
 
     # Re-key the nested profiles onto the FASTA headers ("contig:cds" or plain

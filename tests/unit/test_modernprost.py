@@ -8,6 +8,9 @@ these need a model, a GPU or the foldseek binary.
 """
 from __future__ import annotations
 
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +21,61 @@ from phold.databases.db import check_db_12st_support
 from phold.features.predict_3di_12st import mean_probs_filename
 from phold.features.run_foldseek import run_foldseek_search
 from phold.subcommands.compare import detect_prediction_mode
+
+
+# ===========================================================================
+# Import cost
+# ===========================================================================
+
+class TestImportCost:
+    """`phold --help` must not import torch or transformers.
+
+    Importing them costs seconds on local disk and minutes on a shared cluster
+    filesystem, and no `--help`, `install`, `createdb` or `plot` invocation
+    needs either. This regressed once already: phold/__init__.py imports
+    features.create_foldseek_db at module level, and adding an eager
+    `pholdlib.modernprost` import there pulled the whole ML stack into every
+    subcommand. A subprocess is used so the check sees a clean sys.modules
+    rather than whatever the rest of the suite has already imported.
+    """
+
+    def _modules_after(self, argv: list) -> dict:
+        code = textwrap.dedent(
+            f"""
+            import json, sys
+            from click.testing import CliRunner
+            from phold import main_cli
+            result = CliRunner().invoke(main_cli, {argv!r})
+            print(json.dumps({{
+                "exit_code": result.exit_code,
+                "torch": "torch" in sys.modules,
+                "transformers": "transformers" in sys.modules,
+            }}))
+            """
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, check=True
+        )
+        import json
+
+        return json.loads(proc.stdout.strip().splitlines()[-1])
+
+    @pytest.mark.parametrize(
+        "argv",
+        [["--help"], ["run", "--help"], ["predict", "--help"], ["compare", "--help"]],
+    )
+    def test_help_does_not_import_the_ml_stack(self, argv):
+        result = self._modules_after(argv)
+        assert result["exit_code"] == 0
+        assert not result["torch"], f"torch imported for `phold {' '.join(argv)}`"
+        assert not result["transformers"], (
+            f"transformers imported for `phold {' '.join(argv)}`"
+        )
+
+
+# ===========================================================================
+# --model resolution
+# ===========================================================================
 
 
 # ===========================================================================
@@ -232,6 +290,43 @@ class TestFoldseekSearchFlags:
     def test_extra_params_come_after_the_12st_flag(self):
         cmd = _search_cmd(ss_12st=True, extra_foldseek_params="--alignment-mode 3")
         assert cmd.index("--ss-12st 1") < cmd.index("--alignment-mode 3")
+
+
+class TestEvalue12stProfileComp:
+    """Foldseek's --evalue-12st-profile-comp, for the pssm profile searches.
+
+    Derives the 12-state e-value NN's composition from the reconstructed
+    profile frequencies rather than the profile's centre sequence.
+    """
+
+    def test_applied_on_the_profile_path(self):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp="1")
+        assert "--evalue-12st-profile-comp 1" in cmd
+
+    @pytest.mark.parametrize("value", ["0", "1", "2"])
+    def test_all_composition_sources_pass_through(self, value):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp=value)
+        assert f"--evalue-12st-profile-comp {value}" in cmd
+
+    def test_off_omits_the_flag_entirely(self):
+        # "off" must leave Foldseek's own default in place rather than pinning
+        # a value, so the setting can be A/B'd against stock behaviour.
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp="off")
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_none_omits_the_flag_entirely(self):
+        cmd = _search_cmd(ss_12st=True, profiles=True, evalue_12st_profile_comp=None)
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_not_applied_outside_the_profile_path(self):
+        # The flag only means anything for profile queries; adding it to a
+        # sequence-DB search would be noise at best.
+        cmd = _search_cmd(ss_12st=True, profiles=False, evalue_12st_profile_comp="1")
+        assert "--evalue-12st-profile-comp" not in cmd
+
+    def test_not_applied_on_the_prostt5_path(self):
+        cmd = _search_cmd(evalue_12st_profile_comp="1")
+        assert "--evalue-12st-profile-comp" not in cmd
 
 
 class TestEvalue12stProfileComp:

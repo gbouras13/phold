@@ -31,38 +31,18 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
-from phold.utils.util import atomic_write_path
-
-# ── pholdlib shared components ────────────────────────────────────────────────
+# Only light imports at module level. `pholdlib.modernprost.inference` pulls in
+# torch and `.model` pulls in transformers — seconds locally, minutes on a
+# shared cluster filesystem. `phold.subcommands.compare` imports this module
+# just for `mean_probs_filename`, and never runs inference, so the heavy
+# imports live inside `get_modernprost_predictions` instead.
 from pholdlib.databases.modernprost import (
     CLASSIFICATION_TASK,
     PSSM_TASK,
     resolve_modernprost_model,
 )
-from pholdlib.modernprost.inference import (
-    DEFAULT_CHUNK_LEN,
-    ModernProstResult,
-    predictions_from_profiles,
-    run_modernprost_inference_multi_gpu,
-)
-from pholdlib.modernprost.output import (
-    SS12_ALPHABET,
-    THREEDI_ALPHABET,
-    write_12st_fasta,
-    write_3di_fasta,
-    write_all_probs,
-    write_fail_ids,
-    write_mean_probs,
-    write_profiles_text,
-)
-from pholdlib.prostt5.device import parse_gpus
 
-# ── phold-specific DB helpers ─────────────────────────────────────────────────
-from phold.databases.db import (
-    check_modernprost_download,
-    modernprost_zenodo_downloader,
-)
-from phold.features.predict_3Di import write_embeddings
+from phold.utils.util import atomic_write_path
 
 
 # Filename component distinguishing ModernProst outputs from ProstT5's, so a
@@ -90,7 +70,7 @@ def get_modernprost_predictions(
     max_residues: int = 50000,
     max_seq_len: int = 30000,
     max_batch: int = 10000,
-    chunk_len: int = DEFAULT_CHUNK_LEN,
+    chunk_len: Optional[int] = None,
     cpu: bool = False,
     output_probs: bool = True,
     proteins_flag: bool = False,
@@ -116,6 +96,9 @@ def get_modernprost_predictions(
         max_seq_len: Chunks longer than this flush a batch immediately.
         max_batch: Max sequences per batch.
         chunk_len: Sequences longer than this are split and reassembled.
+            None uses pholdlib's default. It cannot be the default argument
+            value here: reading it would import torch at module-import time,
+            which is exactly what this module defers.
         cpu: Force CPU inference.
         output_probs: Whether to write the per-residue probability JSON.
         proteins_flag: True when input is a flat proteins FASTA (no contigs).
@@ -129,6 +112,21 @@ def get_modernprost_predictions(
         a nested ``{contig_id: {seq_id: {"3di": ndarray, "12st": ndarray}}}``
         that is empty unless ``task="pssm"``.
     """
+    # Deferred: torch / transformers (see the module docstring's note).
+    from pholdlib.modernprost.inference import (
+        DEFAULT_CHUNK_LEN, ModernProstResult, predictions_from_profiles,
+        run_modernprost_inference_multi_gpu)
+    from pholdlib.modernprost.output import (SS12_ALPHABET, THREEDI_ALPHABET,
+                                             write_12st_fasta, write_3di_fasta,
+                                             write_all_probs, write_fail_ids,
+                                             write_mean_probs,
+                                             write_profiles_text)
+    from pholdlib.prostt5.device import parse_gpus
+
+    from phold.databases.db import (check_modernprost_download,
+                                    modernprost_zenodo_downloader)
+    from phold.features.predict_3Di import write_embeddings
+
     spec = resolve_modernprost_model(model_name)
     task = str(task).lower()
 
@@ -179,7 +177,7 @@ def get_modernprost_predictions(
         max_residues=max_residues,
         max_seq_len=max_seq_len,
         max_batch=max_batch,
-        chunk_len=chunk_len,
+        chunk_len=DEFAULT_CHUNK_LEN if chunk_len is None else chunk_len,
         output_probs=True,  # phold always needs per-residue probs to mask AAs
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,

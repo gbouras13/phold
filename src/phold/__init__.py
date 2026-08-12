@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-import gzip
 from pathlib import Path
 
 import click
-from Bio import SeqIO
-from Bio.SeqFeature import FeatureLocation, SeqFeature
 from loguru import logger
 
 # pycirclize is lazy-imported inside the `plot` subcommand (line ~1561) so
@@ -18,7 +15,11 @@ from phold.databases.db import (check_prostT5_download,
                                   validate_db)
 from phold.features.create_foldseek_db import generate_foldseek_db_from_aa_3di
 from phold.features.query_remote_3Di import query_remote_3di
-from phold.io.handle_genbank import open_protein_fasta_file
+# BioPython (SeqIO / SeqFeature) and phold.io.handle_genbank are lazy-imported
+# in the two handler bodies that use them (proteins-predict and
+# proteins-compare). handle_genbank transitively imports pyrodigal_gv.meta,
+# which alone costs ~0.4 s on local disk and far more on a shared cluster
+# filesystem — a price every subcommand, `--help` included, was paying.
 # get_T5_model (from predict_3Di) and run_autotune (from autotune) are
 # lazy-imported inside their handler bodies — both transitively import torch.
 # subcommand_predict and subcommand_compare are lazy-imported inside each
@@ -975,6 +976,11 @@ def proteins_predict(
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
 
+    from Bio import SeqIO
+    from Bio.SeqFeature import FeatureLocation, SeqFeature
+
+    from phold.io.handle_genbank import open_protein_fasta_file
+
     with open_protein_fasta_file(input) as handle:  # handles gzip too
         records = list(SeqIO.parse(handle, "fasta"))
         if not records:
@@ -1188,6 +1194,11 @@ def proteins_compare(
 
     # Iterate through the multifasta file and save each Seqfeature to the dictionary
     # 1 dummy record = proteins
+    from Bio import SeqIO
+    from Bio.SeqFeature import FeatureLocation, SeqFeature
+
+    from phold.io.handle_genbank import open_protein_fasta_file
+
     with open_protein_fasta_file(input) as handle:  # handles gzip too
         records = list(SeqIO.parse(handle, "fasta"))
         if not records:
