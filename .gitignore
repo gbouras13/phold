@@ -121,3 +121,6 @@ ENV/
 .DS_Store
 */.DS_Store
 */*/.DS_Store
+
+# Local HuggingFace scratch — holds an access token, must never be committed
+HF/
