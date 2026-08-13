@@ -93,9 +93,13 @@ Options:
                                  h5 file
   --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
                                  protein in a h5 file
-  --mask_threshold FLOAT         Masks 3Di residues below this value of
-                                 ProstT5 confidence for Foldseek searches
-                                 [default: 25]
+  --mask_threshold FLOAT         Masks residues below this percentage model
+                                 confidence before the Foldseek search. 0
+                                 disables masking. Applies to the 3Di and amino
+                                 acid FASTAs for --model prostt5, and to the
+                                 amino acid FASTA only for the ModernProst
+                                 models, whose combined 3Di+12-state alphabet
+                                 has no masked state.  [default: 0]
   --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
                                  model both finetuned on phage proteins
   --vanilla                      Use vanilla CNN model (trained on CASP14)
@@ -246,9 +250,13 @@ Options:
                                  h5 file
   --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
                                  protein in a h5 file
-  --mask_threshold FLOAT         Masks 3Di residues below this value of
-                                 ProstT5 confidence for Foldseek searches
-                                 [default: 25]
+  --mask_threshold FLOAT         Masks residues below this percentage model
+                                 confidence before the Foldseek search. 0
+                                 disables masking. Applies to the 3Di and amino
+                                 acid FASTAs for --model prostt5, and to the
+                                 amino acid FASTA only for the ModernProst
+                                 models, whose combined 3Di+12-state alphabet
+                                 has no masked state.  [default: 0]
   --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
                                  model both finetuned on phage proteins
   --vanilla                      Use vanilla CNN model (trained on CASP14)
@@ -324,9 +332,13 @@ Options:
                                  h5 file
   --save_per_protein_embeddings  Save the ProstT5 embeddings as means per
                                  protein in a h5 file
-  --mask_threshold FLOAT         Masks 3Di residues below this value of
-                                 ProstT5 confidence for Foldseek searches
-                                 [default: 25]
+  --mask_threshold FLOAT         Masks residues below this percentage model
+                                 confidence before the Foldseek search. 0
+                                 disables masking. Applies to the 3Di and amino
+                                 acid FASTAs for --model prostt5, and to the
+                                 amino acid FASTA only for the ModernProst
+                                 models, whose combined 3Di+12-state alphabet
+                                 has no masked state.  [default: 0]
   --finetune                     Use gbouras13/ProstT5Phold encoder + CNN
                                  model both finetuned on phage proteins
   --vanilla                      Use vanilla CNN model (trained on CASP14)
@@ -465,10 +477,25 @@ Example usage
 phold createdb --fasta_aa phold_aa.fasta  --fasta_3di phold_3di.fasta -o my_foldseek_db  
 ```
 
+Pass `--fasta_12st` as well to build a **combined 3Di + 12-state** database from ModernProst predictions. Both alphabets are packed into a single byte per residue (`c = 3di_index * 12 + ss12_index`), and the resulting database must be searched with `--ss-12st 1`:
+
+```bash
+phold predict -i pharokka.gbk -o phold_predict --model modernprost-50M
+
+phold createdb \
+    --fasta_aa phold_predict/phold_aa.fasta \
+    --fasta_3di phold_predict/phold_3di.fasta \
+    --fasta_12st phold_predict/phold_12st.fasta \
+    -o my_12st_foldseek_db
+```
+
+The 3Di FASTA must be unmasked when `--fasta_12st` is given — the combined encoding has no masked state, so an `X` cannot be represented. `phold predict` already writes it unmasked for the ModernProst models. Run with `--mask_threshold 0` if you are supplying 3Di sequences from elsewhere.
+
 ```bash
 Usage: phold createdb [OPTIONS]
 
-  Creates foldseek DB from AA FASTA and 3Di FASTA input files
+  Creates foldseek DB from AA FASTA and 3Di (and optionally 12-state) FASTA
+  input files
 
 Options:
   -h, --help             Show this message and exit.
@@ -476,6 +503,12 @@ Options:
   --fasta_aa PATH        Path to input Amino Acid FASTA file of proteins
                          [required]
   --fasta_3di PATH       Path to input 3Di FASTA file of proteins  [required]
+  --fasta_12st PATH      Path to input 12-state FASTA file of proteins (e.g.
+                         phold predict's {prefix}_12st.fasta). When given, both
+                         alphabets are packed into one combined Foldseek
+                         database, which must be searched with --ss-12st 1. The
+                         3Di FASTA must then be unmasked, as the combined
+                         encoding has no masked state.
   -o, --output PATH      Output directory   [default:
                          output_phold_foldseek_db]
   -t, --threads INTEGER  Number of threads to use with Foldseek  [default: 1]

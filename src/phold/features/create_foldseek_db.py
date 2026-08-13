@@ -181,14 +181,22 @@ def generate_foldseek_db_from_aa_3di_12st(
     """
     from pholdlib.modernprost.foldseek_db import generate_combined_foldseek_db
 
-    generate_combined_foldseek_db(
-        fasta_aa,
-        fasta_3di,
-        fasta_12st,
-        foldseek_db_path,
-        prefix,
-        phold_tsv2db_runner(logdir),
-    )
+    try:
+        generate_combined_foldseek_db(
+            fasta_aa,
+            fasta_3di,
+            fasta_12st,
+            foldseek_db_path,
+            prefix,
+            phold_tsv2db_runner(logdir),
+        )
+    except ValueError as exc:
+        # pholdlib raises ValueError for the input problems a user can fix —
+        # a masked 3Di residue, mismatched lengths, an out-of-alphabet
+        # character. Its messages already say what to do, so surface them
+        # through phold's error convention (logger.error exits 1) rather than
+        # as a bare traceback.
+        logger.error(f"Could not build the combined 3Di + 12-state database: {exc}")
 
 
 def generate_foldseek_profile_db(

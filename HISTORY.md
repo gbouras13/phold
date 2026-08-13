@@ -10,6 +10,8 @@
 * `--model prostt5` remains the default, and the ProstT5 code path is unchanged
 * `phold install --model` downloads a specific model (repeat the flag for more than one); defaults to ProstT5
 * `phold compare` auto-detects whether `phold predict` used ProstT5 or a ModernProst model, so no extra flags are needed to chain the two commands
+* `phold createdb` takes an optional `--fasta_12st`, building a combined 3Di + 12-state Foldseek database from ModernProst predictions. Without it the existing 3Di-only behaviour is unchanged
+* **The default `--mask_threshold` is now 0 (no masking), down from 25.** Masking cannot be applied to the 3Di string under the ModernProst models at all — the combined alphabet has no masked state — so leaving it on by default made the two backends disagree about what the Foldseek query contains. Pass `--mask_threshold 25` to restore the old behaviour on the ProstT5 path
 * Adds `--max_batch_residues` to control the number of residues per inference batch
 * ModernProst requires a Phold search database built with Foldseek 12-state support; `phold` fails with an explanatory message rather than silently searching a 3Di-only database
 * The 3Di/12st inference engine and Foldseek database builders live in [pholdlib](https://github.com/gbouras13/phold-lib) v0.2.0, shared with `baktfold`

@@ -240,8 +240,14 @@ def predict_options(func):
         ),
         click.option(
             "--mask_threshold",
-            default=25,
-            help="Masks 3Di residues below this value of ProstT5 confidence for Foldseek searches",
+            default=0,
+            help=(
+                "Masks residues below this percentage model confidence before "
+                "the Foldseek search. 0 disables masking. Applies to the 3Di "
+                "and amino acid FASTAs for --model prostt5, and to the amino "
+                "acid FASTA only for the ModernProst models, whose combined "
+                "3Di+12-state alphabet has no masked state."
+            ),
             type=float,
             show_default=True,
         ),
@@ -1439,6 +1445,18 @@ createdb command
     required=True,
 )
 @click.option(
+    "--fasta_12st",
+    help=(
+        "Path to input 12-state FASTA file of proteins (e.g. phold predict's "
+        "{prefix}_12st.fasta). When given, both alphabets are packed into one "
+        "combined Foldseek database, which must be searched with --ss-12st 1. "
+        "The 3Di FASTA must then be unmasked, as the combined encoding has no "
+        "masked state."
+    ),
+    type=click.Path(),
+    default=None,
+)
+@click.option(
     "-o",
     "--output",
     default="output_phold_foldseek_db",
@@ -1472,13 +1490,14 @@ def createdb(
     ctx,
     fasta_aa,
     fasta_3di,
+    fasta_12st,
     output,
     threads,
     prefix,
     force,
     **kwargs,
 ):
-    """Creates foldseek DB from AA FASTA and 3Di FASTA input files"""
+    """Creates foldseek DB from AA FASTA and 3Di (and optionally 12-state) FASTA input files"""
 
     # validates the directory  (need to before I start phold or else no log file is written)
     instantiate_dirs(output, force, restart=False)
@@ -1489,6 +1508,7 @@ def createdb(
     params = {
         "--fasta_aa": fasta_aa,
         "--fasta_3di": fasta_3di,
+        "--fasta_12st": fasta_12st,
         "--output": output,
         "--threads": threads,
         "--force": force,
@@ -1501,7 +1521,18 @@ def createdb(
     # check foldseek is installed
     check_dependencies()
 
-    logger.info(f"Creating the Foldseek database using {fasta_aa} and {fasta_3di}.")
+    if fasta_12st:
+        logger.info(
+            f"Creating the Foldseek database using {fasta_aa}, {fasta_3di} and "
+            f"{fasta_12st}."
+        )
+        logger.info(
+            "Both alphabets will be packed into one byte per residue "
+            "(c = 3di_index * 12 + ss12_index). Search this database with "
+            "--ss-12st 1."
+        )
+    else:
+        logger.info(f"Creating the Foldseek database using {fasta_aa} and {fasta_3di}.")
     logger.info(
         f"The database will be saved in the {output} directory and be called {prefix}."
     )
@@ -1513,9 +1544,17 @@ def createdb(
     foldseek_query_db_path: Path = Path(output)
     foldseek_query_db_path.mkdir(parents=True, exist_ok=True)
 
-    generate_foldseek_db_from_aa_3di(
-        fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
-    )
+    if fasta_12st:
+        from phold.features.create_foldseek_db import \
+            generate_foldseek_db_from_aa_3di_12st
+
+        generate_foldseek_db_from_aa_3di_12st(
+            fasta_aa, fasta_3di, fasta_12st, foldseek_query_db_path, logdir, prefix
+        )
+    else:
+        generate_foldseek_db_from_aa_3di(
+            fasta_aa, fasta_3di, foldseek_query_db_path, logdir, prefix
+        )
 
     # end phold
     end_phold(start_time, "createdb")
