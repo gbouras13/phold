@@ -31,7 +31,7 @@ from phold.utils.constants import CNN_DIR, DB_DIR
 from phold.utils.util import (begin_phold, clean_up_temporary_files, end_phold,
                               get_version, print_citation)
 from phold.utils.validation import (check_dependencies, instantiate_dirs,
-                                    validate_input)
+                                    validate_input, validate_mask_options)
 from importlib.resources import files
 
 log_fmt = (
@@ -478,6 +478,9 @@ def run(
     # initial logging etc
     start_time = begin_phold(params, "run")
 
+    # fail fast — before any model is loaded (see validate_mask_options)
+    validate_mask_options(omit_probs, mask_threshold)
+
     # check foldseek is installed
     check_dependencies()
 
@@ -667,6 +670,9 @@ def predict(
 
     # initial logging etc
     start_time = begin_phold(params, "predict")
+
+    # fail fast — before any model is loaded (see validate_mask_options)
+    validate_mask_options(omit_probs, mask_threshold)
 
     # check the database is installed. The 12-state target DB is only needed by
     # `phold compare`, so predict alone does not require it — the model itself
@@ -970,6 +976,9 @@ def proteins_predict(
 
     # initial logging etc
     start_time = begin_phold(params, "proteins-predict")
+
+    # fail fast — before any model is loaded (see validate_mask_options)
+    validate_mask_options(omit_probs, mask_threshold)
 
     # check the database is installed
     database = validate_db(database, DB_DIR, foldseek_gpu=False)

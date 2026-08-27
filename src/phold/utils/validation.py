@@ -121,6 +121,34 @@ def instantiate_dirs(output_dir: Union[str, Path], force: bool, restart: bool = 
             Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
+def validate_mask_options(omit_probs: bool, mask_threshold: float) -> None:
+    """
+    Checks that --omit_probs and --mask_threshold are compatible.
+
+    Masking needs the per-residue ProstT5 probabilities, which ``--omit_probs``
+    discards during inference (``all_prob`` is left as ``None``). Combining the
+    two used to survive the whole prediction and only blow up at write time
+    with ``TypeError: 'NoneType' object is not subscriptable`` — after the full
+    GPU run had completed. This check runs before any model is loaded so the
+    user loses seconds instead of hours.
+
+    Parameters:
+        omit_probs (bool): Value of --omit_probs.
+        mask_threshold (float): Value of --mask_threshold.
+
+    Returns:
+        None
+    """
+    if omit_probs and mask_threshold > 0:
+        logger.error(
+            f"--omit_probs is incompatible with --mask_threshold {mask_threshold}. "
+            "Masking requires the per-residue ProstT5 probabilities that "
+            "--omit_probs discards. Either drop --omit_probs, or re-run with "
+            "--mask_threshold 0 to disable masking."
+        )
+        sys.exit(1)
+
+
 def check_dependencies() -> None:
     """
     Checks the dependencies and versions of non Python programs (i.e. Foldseek)

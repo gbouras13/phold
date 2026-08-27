@@ -349,6 +349,9 @@ def subcommand_predict(
     ## write the AA CDS to file
     ######
 
+    # Warn once, not once per protein — a real run has O(10^5) sequences.
+    warned_missing_probs = False
+
     with open(fasta_aa, "w") as out_f:
         for contig_id, rest in cds_dict.items():
             aa_contig_dict = cds_dict[contig_id]
@@ -364,11 +367,30 @@ def subcommand_predict(
 
                 try:
                     # this will fail if ProstT5 OOM fails (or fails for some other reason)
-                    prot_seq = mask_low_confidence_aa(
-                        prot_seq,
-                        prediction_contig_dict[seq_id][2],
-                        threshold=mask_prop_threshold,
-                    )
+                    all_prob = prediction_contig_dict[seq_id][2]
+
+                    # Masking is opt-in, and it needs the per-residue
+                    # probabilities that --omit_probs discards. Calling
+                    # mask_low_confidence_aa(prot_seq, None, ...) reaches
+                    # ``np.asarray(None, dtype=np.float64)`` — a silent
+                    # array(nan) on numpy 1.x, a TypeError on numpy 2.x that
+                    # the handler below does not catch. The prediction itself
+                    # succeeded in that case, so leave the sequence unmasked
+                    # rather than blanking it to 'X'.
+                    if mask_prop_threshold > 0:
+                        if all_prob is None:
+                            if not warned_missing_probs:
+                                logger.warning(
+                                    "Per-residue ProstT5 probabilities were not retained "
+                                    "— skipping amino acid masking."
+                                )
+                                warned_missing_probs = True
+                        else:
+                            prot_seq = mask_low_confidence_aa(
+                                prot_seq,
+                                all_prob,
+                                threshold=mask_prop_threshold,
+                            )
                 except (KeyError, IndexError):
                     # in that case, just return 'X' aka masked proteins
                     prot_seq = "X" * len(prot_seq)

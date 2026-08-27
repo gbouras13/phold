@@ -85,14 +85,32 @@ def write_predictions(
     """
     mask_prop = mask_threshold / 100
 
+    # Masking is opt-in. Previously the loop below ran unconditionally and
+    # indexed ``all_prob[0]`` even when masking was disabled (mask_prop == 0
+    # makes the comparison all-False, so it did nothing but still required the
+    # array) and even when ``--omit_probs`` had left ``all_prob`` as None —
+    # crashing with ``TypeError: 'NoneType' object is not subscriptable`` at
+    # write time, after the entire GPU prediction had already completed.
+    apply_masking = mask_prop > 0
+
     with open(out_path, "w+") as out_f:
         for contig_id, contig_dict in predictions.items():
             # drop zero-length predictions (issue #47)
             contig_dict = {k: v for k, v in contig_dict.items() if len(v[0]) > 0}
 
-            # apply masking in-place: pred is np.byte, all_prob shape (1, L)
-            for key, (pred, mean_prob, all_prob) in contig_dict.items():
-                pred[all_prob[0] < mask_prop] = 20  # 'X'
+            if apply_masking:
+                # apply masking in-place: pred is np.byte, all_prob shape (1, L)
+                for key, (pred, mean_prob, all_prob) in contig_dict.items():
+                    if all_prob is None:
+                        # belt-and-braces: the CLI rejects --omit_probs with a
+                        # non-zero --mask_threshold up front, so this only fires
+                        # for library callers of get_embeddings().
+                        logger.warning(
+                            f"No per-residue probabilities for {key} "
+                            "(probabilities were not retained) — skipping 3Di masking."
+                        )
+                        continue
+                    pred[all_prob[0] < mask_prop] = 20  # 'X'
 
             header_fmt = "{}" if proteins_flag else "{}:{}"
 
