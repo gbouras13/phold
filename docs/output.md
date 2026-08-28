@@ -5,6 +5,7 @@
 * `_aa.fasta` which will hold all amino acid sequences of predicted CDSs
 * `_3di.fasta` which will hold all Foldseek 3Di sequences of predicted CDSs as predicted by ProstT5
 * `_.gbk` which will contain a Genbank format file of your phage(s) with all annotations
+* `.tbl` which contains an [NCBI feature table](https://www.ncbi.nlm.nih.gov/genbank/feature_table/) of all annotations, for ease of submission to GenBank with [table2asn](https://www.ncbi.nlm.nih.gov/genbank/table2asn/). This includes all CDS, along with any tRNA, tmRNA and CRISPR repeat features carried over from your Pharokka input. It is not created for `phold proteins-predict` or `phold proteins-compare`, as protein input has no contig coordinates
 * `_all_cds_functions.tsv` which includes for each contig:
     * Total CDS counts
     * Total CDS counts of each PHROG category 

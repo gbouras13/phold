@@ -15,6 +15,7 @@ from phold.features.create_foldseek_db import (
 from phold.features.run_foldseek import create_result_tsv, run_foldseek_search
 from phold.io.handle_genbank import write_genbank
 from phold.io.sub_db_outputs import create_sub_db_outputs
+from phold.io.tbl import write_tbl
 from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
                                        calculate_qcov_tcov,
@@ -804,5 +805,18 @@ def subcommand_compare(
     if not proteins_flag:
         descriptions_total_path: Path = Path(output) / f"{prefix}_all_cds_functions.tsv"
         _write_function_counts_table(merged_df, descriptions_total_path)
+
+        # NCBI feature table for GenBank submission (issue #137). Skipped for
+        # proteins input, which has no contig coordinates to describe.
+        # per_cds_df (not merged_df) is the source: write_genbank() already
+        # normalised its coordinates, and merged_df's left-joins can introduce
+        # null-padded rows for CDS with no Foldseek hit.
+        write_tbl(
+            per_cds_df,
+            non_cds_dict,
+            list(gb_dict.keys()),
+            prefix,
+            output,
+        )
 
     return sub_dbs_created
