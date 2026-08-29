@@ -622,8 +622,13 @@ def subcommand_compare(
     filtered_tophits_df = filtered_tophits_df.drop(drop_dupes)
 
     # Two left-joins to merge tophits + weighted bitscores onto per_cds_df.
+    # ``partial`` rides on per_cds_df purely to drive the .tbl writer's
+    # incomplete-end markers (issue #137), so it is dropped here rather than
+    # downstream — merged_df feeds both _per_cds_predictions.tsv and every
+    # sub_db_tophits TSV, and neither should gain a column.
     merged_df = (
         per_cds_df
+        .drop("partial", strict=False)
         .join(filtered_tophits_df,    on="cds_id", how="left")
         .join(weighted_bitscore_df,   on="cds_id", how="left")
     )
@@ -811,12 +816,22 @@ def subcommand_compare(
         # per_cds_df (not merged_df) is the source: write_genbank() already
         # normalised its coordinates, and merged_df's left-joins can introduce
         # null-padded rows for CDS with no Foldseek hit.
+        # Contig lengths let the writer place a minus-strand 5'-partial CDS
+        # against the contig edge (codon_start). Guarded because the proteins
+        # path stores plain dicts here rather than SeqRecords.
+        contig_lengths = {
+            record_id: len(record.seq)
+            for record_id, record in gb_dict.items()
+            if getattr(record, "seq", None) is not None
+        }
+
         write_tbl(
             per_cds_df,
             non_cds_dict,
             list(gb_dict.keys()),
             prefix,
             output,
+            contig_lengths=contig_lengths,
         )
 
     return sub_dbs_created

@@ -18,7 +18,7 @@ column — so it is the one piece of the format that must not be "tidied".
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import polars as pl
 from loguru import logger
@@ -82,23 +82,134 @@ _NON_CDS_QUALIFIER_ORDER: Tuple[str, ...] = (
 )
 
 
-def _orient(start: int, end: int, strand: Optional[int]) -> Tuple[int, int]:
+def _is_minus(strand: Optional[Union[int, str]]) -> bool:
+    """True for a minus-strand feature.
+
+    Strand reaches this module in two representations: ``per_cds_df`` has
+    already been converted to "+"/"-" strings by ``write_genbank``, while the
+    non-CDS ``SeqFeature`` objects still carry BioPython's ±1 ints. Accept
+    both — reading one as the other silently mis-orients every reverse-strand
+    feature in the file.
+    """
+    if strand is None:
+        return False
+    if isinstance(strand, str):
+        return strand.strip() in {"-", "-1"}
+    try:
+        return int(strand) == -1
+    except (TypeError, ValueError):
+        return False
+
+
+def _orient(
+    start: int, end: int, strand: Optional[Union[int, str]]
+) -> Tuple[int, int]:
     """Return (start, stop) in transcription order.
 
     A minus-strand feature is written high-coordinate first; that swap *is*
     the strand annotation in a feature table.
     """
-    if strand is not None and int(strand) == -1:
+    if _is_minus(strand):
         return end, start
     return start, end
 
 
-def _write_cds_features(handle, contig_df: pl.DataFrame) -> int:
+def _split_partial(
+    partial: Optional[str], strand: Optional[Union[int, str]]
+) -> Tuple[bool, bool]:
+    """Map a Prodigal ``partial`` flag onto (5'-incomplete, 3'-incomplete).
+
+    ``partial`` is two digits in *genomic* orientation — left edge then right
+    edge — regardless of strand (verified against pyrodigal's own GFF writer:
+    reverse-complementing a sequence turns a left-edge ``10`` gene into a
+    right-edge ``01`` gene). So the 5' end is the left digit on the plus
+    strand and the right digit on the minus strand.
+    """
+    if partial is None:
+        return False, False
+
+    text = str(partial).strip()
+    if len(text) != 2 or set(text) - {"0", "1"}:
+        return False, False
+
+    left, right = text[0] == "1", text[1] == "1"
+    if _is_minus(strand):
+        return right, left
+    return left, right
+
+
+def _cds_coordinates(
+    five_end: int,
+    three_end: int,
+    strand: Optional[Union[int, str]],
+    partial: Optional[str],
+    contig_length: Optional[int],
+) -> Tuple[str, str, Optional[int]]:
+    """Render a CDS's coordinate pair, with partial markers and codon_start.
+
+    ``five_end``/``three_end`` are taken straight from ``per_cds_df``, which is
+    **already in transcription order**: ``write_genbank`` assigns
+    ``start = location.end`` for a minus-strand CDS, so start > end there. They
+    must not be re-oriented — doing so writes every reverse-strand CDS
+    backwards. (The non-CDS path is different: those come from BioPython
+    locations, which really are genomic min/max, hence ``_orient``.)
+
+    NCBI marks an incomplete 5' end with ``<`` on the first coordinate and an
+    incomplete 3' end with ``>`` on the second. When the 5' end is incomplete
+    but does not sit flush against the contig edge, the feature is extended to
+    the edge and ``codon_start`` carries the reading-frame offset.
+
+    Returns ``(start_text, stop_text, codon_start)``.
+    """
+    five_partial, three_partial = _split_partial(partial, strand)
+    start_text, stop_text = str(five_end), str(three_end)
+    codon_start: Optional[int] = None
+
+    if three_partial:
+        stop_text = f">{three_end}"
+
+    if five_partial:
+        start_text = f"<{five_end}"
+
+        # Distance between the 5' end and the contig edge it ran off. Anything
+        # non-zero means the annotation must be pushed out to the edge, with
+        # the leftover bases declared as the frame offset. The minus-strand 5'
+        # end is the high coordinate, so it runs off the far end of the contig.
+        if _is_minus(strand):
+            if contig_length is not None and contig_length - five_end > 0:
+                codon_start = contig_length - five_end + 1
+                start_text = f"<{contig_length}"
+        elif five_end > 1:
+            codon_start = five_end
+            start_text = "<1"
+
+        # codon_start is a frame offset, so only 1/2/3 are meaningful. Warn
+        # rather than abort: this runs at the very end of a long pipeline, and
+        # a warning the user can act on beats losing the whole run's output.
+        if codon_start is not None and codon_start > 3:
+            logger.warning(
+                f"codon_start of {codon_start} for the partial CDS at "
+                f"{five_end}..{three_end} is greater than 3, which NCBI will "
+                "reject. Please raise an issue on GitHub with your genome."
+            )
+
+    return start_text, stop_text, codon_start
+
+
+def _write_cds_features(
+    handle, contig_df: pl.DataFrame, contig_length: Optional[int]
+) -> int:
     """Write every CDS row of one contig. Returns the number written."""
     written = 0
     for row in contig_df.iter_rows(named=True):
-        start, stop = _orient(int(row["start"]), int(row["end"]), row.get("strand"))
-        handle.write(f"{start}\t{stop}\tCDS\n")
+        start_text, stop_text, codon_start = _cds_coordinates(
+            int(row["start"]),
+            int(row["end"]),
+            row.get("strand"),
+            row.get("partial"),
+            contig_length,
+        )
+        handle.write(f"{start_text}\t{stop_text}\tCDS\n")
 
         for column, qualifier in _CDS_QUALIFIER_COLUMNS:
             value = row.get(column)
@@ -107,6 +218,10 @@ def _write_cds_features(handle, contig_df: pl.DataFrame) -> int:
             if value is None or str(value).strip() == "":
                 continue
             handle.write(f"\t\t\t{qualifier}\t{value}\n")
+
+        # After transl_table, matching Pharokka's field order.
+        if codon_start is not None:
+            handle.write(f"\t\t\tcodon_start\t{codon_start}\n")
         written += 1
     return written
 
@@ -183,18 +298,23 @@ def write_tbl(
     contig_ids: List[str],
     prefix: str,
     output: Path,
+    contig_lengths: Optional[Dict[str, int]] = None,
 ) -> Path:
     """Write the NCBI feature table for every contig.
 
     Args:
         per_cds_df: The per-CDS dataframe returned by ``write_genbank`` —
             already 1-based inclusive, with contig_id / start / end / strand /
-            product / function / annotation_method / transl_table.
+            product / function / annotation_method / transl_table, and
+            ``partial`` when the input carried Prodigal partial flags.
         non_cds_dict: ``{contig_id: {feature_id: SeqFeature}}`` for the
             tRNA / tmRNA / CRISPR features passed through from the input.
         contig_ids: Contig order to emit, so the .tbl matches the .gbk.
         prefix: Output filename prefix.
         output: Output directory.
+        contig_lengths: ``{contig_id: length}``, needed to place a minus-strand
+            5'-partial CDS against the contig edge. Without it those CDS still
+            get their ``<`` marker, just no codon_start.
 
     Returns:
         Path to the written .tbl.
@@ -215,7 +335,9 @@ def write_tbl(
 
             if has_cds:
                 contig_df = per_cds_df.filter(pl.col("contig_id") == contig_id)
-                total += _write_cds_features(f, contig_df)
+                total += _write_cds_features(
+                    f, contig_df, (contig_lengths or {}).get(contig_id)
+                )
 
             total += _write_non_cds_features(f, non_cds_dict.get(contig_id, {}))
 

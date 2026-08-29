@@ -26,11 +26,14 @@ def _per_cds_df(rows):
             "cds_id": pl.Utf8,
             "start": pl.Int64,
             "end": pl.Int64,
-            "strand": pl.Int64,
+            # write_genbank converts strand to "+"/"-" strings before the .tbl
+            # writer ever sees per_cds_df, so the fixture matches that.
+            "strand": pl.Utf8,
             "product": pl.Utf8,
             "function": pl.Utf8,
             "annotation_method": pl.Utf8,
             "transl_table": pl.Utf8,
+            "partial": pl.Utf8,
         },
     )
 
@@ -41,23 +44,31 @@ def _cds_row(**kw):
         "cds_id": "contig1_CDS_0001",
         "start": 100,
         "end": 400,
-        "strand": 1,
+        "strand": "+",
         "product": "terminase large subunit",
         "function": "head and packaging",
         "annotation_method": "foldseek",
         "transl_table": "11",
+        "partial": "00",
     }
     row.update(kw)
     return row
 
 
-def _write(tmp_path, cds_rows, non_cds=None, contig_ids=("contig1",)):
+def _write(
+    tmp_path,
+    cds_rows,
+    non_cds=None,
+    contig_ids=("contig1",),
+    contig_lengths=None,
+):
     out = write_tbl(
         _per_cds_df(cds_rows),
         non_cds or {},
         list(contig_ids),
         "phold",
         tmp_path,
+        contig_lengths=contig_lengths,
     )
     return out.read_text()
 
@@ -95,14 +106,155 @@ def test_qualifier_lines_have_exactly_three_leading_tabs(tmp_path):
 # ─── strand encoding ────────────────────────────────────────────────────────
 
 
-def test_minus_strand_swaps_coordinates(tmp_path):
-    """Strand is encoded by coordinate order — minus strand is written high-first."""
-    text = _write(tmp_path, [_cds_row(strand=-1, start=100, end=400)])
+def test_minus_strand_is_written_high_coordinate_first(tmp_path):
+    """Strand is encoded by coordinate order — minus strand is written high-first.
+
+    per_cds_df is ALREADY in transcription order: write_genbank assigns
+    ``start = location.end`` for a minus-strand CDS, so start > end in the
+    dataframe and the writer must pass the pair straight through. Re-orienting
+    here would write every reverse-strand CDS backwards.
+    """
+    text = _write(tmp_path, [_cds_row(strand="-", start=400, end=100)])
     assert "400\t100\tCDS\n" in text
 
 
 def test_plus_strand_keeps_coordinate_order(tmp_path):
-    text = _write(tmp_path, [_cds_row(strand=1, start=100, end=400)])
+    text = _write(tmp_path, [_cds_row(strand="+", start=100, end=400)])
+    assert "100\t400\tCDS\n" in text
+
+
+# ─── partial CDS (incomplete ends) ──────────────────────────────────────────
+#
+# Prodigal's ``partial`` flag is two digits in *genomic* orientation, left edge
+# then right edge, on both strands. Verified against pyrodigal's own GFF
+# writer: reverse-complementing a sequence turns a left-edge "10" gene into a
+# right-edge "01" gene.
+
+
+def test_complete_cds_has_no_partial_markers(tmp_path):
+    text = _write(tmp_path, [_cds_row(partial="00")])
+    assert "100\t400\tCDS\n" in text
+    assert "<" not in text and ">Feature" in text
+
+
+def test_missing_partial_column_is_treated_as_complete(tmp_path):
+    """Older Pharokka / NCBI / Bakta input carries no partial qualifier."""
+    text = _write(tmp_path, [_cds_row(partial=None)])
+    assert "100\t400\tCDS\n" in text
+    assert "\t\t\tcodon_start\t" not in text
+
+
+def test_plus_strand_five_prime_partial(tmp_path):
+    """+ strand, partial at the genomic left = incomplete 5' end -> '<'."""
+    text = _write(tmp_path, [_cds_row(strand="+", start=1, end=400, partial="10")])
+    assert "<1\t400\tCDS\n" in text
+
+
+def test_plus_strand_three_prime_partial(tmp_path):
+    """+ strand, partial at the genomic right = incomplete 3' end -> '>'."""
+    text = _write(tmp_path, [_cds_row(strand="+", start=100, end=400, partial="01")])
+    assert "100\t>400\tCDS\n" in text
+
+
+def test_minus_strand_five_prime_partial(tmp_path):
+    """- strand: the 5' end is the genomic RIGHT edge, so "01" marks it.
+
+    per_cds_df stores minus-strand CDS as start=high, end=low.
+    """
+    text = _write(
+        tmp_path,
+        [_cds_row(strand="-", start=400, end=100, partial="01")],
+        contig_lengths={"contig1": 400},
+    )
+    # the high coordinate is the 5' end and carries the '<'
+    assert "<400\t100\tCDS\n" in text
+
+
+def test_minus_strand_three_prime_partial(tmp_path):
+    """- strand: the 3' end is the genomic LEFT edge, so "10" marks it."""
+    text = _write(tmp_path, [_cds_row(strand="-", start=400, end=1, partial="10")])
+    assert "400\t>1\tCDS\n" in text
+
+
+def test_both_ends_partial_gets_both_markers(tmp_path):
+    """Pharokka's if/elif chain misses "11" entirely; both ends must be marked."""
+    text = _write(tmp_path, [_cds_row(strand="+", start=1, end=400, partial="11")])
+    assert "<1\t>400\tCDS\n" in text
+
+
+def test_codon_start_when_plus_partial_not_flush_with_contig_start(tmp_path):
+    """A 5'-partial CDS starting at base 2 is extended to <1 with codon_start 2."""
+    text = _write(tmp_path, [_cds_row(strand="+", start=2, end=400, partial="10")])
+    assert "<1\t400\tCDS\n" in text
+    assert "\t\t\tcodon_start\t2\n" in text
+
+
+def test_no_codon_start_when_plus_partial_flush_at_base_one(tmp_path):
+    text = _write(tmp_path, [_cds_row(strand="+", start=1, end=400, partial="10")])
+    assert "\t\t\tcodon_start\t" not in text
+
+
+def test_codon_start_when_minus_partial_not_flush_with_contig_end(tmp_path):
+    """Minus-strand mirror: 5' end at 398 on a 400bp contig -> codon_start 3."""
+    text = _write(
+        tmp_path,
+        [_cds_row(strand="-", start=398, end=100, partial="01")],
+        contig_lengths={"contig1": 400},
+    )
+    assert "<400\t100\tCDS\n" in text
+    assert "\t\t\tcodon_start\t3\n" in text
+
+
+def test_minus_partial_without_contig_length_still_marks_but_omits_codon_start(
+    tmp_path,
+):
+    """contig_lengths is optional — degrade to the '<' marker alone."""
+    text = _write(tmp_path, [_cds_row(strand="-", start=398, end=100, partial="01")])
+    assert "<398\t100\tCDS\n" in text
+    assert "\t\t\tcodon_start\t" not in text
+
+
+def test_minus_and_plus_partials_are_mirror_images(tmp_path):
+    """The same gene reverse-complemented must produce mirrored output.
+
+    A + strand 5'-partial CDS at 2..556 on a 7148bp contig gives "<1 556" with
+    codon_start 2. Its revcomp is a - strand 5'-partial CDS at 7147..6593,
+    which must give "<7148 6593" with the same codon_start.
+    """
+    plus = _write(
+        tmp_path,
+        [_cds_row(strand="+", start=2, end=556, partial="10")],
+        contig_lengths={"contig1": 7148},
+    )
+    minus = _write(
+        tmp_path,
+        [_cds_row(strand="-", start=7147, end=6593, partial="01")],
+        contig_lengths={"contig1": 7148},
+    )
+
+    assert "<1\t556\tCDS\n" in plus
+    assert "<7148\t6593\tCDS\n" in minus
+    assert "\t\t\tcodon_start\t2\n" in plus
+    assert "\t\t\tcodon_start\t2\n" in minus
+
+
+def test_codon_start_over_three_still_writes(tmp_path):
+    """codon_start is a frame offset; >3 is invalid and is warned about, but
+    must not abort at the end of a long run."""
+    text = _write(tmp_path, [_cds_row(strand="+", start=9, end=400, partial="10")])
+    assert "<1\t400\tCDS\n" in text
+    assert "\t\t\tcodon_start\t9\n" in text
+
+
+def test_codon_start_written_after_transl_table(tmp_path):
+    text = _write(tmp_path, [_cds_row(strand="+", start=2, end=400, partial="10")])
+    assert text.index("transl_table") < text.index("codon_start")
+
+
+@pytest.mark.parametrize("bogus", ["", "1", "abc", "123", "0"])
+def test_malformed_partial_is_ignored(tmp_path, bogus):
+    """A junk partial value must not produce junk coordinates."""
+    text = _write(tmp_path, [_cds_row(partial=bogus)])
     assert "100\t400\tCDS\n" in text
 
 
