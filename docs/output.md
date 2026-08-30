@@ -5,6 +5,9 @@
 * `_aa.fasta` which will hold all amino acid sequences of predicted CDSs
 * `_3di.fasta` which will hold all Foldseek 3Di sequences of predicted CDSs as predicted by ProstT5
 * `_.gbk` which will contain a Genbank format file of your phage(s) with all annotations
+* `.tbl` which contains an [NCBI feature table](https://www.ncbi.nlm.nih.gov/genbank/feature_table/) of all annotations, for ease of submission to GenBank with [table2asn](https://www.ncbi.nlm.nih.gov/genbank/table2asn/). This includes all CDS, along with any tRNA, tmRNA and CRISPR repeat features carried over from your Pharokka input. CDS that run off the edge of a contig are marked as incomplete with `<` and `>`, and get a `codon_start` where the reading frame requires it. The `inference` qualifier cites the matching PHROG in NCBI's controlled format (`protein motif:PHROG:<phrog>`). It is not created for `phold proteins-predict` or `phold proteins-compare`, as protein input has no contig coordinates
+
+The `.tbl` has been checked against `table2asn` 1.28.1179, and produces no feature or qualifier errors. Note that `table2asn` will still ask you for the submission metadata it always needs — an organism (`-j "[organism=...]"`) and a submission template (`-t template.sbt`)
 * `_all_cds_functions.tsv` which includes for each contig:
     * Total CDS counts
     * Total CDS counts of each PHROG category 

@@ -301,6 +301,13 @@ def get_fasta_run_pyrodigal_gv(input: Path, threads: int) -> dict:
                     f"Pyrodigal-gv_{pyrodigal_gv.__version__}"
                 )
                 feature.qualifiers["transl_table"] = gene.translation_table
+                # Prodigal-style partial flag, "<left><right>" in genomic
+                # orientation. Pharokka records the same qualifier on its
+                # GenBank CDS, so both input routes reach the .tbl writer
+                # (issue #137) with the same representation.
+                feature.qualifiers["partial"] = (
+                    f"{int(gene.partial_begin)}{int(gene.partial_end)}"
+                )
                 # from the API
                 # translation_table (int, optional) – An alternative translation table to use to translate the gene.
                 # Use None (the default) to translate using the translation table this gene was found with.
@@ -432,6 +439,16 @@ def write_genbank(
                             # for older pharokka input before v1.5.0
                             transl_table = "11"
 
+                    # Prodigal partial flag ("10"/"01"/"11"/"00"), needed by the
+                    # .tbl writer to mark incomplete CDS ends for GenBank
+                    # (issue #137). Same list-vs-bare-string split as
+                    # transl_table above. Absent for older Pharokka input and
+                    # for NCBI/Bakta GenBanks, which is fine — None simply
+                    # means "treat every end as complete".
+                    partial = cds_feature.qualifiers.get("partial")
+                    if isinstance(partial, (list, tuple)):
+                        partial = partial[0] if partial else None
+
                     # to reverse the start and end coordinates for output tsv + fix genbank 0 index start relative to pharokka
                     # turns out the genbank format adds 1 to the start coordinate on writing out issue #75 and #77
                     # e.g. [SeqFeature(SimpleLocation(ExactPosition(0), ExactPosition(1056), strand=1) - will be writted as start=1 and end=1056
@@ -476,6 +493,7 @@ def write_genbank(
                         "product": cds_feature.qualifiers["product"][0],
                         "annotation_method": source_dict[record_id][cds_id],
                         "transl_table": transl_table,
+                        "partial": partial,
                     }
 
                     # Remove unwanted gbk attributes if they exist
@@ -580,6 +598,13 @@ def write_genbank(
     per_cds_df = pl.DataFrame(per_cds_list)
 
     if proteins_flag is False:
+        # ``partial`` is absent on older Pharokka / NCBI / Bakta input, so the
+        # column can infer as Null (all missing) or trip inference on a mixed
+        # None/str run. Pin it to Utf8 so the .tbl writer always sees either a
+        # string or None.
+        if "partial" in per_cds_df.columns:
+            per_cds_df = per_cds_df.with_columns(pl.col("partial").cast(pl.Utf8))
+
         # Convert strand: -1 → "-", +1 → "+", anything else → string repr.
         # Vectorised pl.when() chain replaces the original row-wise
         # .apply(lambda) call.
