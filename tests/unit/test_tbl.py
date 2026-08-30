@@ -34,6 +34,7 @@ def _per_cds_df(rows):
             "annotation_method": pl.Utf8,
             "transl_table": pl.Utf8,
             "partial": pl.Utf8,
+            "phrog": pl.Utf8,
         },
     )
 
@@ -50,6 +51,7 @@ def _cds_row(**kw):
         "annotation_method": "foldseek",
         "transl_table": "11",
         "partial": "00",
+        "phrog": "1215",
     }
     row.update(kw)
     return row
@@ -83,14 +85,14 @@ def test_writes_prefixed_filename(tmp_path):
 
 def test_cds_block_format(tmp_path):
     """One CDS -> a >Feature header plus a coordinate line and 4 qualifiers."""
-    text = _write(tmp_path, [_cds_row()])
+    text = _write(tmp_path, [_cds_row(phrog="1215")])
 
     assert text == (
         ">Feature contig1\n"
         "100\t400\tCDS\n"
         "\t\t\tproduct\tterminase large subunit\n"
         "\t\t\tfunction\thead and packaging\n"
-        "\t\t\tinference\tfoldseek\n"
+        "\t\t\tinference\tprotein motif:PHROG:1215\n"
         "\t\t\ttransl_table\t11\n"
     )
 
@@ -258,6 +260,65 @@ def test_malformed_partial_is_ignored(tmp_path, bogus):
     assert "100\t400\tCDS\n" in text
 
 
+def test_three_prime_partial_extends_to_contig_end(tmp_path):
+    """NCBI wants a 3'-partial feature to reach the sequence edge.
+
+    Gene callers stop at the last whole codon, leaving trailing bases, and
+    table2asn then warns PartialProblemNotSpliceConsensus3Prime.
+    """
+    text = _write(
+        tmp_path,
+        [_cds_row(strand="+", start=6965, end=7147, partial="01")],
+        contig_lengths={"contig1": 7148},
+    )
+    assert "6965\t>7148\tCDS\n" in text
+
+
+def test_three_prime_partial_extends_to_base_one_on_minus_strand(tmp_path):
+    text = _write(
+        tmp_path,
+        [_cds_row(strand="-", start=184, end=2, partial="10")],
+        contig_lengths={"contig1": 7148},
+    )
+    assert "184\t>1\tCDS\n" in text
+
+
+def test_three_prime_partial_without_contig_length_is_left_alone(tmp_path):
+    text = _write(tmp_path, [_cds_row(strand="+", start=100, end=400, partial="01")])
+    assert "100\t>400\tCDS\n" in text
+
+
+# ─── /inference (INSDC controlled vocabulary) ───────────────────────────────
+#
+# table2asn rejects any /inference without a category prefix from the INSDC
+# list, so Phold's raw annotation_method values can never validate on their own.
+
+
+def test_inference_carries_insdc_category_and_phrog(tmp_path):
+    text = _write(tmp_path, [_cds_row(annotation_method="foldseek", phrog="1215")])
+    assert "\t\t\tinference\tprotein motif:PHROG:1215\n" in text
+
+
+def test_inference_omitted_without_a_phrog_to_cite(tmp_path):
+    """No accession to point at, and table2asn flags a bare category too."""
+    text = _write(tmp_path, [_cds_row(annotation_method="foldseek", phrog="No_PHROG")])
+    assert "\t\t\tinference\t" not in text
+    assert "100\t400\tCDS\n" in text
+
+
+def test_inference_omitted_when_nothing_was_annotated(tmp_path):
+    """annotation_method 'none' means no evidence can honestly be cited."""
+    text = _write(tmp_path, [_cds_row(annotation_method="none", phrog="No_PHROG")])
+    assert "\t\t\tinference\t" not in text
+    assert "100\t400\tCDS\n" in text
+
+
+@pytest.mark.parametrize("method", ["foldseek", "pharokka", "card", "vfdb"])
+def test_no_raw_method_name_ever_reaches_the_inference_qualifier(tmp_path, method):
+    text = _write(tmp_path, [_cds_row(annotation_method=method)])
+    assert f"\t\t\tinference\t{method}\n" not in text
+
+
 # ─── null / empty handling ──────────────────────────────────────────────────
 
 
@@ -343,9 +404,8 @@ def test_trna_qualifiers_filtered_and_ordered(tmp_path):
     text = _write(tmp_path, [], {"contig1": {"t1": _trna_feature()}})
 
     assert "\t\t\tproduct\ttRNA-Met(CAT)\n" in text
-    assert "\t\t\tanticodon\tCAT\n" in text
-    # product must precede anticodon per _NON_CDS_QUALIFIER_ORDER
-    assert text.index("product\ttRNA") < text.index("anticodon\tCAT")
+    # a bare 3-letter anticodon is not a valid NCBI location and is dropped
+    assert "\t\t\tanticodon\t" not in text
 
 
 @pytest.mark.parametrize(
@@ -367,6 +427,34 @@ def test_biopython_bare_string_qualifiers_are_handled(tmp_path):
     text = _write(tmp_path, [], {"contig1": {"t": feature}})
     assert "1\t60\ttRNA\n" in text
     assert "\t\t\tproduct\ttRNA-Phe(GAA)\n" in text
+
+
+def test_valid_anticodon_location_is_preserved(tmp_path):
+    """Pharokka >= v1.8.2 writes the proper NCBI location form, which is kept."""
+    feature = SeqFeature(
+        FeatureLocation(115193, 115265, strand=-1),
+        type="tRNA",
+        qualifiers={
+            "product": ["tRNA-Met(CAT)"],
+            "anticodon": ["(pos:115194..115196,aa:Met,seq:cat)"],
+        },
+    )
+    text = _write(tmp_path, [], {"contig1": {"t": feature}})
+    assert "\t\t\tanticodon\t(pos:115194..115196,aa:Met,seq:cat)\n" in text
+
+
+@pytest.mark.parametrize("bare", ["CAT", "GAA", "gtc"])
+def test_bare_anticodon_code_is_dropped(tmp_path, bare):
+    """Pharokka < v1.8.2 wrote a bare 3-letter code, which table2asn rejects."""
+    feature = SeqFeature(
+        FeatureLocation(0, 72, strand=1),
+        type="tRNA",
+        qualifiers={"product": ["tRNA-Met(CAT)"], "anticodon": [bare]},
+    )
+    text = _write(tmp_path, [], {"contig1": {"t": feature}})
+    assert "\t\t\tanticodon\t" not in text
+    # the tRNA itself is still emitted, with its mandatory product
+    assert "\t\t\tproduct\ttRNA-Met(CAT)\n" in text
 
 
 def test_pharokka_trna_qualifier_becomes_product(tmp_path):

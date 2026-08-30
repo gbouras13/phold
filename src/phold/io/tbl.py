@@ -17,6 +17,7 @@ ordering is how the feature table encodes strand — there is no separate strand
 column — so it is the one piece of the format that must not be "tidied".
 """
 
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -28,15 +29,39 @@ from Bio.SeqFeature import SeqFeature
 from phold.utils.util import atomic_write_path
 
 
-# Qualifiers emitted for a CDS, in the order NCBI's examples use. Values come
-# from per_cds_df, which write_genbank() has already normalised to 1-based
-# inclusive coordinates (see the issue #75/#77 comment there).
+# Qualifiers emitted verbatim for a CDS, in the order NCBI's examples use.
+# Values come from per_cds_df, which write_genbank() has already normalised to
+# 1-based inclusive coordinates (see the issue #75/#77 comment there).
+# ``inference`` is not here — it has to be built (see _format_inference).
 _CDS_QUALIFIER_COLUMNS: Tuple[Tuple[str, str], ...] = (
     ("product", "product"),
     ("function", "function"),
-    ("annotation_method", "inference"),
-    ("transl_table", "transl_table"),
 )
+
+# INSDC requires /inference to begin with a category from a controlled
+# vocabulary, followed by ":<database>:<accession>". Phold's raw
+# annotation_method values ("foldseek", "pharokka", "none") have no category,
+# so table2asn rejects every one of them outright with "Qualifier had bad
+# value" — one hard error per CDS.
+#
+# Category choice, measured against table2asn 1.28.1179:
+#
+#   similar to AA sequence              -> InvalidInferenceValue warning
+#   similar to AA sequence:PHROG:1215   -> InvalidInferenceValue warning
+#                                          ("unrecognized database")
+#   protein motif:PHROG:1215            -> clean
+#   alignment:Foldseek:1215             -> clean
+#
+# The "similar to ... sequence" categories are checked against NCBI's list of
+# recognised databases, which PHROG is not on. "protein motif" is not, and is
+# also the honest description: a PHROG is a protein group / profile, and Phold
+# transfers its annotation from the group its structure matched.
+_INFERENCE_CATEGORY = "protein motif:PHROG"
+
+# annotation_method values that mean "no annotation was transferred", for
+# which no evidence can honestly be cited.
+_NO_INFERENCE_METHODS = frozenset({"none", "", "no_phrog"})
+
 
 # Phold/Pharokka bookkeeping qualifiers that must never reach a submission
 # file: either they are internal identifiers, or table2asn rejects them.
@@ -64,6 +89,12 @@ _NON_CDS_QUALIFIER_BLOCKLIST = frozenset(
 # first: a tRNA reaching table2asn without a product is rejected.
 _QUALIFIER_ALIASES: Tuple[Tuple[str, str], ...] = (("trna", "product"),)
 
+# NCBI's /anticodon must be a location, e.g. "(pos:115194..115196,aa:Met)".
+# Pharokka < v1.8.2 wrote a bare 3-letter code ("CAT"), which table2asn
+# rejects with "Qualifier had bad value" — write_genbank already warns about
+# that input, so drop the qualifier here rather than emit a known-invalid one.
+_ANTICODON_LOCATION = re.compile(r"^\(.*pos:.*\)$", re.IGNORECASE)
+
 # Preferred emission order for the non-CDS qualifiers Pharokka carries. Anything
 # not listed keeps dict order after these.
 _NON_CDS_QUALIFIER_ORDER: Tuple[str, ...] = (
@@ -80,6 +111,27 @@ _NON_CDS_QUALIFIER_ORDER: Tuple[str, ...] = (
     "db_xref",
     "note",
 )
+
+
+def _format_inference(method: Optional[str], phrog: Optional[str]) -> Optional[str]:
+    """Build a valid /inference string, or None to omit the qualifier.
+
+    Cites the PHROG the annotation came from. Without one there is no evidence
+    to point at, and a bare category is itself flagged by table2asn, so the
+    qualifier is omitted rather than padded with something invented.
+    """
+    if method is None or str(method).strip().lower() in _NO_INFERENCE_METHODS:
+        return None
+
+    if phrog is None:
+        return None
+
+    # "No_PHROG" is Phold's sentinel for a CDS with no PHROG assignment.
+    text = str(phrog).strip()
+    if not text or text.lower() == "no_phrog":
+        return None
+
+    return f"{_INFERENCE_CATEGORY}:{text}"
 
 
 def _is_minus(strand: Optional[Union[int, str]]) -> bool:
@@ -166,6 +218,13 @@ def _cds_coordinates(
     codon_start: Optional[int] = None
 
     if three_partial:
+        # NCBI expects a 3'-partial feature to run to the sequence edge. Gene
+        # callers stop at the last whole codon, leaving 1-2 trailing bases, and
+        # table2asn then warns "3' partial is not at end of sequence". Extend
+        # to the edge, mirroring the 5' handling below.
+        edge = 1 if _is_minus(strand) else contig_length
+        if edge is not None:
+            three_end = edge
         stop_text = f">{three_end}"
 
     if five_partial:
@@ -218,6 +277,14 @@ def _write_cds_features(
             if value is None or str(value).strip() == "":
                 continue
             handle.write(f"\t\t\t{qualifier}\t{value}\n")
+
+        inference = _format_inference(row.get("annotation_method"), row.get("phrog"))
+        if inference is not None:
+            handle.write(f"\t\t\tinference\t{inference}\n")
+
+        transl_table = row.get("transl_table")
+        if transl_table is not None and str(transl_table).strip() != "":
+            handle.write(f"\t\t\ttransl_table\t{transl_table}\n")
 
         # After transl_table, matching Pharokka's field order.
         if codon_start is not None:
@@ -286,6 +353,12 @@ def _write_non_cds_features(
             if isinstance(value, (list, tuple)):
                 value = value[0] if value else None
             if value is None or str(value).strip() == "":
+                continue
+            if key == "anticodon" and not _ANTICODON_LOCATION.match(str(value).strip()):
+                logger.warning(
+                    f"Dropping non-location anticodon '{value}' from the .tbl — "
+                    "re-run Pharokka >= v1.8.2 to submit this tRNA to GenBank."
+                )
                 continue
             handle.write(f"\t\t\t{key}\t{value}\n")
         written += 1
