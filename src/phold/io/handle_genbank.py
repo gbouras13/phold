@@ -371,6 +371,7 @@ def write_genbank(
     format_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
     anticodon_warning = 0
+    unparsed_location_warning = 0
     for record_id, record in gb_dict.items():
 
         if not proteins_flag:
@@ -393,8 +394,24 @@ def write_genbank(
             for feature in features.values()
         ]
 
-        # Sort features based on the beginning position
-        sorted_features = sorted(all_features, key=lambda x: x.location.start)
+        # Sort features based on the beginning position.
+        #
+        # Biopython sets feature.location to None when it cannot parse a location, warning
+        # rather than raising -- e.g. "negative starting position in feature location
+        # '-63..456'; setting feature location to None". Aragorn emits coordinates like that
+        # for a tmRNA running off the start of a contig, and Pharokka writes them into the
+        # Genbank unchanged, so this arrives through ordinary input rather than a malformed
+        # file. Sorting on x.location.start then raised AttributeError: 'NoneType' object has
+        # no attribute 'start', which killed the run at the final write step -- after every
+        # ProstT5 and Foldseek prediction had already been computed and thrown away.
+        #
+        # A feature whose location Biopython discarded cannot be written back out
+        # meaningfully, so drop it and count it, rather than lose the whole contig for it.
+        placed_features = [
+            feature for feature in all_features if feature.location is not None
+        ]
+        unparsed_location_warning += len(all_features) - len(placed_features)
+        sorted_features = sorted(placed_features, key=lambda x: x.location.start)
 
         # clean cds_feature and append for dataframe
         for cds_feature in sorted_features:
@@ -571,6 +588,11 @@ def write_genbank(
     if anticodon_warning > 0:
         logger.warning(
             f"You used Pharokka < v1.8.2 for the annotation of {anticodon_warning} tRNAs in your genome(s). If you want to submit your sequences to GenBank, you will have to rerun your analysis with Pharokka >= v1.8.2."
+        )
+
+    if unparsed_location_warning > 0:
+        logger.warning(
+            f"{unparsed_location_warning} feature(s) had a location BioPython could not parse - commonly a negative coordinate such as '-63..456' written by Aragorn for a tmRNA that runs off the start of a contig. BioPython discards such locations, so these features were omitted from the output. Every other feature was written normally."
         )
 
     # Build the per-CDS table. ``per_cds_list`` is a list of dicts; polars
