@@ -22,7 +22,25 @@ ENV PATH="/opt/foldseek/bin:${PATH}"
 RUN pip install --ignore-installed PyYAML
 RUN python3 -c "import torch; print(torch.__version__)" || echo "PyTorch is not installed before installing the project. "
 ARG PHOLD_REF
-RUN pip install git+https://github.com/gbouras13/phold.git@${PHOLD_REF}
+# contourpy <1.4 is a property of THIS base image, not of phold, which is why it is pinned
+# here rather than in pyproject.toml.
+#
+# The image ships numpy 1.26.4 installed by Debian's apt, so it carries no pip RECORD file
+# and pip cannot uninstall it:
+#
+#   ERROR: Cannot uninstall numpy 1.26.4, RECORD file not found.
+#   Hint: The package was installed by debian.
+#
+# pyproject.toml already loosened phold's own floor to numpy >=1.24 for exactly this reason.
+# contourpy 1.4.0 (released 2026-09-11) then raised ITS floor to numpy >=2.0 and reaches us
+# transitively through pycirclize -> matplotlib, re-triggering the upgrade behind that
+# workaround. Builds of this image went from passing on 2026-08-09 to failing on every push
+# afterwards, with no change to phold.
+#
+# Pinning contourpy keeps numpy at the version the image's torch/ROCm build was compiled
+# against. --ignore-installed numpy would also get the build to pass, but by installing
+# numpy 2.x over that stack -- trading a loud build failure for a quiet runtime one.
+RUN pip install "contourpy<1.4" git+https://github.com/gbouras13/phold.git@${PHOLD_REF}
 # Install the test extras (kept in lockstep with the ``test`` group in
 # pyproject.toml). ``pytest`` alone is insufficient — the snapshot tests
 # in tests/unit/ rely on the ``snapshot`` fixture provided by
