@@ -224,7 +224,7 @@ def predict_options(func):
                 "'packed': many proteins per fixed-size row with FlexAttention "
                 "(CUDA/ROCm GPU, torch >= 2.5; always compiled). 'auto' uses "
                 "packed on NVIDIA GPUs and padded elsewhere, compiling only for "
-                "large inputs (>= 20M residues; 5M for the 1B models)."
+                "large inputs (>= 20M residues, 40M on ROCm; a quarter of that for the 1B models)."
             ),
         ),
         click.option(
@@ -236,7 +236,7 @@ def predict_options(func):
             help=(
                 "ModernProst only. torch.compile the model: several times faster "
                 "on large inputs, but the first batch takes ~30-60 s to compile. "
-                "'auto' compiles on a GPU for inputs of >= 20M residues (5M for the 1B models)."
+                "'auto' compiles on a GPU for inputs of >= 20M residues (40M on ROCm; a quarter of that for the 1B models)."
             ),
         ),
         click.option(
