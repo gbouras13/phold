@@ -198,7 +198,10 @@ def predict_options(func):
         click.option(
             "--batch_size",
             default=1,
-            help="batch size for ProstT5.",
+            help=(
+                "Batch size for ProstT5. Ignored by the ModernProst models, "
+                "which batch by --max_batch_residues."
+            ),
             show_default=True,
         ),
         click.option(
@@ -207,7 +210,33 @@ def predict_options(func):
             default=None,
             help=(
                 "Maximum residues per inference batch. Defaults to 5000 for "
-                "ProstT5 and 50000 for ModernProst."
+                "ProstT5. For ModernProst it bounds computed tokens (proteins "
+                "x padded length) per batch and defaults to 65536."
+            ),
+        ),
+        click.option(
+            "--inference_engine",
+            type=click.Choice(["auto", "padded", "packed"], case_sensitive=False),
+            default="auto",
+            show_default=True,
+            help=(
+                "ModernProst only. 'padded': one protein per row, length-sorted. "
+                "'packed': many proteins per fixed-size row with FlexAttention "
+                "(CUDA/ROCm GPU, torch >= 2.5; always compiled). 'auto' uses "
+                "packed on NVIDIA GPUs and padded elsewhere, compiling only for "
+                "large inputs (>= 20M residues; 5M for the 1B models)."
+            ),
+        ),
+        click.option(
+            "--compile",
+            "compile_mode",
+            type=click.Choice(["auto", "on", "off"], case_sensitive=False),
+            default="auto",
+            show_default=True,
+            help=(
+                "ModernProst only. torch.compile the model: several times faster "
+                "on large inputs, but the first batch takes ~30-60 s to compile. "
+                "'auto' compiles on a GPU for inputs of >= 20M residues (5M for the 1B models)."
             ),
         ),
         click.option(
@@ -406,6 +435,8 @@ def run(
     autotune,
     batch_size,
     max_batch_residues,
+    inference_engine,
+    compile_mode,
     sensitivity,
     cpu,
     gpus,
@@ -449,6 +480,8 @@ def run(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--max_batch_residues": max_batch_residues,
+        "--inference_engine": inference_engine,
+        "--compile": compile_mode,
         "--sensitivity": sensitivity,
         "--keep_tmp_files": keep_tmp_files,
         "--cpu": cpu,
@@ -545,6 +578,8 @@ def run(
             gpus=gpus,
             task=task,
             max_batch_residues=max_batch_residues,
+            inference_engine=inference_engine,
+            compile_mode=compile_mode,
             logdir=logdir,
         )
 
@@ -620,6 +655,8 @@ def predict(
     autotune,
     batch_size,
     max_batch_residues,
+    inference_engine,
+    compile_mode,
     cpu,
     gpus,
     omit_probs,
@@ -651,6 +688,8 @@ def predict(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--max_batch_residues": max_batch_residues,
+        "--inference_engine": inference_engine,
+        "--compile": compile_mode,
         "--cpu": cpu,
         "--gpus": gpus,
         "--omit_probs": omit_probs,
@@ -729,6 +768,8 @@ def predict(
         gpus=gpus,
         task=task,
         max_batch_residues=max_batch_residues,
+        inference_engine=inference_engine,
+        compile_mode=compile_mode,
         logdir=logdir,
     )
 
@@ -925,6 +966,8 @@ def proteins_predict(
     autotune,
     batch_size,
     max_batch_residues,
+    inference_engine,
+    compile_mode,
     cpu,
     gpus,
     omit_probs,
@@ -955,6 +998,8 @@ def proteins_predict(
         "--autotune": autotune,
         "--batch_size": batch_size,
         "--max_batch_residues": max_batch_residues,
+        "--inference_engine": inference_engine,
+        "--compile": compile_mode,
         "--cpu": cpu,
         "--gpus": gpus,
         "--omit_probs": omit_probs,
@@ -1068,6 +1113,8 @@ def proteins_predict(
         gpus=gpus,
         task=task,
         max_batch_residues=max_batch_residues,
+        inference_engine=inference_engine,
+        compile_mode=compile_mode,
         logdir=logdir,
     )
 

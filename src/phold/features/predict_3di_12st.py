@@ -67,9 +67,9 @@ def get_modernprost_predictions(
     output_h5_per_protein: Path,
     half_precision: bool,
     task: str = CLASSIFICATION_TASK,
-    max_residues: int = 50000,
+    max_residues: Optional[int] = None,
     max_seq_len: int = 30000,
-    max_batch: int = 10000,
+    max_batch: Optional[int] = None,
     chunk_len: Optional[int] = None,
     cpu: bool = False,
     output_probs: bool = True,
@@ -78,6 +78,8 @@ def get_modernprost_predictions(
     save_per_protein_embeddings: bool = False,
     threads: int = 1,
     gpus: Optional[str] = None,
+    engine: str = "auto",
+    compile_mode: str = "auto",
 ) -> Tuple[Dict, Dict, Dict]:
     """Run ModernProst over every CDS in *cds_dict* and write phold's outputs.
 
@@ -92,9 +94,10 @@ def get_modernprost_predictions(
         output_h5_per_residue / output_h5_per_protein: HDF5 embedding paths.
         half_precision: Cast the model to fp16 (ignored on CPU).
         task: ``"classification"`` or ``"pssm"``.
-        max_residues: Max total residues per inference batch.
-        max_seq_len: Chunks longer than this flush a batch immediately.
-        max_batch: Max sequences per batch.
+        max_residues: Computed-token budget per batch (proteins x padded
+            length) for the padded engine. None uses pholdlib's default.
+        max_seq_len: Unused by pholdlib >= 0.3 (chunking bounds item length).
+        max_batch: Optional cap on proteins per padded batch. None = no cap.
         chunk_len: Sequences longer than this are split and reassembled.
             None uses pholdlib's default. It cannot be the default argument
             value here: reading it would import torch at module-import time,
@@ -105,6 +108,9 @@ def get_modernprost_predictions(
         save_per_residue_embeddings / save_per_protein_embeddings: HDF5 dumps.
         threads: Number of CPU threads for torch.
         gpus: Comma-separated CUDA indices. None = auto-detect.
+        engine: ``"auto"``, ``"padded"`` or ``"packed"`` (see pholdlib's
+            ``run_modernprost_inference``).
+        compile_mode: ``"auto"``, ``"on"`` or ``"off"``: torch.compile the model.
 
     Returns:
         ``(predictions_3di, predictions_12st, profiles)`` — the first two nested
@@ -114,8 +120,8 @@ def get_modernprost_predictions(
     """
     # Deferred: torch / transformers (see the module docstring's note).
     from pholdlib.modernprost.inference import (
-        DEFAULT_CHUNK_LEN, ModernProstResult, predictions_from_profiles,
-        run_modernprost_inference_multi_gpu)
+        DEFAULT_CHUNK_LEN, DEFAULT_TOKEN_BUDGET, ModernProstResult,
+        predictions_from_profiles, run_modernprost_inference_multi_gpu)
     from pholdlib.modernprost.output import (SS12_ALPHABET, THREEDI_ALPHABET,
                                              write_12st_fasta, write_3di_fasta,
                                              write_all_probs, write_fail_ids,
@@ -174,10 +180,12 @@ def get_modernprost_predictions(
         task=task,
         check_fn=check_modernprost_download,
         zenodo_fn=modernprost_zenodo_downloader(spec.hf_name),
-        max_residues=max_residues,
+        max_residues=DEFAULT_TOKEN_BUDGET if max_residues is None else max_residues,
         max_seq_len=max_seq_len,
         max_batch=max_batch,
         chunk_len=DEFAULT_CHUNK_LEN if chunk_len is None else chunk_len,
+        engine=engine,
+        compile=compile_mode,
         output_probs=True,  # phold always needs per-residue probs to mask AAs
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
