@@ -211,7 +211,8 @@ def predict_options(func):
             help=(
                 "Maximum residues per inference batch. Defaults to 5000 for "
                 "ProstT5. For ModernProst it bounds computed tokens (proteins "
-                "x padded length) per batch and defaults to 65536."
+                "x padded length) per batch; the default depends on the device: "
+                "65536 on CUDA/ROCm GPUs, 4096 on Apple MPS and CPU."
             ),
         ),
         click.option(

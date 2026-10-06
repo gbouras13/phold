@@ -95,7 +95,8 @@ def get_modernprost_predictions(
         half_precision: Cast the model to fp16 (ignored on CPU).
         task: ``"classification"`` or ``"pssm"``.
         max_residues: Computed-token budget per batch (proteins x padded
-            length) for the padded engine. None uses pholdlib's default.
+            length) for the padded engine. None lets pholdlib pick per device
+            (65536 on CUDA/ROCm GPUs, 4096 on Apple MPS and CPU).
         max_seq_len: Unused by pholdlib >= 0.3 (chunking bounds item length).
         max_batch: Optional cap on proteins per padded batch. None = no cap.
         chunk_len: Sequences longer than this are split and reassembled.
@@ -120,8 +121,8 @@ def get_modernprost_predictions(
     """
     # Deferred: torch / transformers (see the module docstring's note).
     from pholdlib.modernprost.inference import (
-        DEFAULT_CHUNK_LEN, DEFAULT_TOKEN_BUDGET, ModernProstResult,
-        predictions_from_profiles, run_modernprost_inference_multi_gpu)
+        DEFAULT_CHUNK_LEN, ModernProstResult, predictions_from_profiles,
+        run_modernprost_inference_multi_gpu)
     from pholdlib.modernprost.output import (SS12_ALPHABET, THREEDI_ALPHABET,
                                              write_12st_fasta, write_3di_fasta,
                                              write_all_probs, write_fail_ids,
@@ -180,7 +181,7 @@ def get_modernprost_predictions(
         task=task,
         check_fn=check_modernprost_download,
         zenodo_fn=modernprost_zenodo_downloader(spec.hf_name),
-        max_residues=DEFAULT_TOKEN_BUDGET if max_residues is None else max_residues,
+        max_residues=max_residues,  # None: pholdlib picks per device
         max_seq_len=max_seq_len,
         max_batch=max_batch,
         chunk_len=DEFAULT_CHUNK_LEN if chunk_len is None else chunk_len,
