@@ -62,8 +62,9 @@ dependencies = [
         "tqdm >=4.35.0",
         # 0.2.0 adds pholdlib.modernprost — the ModernProst 3Di+12-state
         # inference engine and Foldseek 12-state / profile DB builders that
-        # `--model modernprost-*` depends on.
-        "pholdlib >=0.2.0"
+        # `--model modernprost-*` depends on. 0.3.0 adds the token-budget /
+        # packed engines behind --inference_engine and --compile.
+        "pholdlib >=0.3.0"
     ]
 
 [project.scripts]

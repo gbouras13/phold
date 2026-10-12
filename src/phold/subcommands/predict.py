@@ -54,6 +54,8 @@ def subcommand_predict(
     task: str = "auto",
     max_batch_residues: Optional[int] = None,
     logdir: Optional[Path] = None,
+    inference_engine: str = "auto",
+    compile_mode: str = "auto",
 ) -> bool:
     """
     Wrapper command for phold predict.
@@ -84,6 +86,8 @@ def subcommand_predict(
             Defaults to the per-backend value when None.
         logdir (Optional[Path]): Log directory, needed to build the Foldseek
             profile database in the pssm task.
+        inference_engine (str): ModernProst only: "auto", "padded" or "packed".
+        compile_mode (str): ModernProst only: "auto", "on" or "off".
 
     Returns:
         bool: True if prediction succeeds, False otherwise.
@@ -302,9 +306,13 @@ def subcommand_predict(
             output_h5_per_protein,
             half_precision=half_precision,
             task=resolved_task,
-            max_residues=max_batch_residues if max_batch_residues else 50000,
+            # ModernProst batches by computed tokens; --batch_size (default 1,
+            # a ProstT5 setting) would cap it at one protein per forward pass
+            max_residues=max_batch_residues,
             max_seq_len=30000,
-            max_batch=batch_size,
+            max_batch=None,
+            engine=inference_engine,
+            compile_mode=compile_mode,
             cpu=cpu,
             output_probs=output_probs,
             proteins_flag=proteins_flag,
