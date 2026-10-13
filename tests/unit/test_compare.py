@@ -12,12 +12,18 @@ rewrite breaks a named test.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import polars as pl
 import pytest
+from Bio import SeqIO
+from Bio.SeqFeature import FeatureLocation, SeqFeature
 
+from phold.io.handle_genbank import get_genbank
 from phold.subcommands.compare import (
     assign_annotation_confidence,
     assign_annotation_confidence_expr,
+    subcommand_compare,
 )
 
 
@@ -194,3 +200,177 @@ def test_vectorised_matches_scalar(structures):
         f"  expected: {expected}\n"
         f"  actual:   {actual}"
     )
+
+
+# ─── zero Foldseek hits through the whole compare pipeline ──────────────────
+# Regression for v1.3.0 (phage-annotation.org): a 1.7 kb contig, a 23S rRNA
+# fragment, gave no Foldseek hits and phold crashed with
+# ``polars.exceptions.NoDataError: empty CSV``. These tests drive everything
+# after the Foldseek search (topfunction -> GenBank -> per-CDS TSV -> sub-DB
+# TSVs -> function counts) via the --restart path, which reads an existing
+# foldseek_results.tsv instead of running Foldseek. No Foldseek binary,
+# ProstT5 model or phold database is needed.
+
+TEST_DATA = Path(__file__).parent.parent / "test_data"
+# pharokka v1.11.0 (-g phanotate --fast) output for that contig, which is
+# tests/test_data/no_foldseek_hits.fasta. Every CDS is No_PHROGs_HMM.
+NO_HITS_GBK = TEST_DATA / "no_foldseek_hits_pharokka.gbk"
+# 7 of its 17 CDS have a pharokka PHROG, which must survive zero hits.
+NC_043029_GBK = TEST_DATA / "NC_043029_pharokka1.4.1.gbk"
+PREFIX = "phold"
+PROSTT5_CONFIDENCE = 55.5
+
+
+def _cds_features(gbk: Path) -> dict:
+    """{(contig_id, cds_id): CDS feature} for a pharokka GenBank."""
+    return {
+        (record.id, feature.qualifiers["ID"][0]): feature
+        for record in SeqIO.parse(gbk, "genbank")
+        for feature in record.features
+        if feature.type == "CDS"
+    }
+
+
+def _compare_with_no_foldseek_hits(
+    gbk: Path,
+    output: Path,
+    database: Path,
+    structures: bool = False,
+    proteins_flag: bool = False,
+) -> bool:
+    """Run ``subcommand_compare --restart`` on ``gbk`` with an empty
+    foldseek_results.tsv, writing the other files --restart reads first."""
+    output.mkdir()
+    cds = _cds_features(gbk)
+
+    if proteins_flag:
+        # same shape as the proteins-compare CLI builds
+        gb_dict = {
+            "proteins": {
+                cds_id: SeqFeature(
+                    FeatureLocation(0, len(f.qualifiers["translation"][0])),
+                    type="CDS",
+                    qualifiers={"ID": cds_id, "translation": f.qualifiers["translation"][0]},
+                )
+                for (_, cds_id), f in cds.items()
+            }
+        }
+    else:
+        gb_dict, _ = get_genbank(str(gbk))
+
+    (output / "foldseek_results.tsv").write_text("")
+    if not structures:
+        # --restart only rewrites '~PIPE~' in these, so the 3Di content is moot
+        aa = "".join(
+            f">{cds_id if proteins_flag else f'{contig_id}:{cds_id}'}\n"
+            f"{f.qualifiers['translation'][0]}\n"
+            for (contig_id, cds_id), f in cds.items()
+        )
+        (output / f"{PREFIX}_aa.fasta").write_text(aa)
+        (output / f"{PREFIX}_3di.fasta").write_text(aa)
+        (output / f"{PREFIX}_prostT5_3di_mean_probabilities.csv").write_text(
+            "".join(f"{cds_id},{PROSTT5_CONFIDENCE}\n" for _, cds_id in cds)
+        )
+
+    return subcommand_compare(
+        gb_dict,
+        output,
+        threads=1,
+        evalue=1e-3,
+        card_vfdb_evalue=1e-10,
+        sensitivity=9.5,
+        database=database,
+        prefix=PREFIX,
+        predictions_dir=output,
+        structures=structures,
+        structure_dir=output if structures else None,
+        logdir=output / "logs",
+        filter_structures=False,
+        remote_flag=True,
+        proteins_flag=proteins_flag,
+        fasta_flag=False,
+        separate=False,
+        max_seqs=1000,
+        ultra_sensitive=False,
+        extra_foldseek_params=None,
+        custom_db=None,
+        foldseek_gpu=False,
+        restart=True,
+    )
+
+
+def _read_per_cds(output: Path) -> pl.DataFrame:
+    # all-Utf8 so empty Foldseek fields come back as null regardless of dtype
+    return pl.read_csv(
+        output / f"{PREFIX}_per_cds_predictions.tsv",
+        separator="\t",
+        infer_schema_length=0,
+    )
+
+
+@pytest.mark.parametrize("gbk", [NO_HITS_GBK, NC_043029_GBK], ids=lambda p: p.stem)
+def test_compare_no_foldseek_hits_keeps_input_annotations(
+    tmp_path, mini_phold_db, loguru_errors, gbk
+):
+    output = tmp_path / "out"
+    assert _compare_with_no_foldseek_hits(gbk, output, mini_phold_db) is True
+
+    # ERROR exits phold, so zero hits must only warn
+    assert loguru_errors == []
+
+    cds = _cds_features(gbk)
+    per_cds = _read_per_cds(output)
+    assert per_cds.height == len(cds)
+    for row in per_cds.iter_rows(named=True):
+        feature = cds[(row["contig_id"], row["cds_id"])]
+        phrog = feature.qualifiers["phrog"][0].replace("No_PHROGs_HMM", "No_PHROG")
+        method = "none" if phrog == "No_PHROG" else "pharokka"
+        assert row["phrog"] == phrog
+        assert row["product"] == feature.qualifiers["product"][0]
+        assert row["annotation_method"] == method
+        assert row["annotation_confidence"] == method
+        assert row["bitscore"] is None
+        assert row["tophit_protein"] is None
+        assert float(row["prostt5_confidence"]) == PROSTT5_CONFIDENCE
+
+    # GenBank: same CDS with the input products, non-CDS features kept
+    in_records = list(SeqIO.parse(gbk, "genbank"))
+    out_records = list(SeqIO.parse(output / f"{PREFIX}.gbk", "genbank"))
+    assert [r.id for r in out_records] == [r.id for r in in_records]
+    for in_rec, out_rec in zip(in_records, out_records):
+        assert sorted(f.type for f in out_rec.features) == sorted(f.type for f in in_rec.features)
+        out_products = {
+            f.qualifiers["ID"][0]: f.qualifiers["product"][0]
+            for f in out_rec.features if f.type == "CDS"
+        }
+        assert out_products == {
+            f.qualifiers["ID"][0]: f.qualifiers["product"][0]
+            for f in in_rec.features if f.type == "CDS"
+        }
+
+    counts = pl.read_csv(output / f"{PREFIX}_all_cds_functions.tsv", separator="\t")
+    assert counts.filter(pl.col("Description") == "CDS")["Count"].sum() == len(cds)
+
+    for subdb in ("acr", "vfdb", "card", "netflax", "defensefinder"):
+        assert (output / "sub_db_tophits" / f"{subdb}_cds_predictions.tsv").exists()
+
+
+@pytest.mark.parametrize(
+    "structures,proteins_flag",
+    [(True, False), (False, True), (True, True)],
+    ids=["structures", "proteins", "proteins_structures"],
+)
+def test_compare_no_foldseek_hits_other_modes(
+    tmp_path, mini_phold_db, loguru_errors, structures, proteins_flag
+):
+    """compare --structures and proteins-compare also finish with zero hits."""
+    output = tmp_path / "out"
+    assert _compare_with_no_foldseek_hits(
+        NO_HITS_GBK, output, mini_phold_db, structures=structures, proteins_flag=proteins_flag
+    ) is True
+    assert loguru_errors == []
+
+    per_cds = _read_per_cds(output)
+    assert sorted(per_cds["cds_id"]) == sorted(cds_id for _, cds_id in _cds_features(NO_HITS_GBK))
+    assert per_cds["bitscore"].null_count() == per_cds.height
+    assert set(per_cds["product"]) == {"hypothetical protein"}

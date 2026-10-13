@@ -19,7 +19,8 @@ from phold.results.topfunction import (calculate_topfunctions_results,
                                        get_topcustom_hits,
                                        calculate_qcov_tcov,
                                        get_topfunctions)
-from phold.utils.util import atomic_write_path, replace_pipe_in_fastq
+from phold.utils.util import (atomic_write_path, read_headerless_csv,
+                              replace_pipe_in_fastq)
 
 
 def assign_annotation_confidence(row, structures: bool) -> str:
@@ -685,12 +686,12 @@ def subcommand_compare(
         )
 
     # Merge in ProstT5 confidence scores — only for the non-structures path.
+    # The CSV is empty when there were no CDS to predict.
     if not structures:
-        prostT5_conf_df = pl.read_csv(
+        prostT5_conf_df = read_headerless_csv(
             mean_probs_out_path,
+            {"cds_id": pl.Utf8, "prostt5_confidence": pl.Float64},
             separator=",",
-            has_header=False,
-            new_columns=["cds_id", "prostt5_confidence"],
         )
         merged_df = merged_df.join(prostT5_conf_df, on="cds_id", how="left")
 

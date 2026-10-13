@@ -14,6 +14,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from loguru import logger
 
 UNIT_DIR = Path(__file__).parent
 FIXTURES = UNIT_DIR / "fixtures"
@@ -31,6 +32,35 @@ def phold_db() -> Path:
     if not db.exists():
         pytest.skip(f"phold test database missing at {db}")
     return db
+
+
+@pytest.fixture
+def mini_phold_db(tmp_path) -> Path:
+    """A stand-in phold database holding only ``phold_annots.tsv``.
+
+    Enough for code paths that never read the Foldseek DB or sub-DB metadata
+    (e.g. zero Foldseek hits), so those tests run without the real database.
+    """
+    db = tmp_path / "mini_phold_db"
+    db.mkdir()
+    (db / "phold_annots.tsv").write_text(
+        "phrog\tproduct\tfunction\n"
+        "453\tportal protein\thead and packaging\n"
+    )
+    return db
+
+
+@pytest.fixture
+def loguru_errors():
+    """Collect every ERROR-or-worse loguru message emitted during a test.
+
+    phold's CLI installs a sink that calls ``sys.exit(1)`` on ERROR, so a path
+    that must let the run finish has to stay below ERROR.
+    """
+    messages = []
+    sink_id = logger.add(messages.append, level="ERROR", format="{message}")
+    yield messages
+    logger.remove(sink_id)
 
 
 @pytest.fixture(scope="session")

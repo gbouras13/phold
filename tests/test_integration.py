@@ -25,6 +25,7 @@ pytest  --gpu_available --nvidia --threads 8 .
 """
 
 # import
+import csv
 import os
 import shutil
 # import functions
@@ -70,6 +71,8 @@ run_gbk_pharokka_autotune: Path = f"{output_dir}/NC_043029_pharokka1.4.1_autotun
 run_gbk_pharokka_1_4_1_dir_custom: Path = (
     f"{output_dir}/NC_043029_pharokka1.4.1_gbk_custom"
 )
+run_gbk_no_foldseek_hits_dir: Path = f"{output_dir}/no_foldseek_hits_gbk"
+run_fasta_no_foldseek_hits_dir: Path = f"{output_dir}/no_foldseek_hits_fasta"
 run_gbk_long_header_dir: Path = f"{output_dir}/long_header_gbk"
 run_fasta_long_header_dir: Path = f"{output_dir}/long_header_fasta"
 run_fasta_dir: Path = f"{output_dir}/combined_truncated_phold_run_fasta"
@@ -322,6 +325,48 @@ def test_run_genbank_old_pharokka(gpu_available, threads, nvidia, update_goldens
        cmd = f"{cmd} --foldseek_gpu"
     exec_command(cmd)
     assert_matches_golden(run_gbk_dir, "run_genbank_old_pharokka", gpu_available, update_goldens)
+
+
+def read_per_cds_predictions(out_dir):
+    with open(Path(out_dir) / "phold_per_cds_predictions.tsv") as f:
+        return list(csv.DictReader(f, delimiter="\t"))
+
+
+def test_run_genbank_no_foldseek_hits(gpu_available, threads, nvidia, update_goldens):
+    """test phold run when Foldseek finds no hits at all.
+
+    v1.3.0 crashed with ``polars.exceptions.NoDataError: empty CSV``. The input
+    is pharokka (phanotate --fast) output for a 1.7 kb 23S rRNA fragment from a
+    phage-annotation.org job (raw contig: no_foldseek_hits.fasta).
+    """
+    input_gbk: Path = f"{test_data}/no_foldseek_hits_pharokka.gbk"
+    cmd = f"phold run -i {input_gbk} -o {run_gbk_no_foldseek_hits_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+    rows = read_per_cds_predictions(run_gbk_no_foldseek_hits_dir)
+    assert len(rows) == 7
+    # If a CDS gets a hit, this input no longer covers the zero-hit path.
+    assert all(row["bitscore"] == "" for row in rows), "expected zero Foldseek hits"
+    assert all(row["annotation_method"] == "none" for row in rows)
+    assert all(row["product"] == "hypothetical protein" for row in rows)
+    assert_matches_golden(run_gbk_no_foldseek_hits_dir, "run_genbank_no_foldseek_hits", gpu_available, update_goldens)
+
+
+def test_run_fasta_no_foldseek_hits(gpu_available, threads, nvidia, update_goldens):
+    """test phold run on the raw FASTA of the zero-Foldseek-hit contig (pyrodigal-gv genes)"""
+    input_fasta: Path = f"{test_data}/no_foldseek_hits.fasta"
+    cmd = f"phold run -i {input_fasta} -o {run_fasta_no_foldseek_hits_dir} -t {threads} -d {database_dir} -f"
+    if gpu_available is False:
+        cmd = f"{cmd} --cpu"
+    if nvidia:
+       cmd = f"{cmd} --foldseek_gpu"
+    exec_command(cmd)
+    assert Path(f"{run_fasta_no_foldseek_hits_dir}/phold.gbk").exists()
+    assert len(read_per_cds_predictions(run_fasta_no_foldseek_hits_dir)) > 0
+    assert_matches_golden(run_fasta_no_foldseek_hits_dir, "run_fasta_no_foldseek_hits", gpu_available, update_goldens)
 
 
 def test_run_genbank_long_header(gpu_available, threads, nvidia, update_goldens):
