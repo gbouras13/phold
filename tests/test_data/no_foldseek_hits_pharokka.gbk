@@ -1,0 +1,125 @@
+LOCUS       33866_325726-,33866_2294245+,33866_6767+ 1700 bp    DNA     linear   PHG 13-OCT-2026
+DEFINITION  33866_325726-,33866_2294245+,33866_6767+.
+ACCESSION   33866_325726-,33866_2294245+,33866_6767+
+VERSION     33866_325726-,33866_2294245+,33866_6767+
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  .
+            .
+FEATURES             Location/Qualifiers
+     ncRNA           complement(1..1694)
+                     /ID="nofshits_ncRNA_1"
+                     /locus_tag="nofshits_ncRNA_1"
+                     /product="Bacterial large subunit ribosomal RNA"
+                     /Dbxref="RFAM:RF02541"
+                     /ncRNA_class="other"
+                     /note="LSU_rRNA_bacteria"
+                     /score="1438.4"
+                     /inference="profile:Infernal:1.1.5"
+     CDS             complement(3..164)
+                     /ID="nofshits_CDS_0001"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0001"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-2.991272"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="VKEPQIIGPGDCLPKTHGYANSQEDVYGLTPARCRKGKRKLVIHA
+                     QIDRKSTRL"
+     CDS             complement(325..492)
+                     /ID="nofshits_CDS_0002"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0002"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-3.42291"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="MIQSVGEHSIQHRSSTVRYCGADGKANVGISNDNAGENPARRKIK
+                     DSPAMSIIRG"
+     CDS             complement(556..654)
+                     /ID="nofshits_CDS_0003"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0003"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-7.515602"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="MLSWNKNGVGLLRQLGCWLGSSHSFKECVTAH"
+     CDS             complement(724..837)
+                     /ID="nofshits_CDS_0004"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0004"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-0.4503435"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="VQPLLFCSRGRATDWMRGLHRLSNPAKLRMLEHEDRE"
+     CDS             842..1087
+                     /ID="nofshits_CDS_0005"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0005"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-30.31466"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="MHFGEYELFPSLIGLSPLPTGHPKTFQRLPVRASSLCYQTFTLPM
+                     GRSLRFRVYHHQLDALFRLAFASAYVPEVLNLAGDE"
+     CDS             1155..1319
+                     /ID="nofshits_CDS_0006"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0006"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-5.107547"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="MGSGTISLFCSKCFSPFPHGTGSLSVSQEYLALPDGPGGFGQDYT
+                     CPDLLRSLL"
+     CDS             1316..1666
+                     /ID="nofshits_CDS_0007"
+                     /transl_table=11
+                     /phrog="No_PHROGs_HMM"
+                     /locus_tag="nofshits_CDS_0007"
+                     /function="unknown function"
+                     /product="hypothetical protein"
+                     /score="-160.594"
+                     /inference="ab initio prediction:PHANOTATE:1.6.7"
+                     /translation="MIHKLTCTGLSPSVITFSKVFHFIYFINVAVLLPRYCRNNNGLGL
+                     SPVARRYWGNHVCFLLLQVLRCFSSLRLPTLRYNMSSTYWVIPFGNLRIKGYLHLNGAF
+                     RSLSRPSSPLRA"
+ORIGIN
+        1 ttcagacgtg tgctcttccg atctatctgc gcatggatca caagcttcct cttacccttc
+       61 cggcaccggg caggtgtcag gccatataca tcttcttgcg aattagcata gccatgtgtt
+      121 tttggtaaac agtcgcctgg gcctattatc tgcggctctt tcacaagagc gtcctttatc
+      181 ccgaagttac aggaccattt tgcctagttc cttaaccatg aatctctcga gcgccttagt
+      241 attttctacc tgatcacgtg tgtccgttta cagtacggat gtttaccatc gggatcgcca
+      301 ctcggcttac ccttaggatc cgacttaccc ccggatgatt gacattgccg gggaatcctt
+      361 gatctttcgg cgtgcggggt tctcacccgc attatcgtta cttatgccta catttgcttt
+      421 tccatccgct ccacaatacc tcacggtact gcttctatgc tgaatggaat gctctcctac
+      481 cgattgtatc atctacaatc ccatagcttc ggttatatgc ttatgcccgc gtattatcca
+      541 tgcaggaccg ctcgactagt gagctgttac gcactcttta aatgaatggc tgcttccaag
+      601 ccaacatcct agctgtctaa gcagtcccac cccgttttta ttccaactta gcatataatt
+      661 ggggacctta gctgatggtc tgagttctcc ctctttcgtc aacggacctt agcacccgct
+      721 ggctcactcc ctgtcttcat gttctagcat tcggagtttg gccggatttg ataggcggtg
+      781 aagccctcgc atccaatcag tagctctacc tctagaacaa aacaacagag gctgcaccta
+      841 aatgcatttc ggagagtacg agctatttcc cagtttgatt ggcctttcac ccctacccac
+      901 aggtcatccg aaaacttttc aacgtttacc ggttcgggcc tccagtttgt gttaccaaac
+      961 cttcaccctg cccatgggta gatcactaag gtttcgcgtc taccaccacc aacttgacgc
+     1021 cctattcaga ctcgctttcg cttcggctta cgtacctgaa gtacttaacc tcgctggtga
+     1081 tgagtaactc gtaggctcat tatgcaaaag gcacgccgtc accgcacgaa gcggctccga
+     1141 ctgcttgtag gcgtatgggt tcagggacta tttcactctt ctgttcgaag tgcttttcac
+     1201 ctttccctca cggtactggt tcactatcgg tctctcagga gtatttagcc ttgccggatg
+     1261 gtcccggcgg attcggtcag gattacacgt gtcccgactt actcaggagt ctgctatgat
+     1321 tcataaactt acatgtacgg gattatcacc ctctgtgatc acattttcca aggtgttcca
+     1381 tttcatttat ttcatcaatg tcgcagtcct actaccccgc tactgccgaa acaataacgg
+     1441 tttgggctta tccccggtcg ctcgccgcta ctgggggaat cacgtttgtt ttcttctcct
+     1501 gcaggtactt agatgtttca gttccctgcg tttgcctacc ttacggtata atatgtcttc
+     1561 aacatattgg gttatcccat tcggaaatct ccgcatcaaa ggttatttgc acctaaacgg
+     1621 agcttttcgc agcttatcac gtccttcttc gcctctgaga gcctaggcat ccacaccccc
+     1681 ccactgatcc atgcgcagat
+//

@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Union
 import click
+import polars as pl
 from loguru import logger
 
 
@@ -242,6 +243,70 @@ def touch_file(path: Path) -> None:
     """
     with open(path, "a"):
         os.utime(path, None)
+
+
+def is_blank_file(path: Union[str, Path]) -> bool:
+    """
+    Return True if ``path`` is empty or contains only whitespace.
+
+    Only reads until the first non-whitespace byte, so it is cheap on a
+    populated file.
+
+    Parameters:
+        path (Union[str, Path]): Path to the file.
+
+    Returns:
+        bool: True if the file has no non-whitespace content.
+    """
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(1 << 16)
+            if not chunk:
+                return True
+            if chunk.strip():
+                return False
+
+
+def read_headerless_csv(
+    path: Union[str, Path],
+    schema: Dict[str, pl.DataType],
+    separator: str = ",",
+    **read_csv_kwargs: Any,
+) -> pl.DataFrame:
+    """
+    Read a header-less CSV/TSV, returning a typed empty frame for a blank file.
+
+    Foldseek writes a 0-byte result TSV when it finds no hits. pandas'
+    ``read_csv(names=...)`` returned an empty frame for that; polars raises
+    ``NoDataError`` instead, and ``raise_if_empty=False`` doesn't help because
+    ``new_columns`` then fails on the zero-width frame (``ShapeError``). So a
+    blank file is detected up front and an empty frame with ``schema`` is
+    returned, which keeps the downstream ``.str`` / join / cast ops valid.
+
+    For a populated file only the column names are taken from ``schema``;
+    dtypes are still inferred (plus any ``schema_overrides`` in
+    ``read_csv_kwargs``) exactly as before, so existing outputs don't change.
+    ``schema`` dtypes should therefore match what inference would produce.
+
+    Parameters:
+        path (Union[str, Path]): Path to the CSV/TSV file.
+        schema (Dict[str, pl.DataType]): Column names (in file order) and the
+            dtypes to use when the file is blank.
+        separator (str): Field separator.
+        **read_csv_kwargs: Extra keyword arguments passed to ``pl.read_csv``.
+
+    Returns:
+        pl.DataFrame: The parsed file, or an empty frame with ``schema``.
+    """
+    if is_blank_file(path):
+        return pl.DataFrame(schema=schema)
+    return pl.read_csv(
+        path,
+        separator=separator,
+        has_header=False,
+        new_columns=list(schema),
+        **read_csv_kwargs,
+    )
 
 
 def replace_pipe_in_fastq(input_path):

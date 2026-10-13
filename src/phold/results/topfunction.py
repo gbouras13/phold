@@ -5,6 +5,62 @@ from typing import Dict, List, Tuple, Union
 import polars as pl
 from loguru import logger
 
+from phold.utils.util import read_headerless_csv
+
+
+# ── foldseek result TSV schema ──────────────────────────────────────────────
+# Column order matches ``--format-output`` in phold.features.run_foldseek.
+# The dtypes are what polars infers on a populated file (with evalue forced
+# to Utf8); they're only applied verbatim when the TSV is empty.
+_FOLDSEEK_BASE_SCHEMA: Dict[str, pl.DataType] = {
+    "query": pl.Utf8,
+    "target": pl.Utf8,
+    "bitscore": pl.Int64,
+    "fident": pl.Float64,
+    "evalue": pl.Utf8,
+    "qStart": pl.Int64,
+    "qEnd": pl.Int64,
+    "qLen": pl.Int64,
+    "tStart": pl.Int64,
+    "tEnd": pl.Int64,
+    "tLen": pl.Int64,
+}
+_FOLDSEEK_STRUCTURE_SCHEMA: Dict[str, pl.DataType] = {
+    "alntmscore": pl.Float64,
+    "lddt": pl.Float64,
+}
+
+
+def read_foldseek_results(result_tsv: Path, structures: bool) -> pl.DataFrame:
+    """Read a header-less Foldseek result TSV.
+
+    Foldseek writes an empty file when there are no hits; that comes back
+    as an empty frame with the full schema (not an error), so callers can
+    run their usual pipeline on it.
+
+    Args:
+        result_tsv (Path): Path to the Foldseek result TSV file.
+        structures (bool): Whether the ``alntmscore``/``lddt`` columns are present.
+
+    Returns:
+        pl.DataFrame: Foldseek hits, one row per alignment.
+    """
+    schema = dict(_FOLDSEEK_BASE_SCHEMA)
+    if structures:
+        schema.update(_FOLDSEEK_STRUCTURE_SCHEMA)
+
+    # Force evalue to Utf8 — pandas had inferred it as object/string; the
+    # ``"{:.3e}".format(float(x))`` formatting step downstream relies on
+    # string input and the existing snapshots are pinned to string-style
+    # scientific repr.
+    return read_headerless_csv(
+        result_tsv,
+        schema,
+        separator="\t",
+        schema_overrides={"evalue": pl.Utf8},
+        infer_schema_length=10_000,
+    )
+
 
 # ── weighted-bitscore output schema ─────────────────────────────────────────
 # (function-name-in-data, output-column-name) pairs. Order matters: it
@@ -62,30 +118,20 @@ def get_topfunctions(
     """
     logger.info("Processing Foldseek output")
 
-    base_cols = [
-        "query", "target", "bitscore", "fident", "evalue",
-        "qStart", "qEnd", "qLen", "tStart", "tEnd", "tLen",
-    ]
-    col_list = base_cols + (["alntmscore", "lddt"] if structures else [])
+    foldseek_df = read_foldseek_results(result_tsv, structures)
 
-    # Force evalue to Utf8 — pandas had inferred it as object/string; the
-    # ``"{:.3e}".format(float(x))`` formatting step downstream relies on
-    # string input and the existing snapshots are pinned to string-style
-    # scientific repr.
-    foldseek_df = pl.read_csv(
-        result_tsv,
-        separator="\t",
-        has_header=False,
-        new_columns=col_list,
-        schema_overrides={"evalue": pl.Utf8},
-        infer_schema_length=10_000,
-    )
-
-    # in case the foldseek output is empty
+    # in case the foldseek output is empty. A warning, not an error: phold's
+    # ERROR sink exits the process, and a short contig with no hits is a
+    # legitimate input — the rest of the pipeline runs on the empty frame
+    # and every CDS keeps its input annotation.
     if foldseek_df.is_empty():
-        logger.error(
+        logger.warning(
             "Foldseek found no hits whatsoever - please check whether your "
             "input is really phage-like"
+        )
+        logger.warning(
+            "Phold will continue: all CDS will keep their input annotations "
+            "(or be labelled as hypothetical proteins)."
         )
 
     # issue #86 — restore the literal '|' in queries (mangled to '~PIPE~'
@@ -691,20 +737,7 @@ def get_topcustom_hits(
     """
     logger.info("Processing Foldseek output")
 
-    base_cols = [
-        "query", "target", "bitscore", "fident", "evalue",
-        "qStart", "qEnd", "qLen", "tStart", "tEnd", "tLen",
-    ]
-    col_list = base_cols + (["alntmscore", "lddt"] if structures else [])
-
-    foldseek_df = pl.read_csv(
-        result_tsv,
-        separator="\t",
-        has_header=False,
-        new_columns=col_list,
-        schema_overrides={"evalue": pl.Utf8},
-        infer_schema_length=10_000,
-    )
+    foldseek_df = read_foldseek_results(result_tsv, structures)
 
     if foldseek_df.is_empty():
         logger.warning(

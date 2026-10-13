@@ -15,7 +15,8 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from phold.results.topfunction import get_topfunctions, calculate_qcov_tcov
+from phold.results.topfunction import (calculate_qcov_tcov, get_topcustom_hits,
+                                       get_topfunctions)
 
 SNAPSHOT_SUBDIR = "test_topfunction"
 
@@ -121,6 +122,70 @@ def test_get_topfunctions_pipe_round_trip(fixtures_dir, phold_db):
     queries = topfn_df["query"].to_list()
     assert all("|" in q for q in queries), f"~PIPE~ not replaced: {queries}"
     assert not any("~PIPE~" in q for q in queries)
+
+
+# ─── empty Foldseek output (zero hits) ──────────────────────────────────────
+# Regression for v1.3.0: Foldseek writes a 0-byte result TSV when nothing
+# hits, pl.read_csv raised ``NoDataError: empty CSV`` and phold died. Both
+# parsers must return empty frames with the same schema they'd produce for a
+# populated TSV, so the rest of compare runs unchanged. Uses mini_phold_db
+# (not phold_db) so these run without the database.
+
+# (structures, proteins_flag) — every combination subcommand_compare uses.
+_FOLDSEEK_MODES = [(False, False), (False, True), (True, False), (True, True)]
+_MODE_IDS = ["prostt5", "proteins", "structures", "proteins_structures"]
+
+
+def _write_foldseek_tsv(path, structures: bool, with_hit: bool):
+    """Write a Foldseek result TSV in the given mode: one hit, or empty."""
+    if not with_hit:
+        path.write_text("")
+        return path
+    row = [
+        "NC_043029:NC_043029_CDS_0001", "phrog_453:protein221399", "2019",
+        "0.934", "8.203e-50", "1", "351", "352", "1", "351", "351",
+    ]
+    if structures:
+        row += ["0.912", "0.854"]  # alntmscore, lddt
+    path.write_text("\t".join(row) + "\n")
+    return path
+
+
+@pytest.mark.parametrize("structures,proteins_flag", _FOLDSEEK_MODES, ids=_MODE_IDS)
+def test_get_topfunctions_empty_tsv(tmp_path, mini_phold_db, loguru_errors, structures, proteins_flag):
+    empty_tsv = _write_foldseek_tsv(tmp_path / "empty.tsv", structures, with_hit=False)
+    hit_tsv = _write_foldseek_tsv(tmp_path / "hit.tsv", structures, with_hit=True)
+
+    topfn_df, weighted_df = get_topfunctions(
+        empty_tsv, mini_phold_db, "phold", structures, 1e-10, proteins_flag
+    )
+    ref_topfn_df, ref_weighted_df = get_topfunctions(
+        hit_tsv, mini_phold_db, "phold", structures, 1e-10, proteins_flag
+    )
+
+    assert topfn_df.is_empty()
+    assert weighted_df.is_empty()
+    assert topfn_df.schema == ref_topfn_df.schema
+    # Category dtypes legitimately differ (Int64 when a function never
+    # occurs, see _build_weighted_bitscore_df), so only the columns must match.
+    assert weighted_df.columns == ref_weighted_df.columns
+    # ERROR exits phold, so zero hits must only warn.
+    assert loguru_errors == []
+
+
+@pytest.mark.parametrize("structures,proteins_flag", _FOLDSEEK_MODES, ids=_MODE_IDS)
+def test_get_topcustom_hits_empty_tsv(tmp_path, loguru_errors, structures, proteins_flag):
+    empty_tsv = _write_foldseek_tsv(tmp_path / "empty.tsv", structures, with_hit=False)
+    hit_tsv = _write_foldseek_tsv(tmp_path / "hit.tsv", structures, with_hit=True)
+
+    custom_df = get_topcustom_hits(empty_tsv, structures, proteins_flag)
+    ref_custom_df = get_topcustom_hits(hit_tsv, structures, proteins_flag)
+
+    assert custom_df.is_empty()
+    assert custom_df.schema == ref_custom_df.schema
+    # compare.py adds coverages to the custom hits next.
+    assert calculate_qcov_tcov(custom_df).columns == calculate_qcov_tcov(ref_custom_df).columns
+    assert loguru_errors == []
 
 
 # ─── calculate_qcov_tcov ────────────────────────────────────────────────────
