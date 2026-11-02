@@ -282,6 +282,19 @@ def predict_options(func):
             show_default=True,
         ),
         click.option(
+            "--plddt_threshold",
+            default=50,
+            help=(
+                "ModernProst '-pssm' models only. Zero the 3Di and 12-state "
+                "profile columns of residues whose pLDDT, predicted by the "
+                "model's pLDDT head, is below this value, so they do not "
+                "contribute to the Foldseek search. 0 disables masking. The "
+                "per-residue pLDDT is always written to the output directory."
+            ),
+            type=float,
+            show_default=True,
+        ),
+        click.option(
             "--finetune",
             is_flag=True,
             help="Use gbouras13/ProstT5Phold encoder + CNN model both finetuned on phage proteins",
@@ -450,6 +463,7 @@ def run(
     save_per_protein_embeddings,
     ultra_sensitive,
     mask_threshold,
+    plddt_threshold,
     extra_foldseek_params,
     evalue_12st_profile_comp,
     custom_db,
@@ -495,6 +509,7 @@ def run(
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--ultra_sensitive": ultra_sensitive,
         "--mask_threshold": mask_threshold,
+        "--plddt_threshold": plddt_threshold,
         "--extra_foldseek_params": extra_foldseek_params,
         "--evalue_12st_profile_comp": evalue_12st_profile_comp,
         "--custom_db": custom_db,
@@ -575,6 +590,7 @@ def run(
             save_per_protein_embeddings=save_per_protein_embeddings,
             threads=threads,
             mask_threshold=mask_threshold,
+            plddt_threshold=plddt_threshold,
             hyps=hyps,
             gpus=gpus,
             task=task,
@@ -664,6 +680,7 @@ def predict(
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
+    plddt_threshold,
     finetune,
     vanilla,
     hyps,
@@ -697,6 +714,7 @@ def predict(
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--mask_threshold": mask_threshold,
+        "--plddt_threshold": plddt_threshold,
         "--finetune": finetune,
         "--vanilla": vanilla,
         "--hyps": hyps,
@@ -765,6 +783,7 @@ def predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
+        plddt_threshold=plddt_threshold,
         hyps=hyps,
         gpus=gpus,
         task=task,
@@ -975,6 +994,7 @@ def proteins_predict(
     save_per_residue_embeddings,
     save_per_protein_embeddings,
     mask_threshold,
+    plddt_threshold,
     finetune,
     vanilla,
     **kwargs,
@@ -1007,6 +1027,7 @@ def proteins_predict(
         "--save_per_residue_embeddings": save_per_residue_embeddings,
         "--save_per_protein_embeddings": save_per_protein_embeddings,
         "--mask_threshold": mask_threshold,
+        "--plddt_threshold": plddt_threshold,
         "--finetune": finetune,
         "--vanilla": vanilla,
     }
@@ -1110,6 +1131,7 @@ def proteins_predict(
         save_per_protein_embeddings=save_per_protein_embeddings,
         threads=threads,
         mask_threshold=mask_threshold,
+        plddt_threshold=plddt_threshold,
         hyps=False,  # always False for this as no Pharokka genbank to parse on input
         gpus=gpus,
         task=task,

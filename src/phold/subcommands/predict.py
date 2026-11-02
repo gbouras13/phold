@@ -56,6 +56,7 @@ def subcommand_predict(
     logdir: Optional[Path] = None,
     inference_engine: str = "auto",
     compile_mode: str = "auto",
+    plddt_threshold: float = 0,
 ) -> bool:
     """
     Wrapper command for phold predict.
@@ -88,6 +89,9 @@ def subcommand_predict(
             profile database in the pssm task.
         inference_engine (str): ModernProst only: "auto", "padded" or "packed".
         compile_mode (str): ModernProst only: "auto", "on" or "off".
+        plddt_threshold (float): ModernProst pssm task only: zero the 3Di and
+            12-state profile columns of residues whose predicted pLDDT is below
+            this value. 0 disables masking.
 
     Returns:
         bool: True if prediction succeeds, False otherwise.
@@ -321,6 +325,11 @@ def subcommand_predict(
             threads=threads,
             gpus=gpus,
         )
+        if plddt_threshold and plddt_threshold > 0 and resolved_task != PSSM_TASK:
+            logger.info(
+                f"--plddt_threshold {plddt_threshold} only applies to the "
+                "ModernProst profile (pssm) task; no pLDDT masking is applied."
+            )
     else:
         if task not in (None, "auto"):
             logger.warning(
@@ -401,6 +410,7 @@ def subcommand_predict(
             profile_db_path,
             logdir if logdir is not None else Path(output) / "logs",
             prefix,
+            plddt_threshold=plddt_threshold,
         )
 
     return True

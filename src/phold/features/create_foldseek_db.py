@@ -205,6 +205,7 @@ def generate_foldseek_profile_db(
     profile_db_path: Path,
     logdir: Path,
     prefix: str,
+    plddt_threshold: float = 0,
 ) -> Path:
     """
     Generate Foldseek 3Di / 12-state / amino-acid profile databases.
@@ -214,13 +215,17 @@ def generate_foldseek_profile_db(
 
     Args:
         profiles (Dict): Nested ``{contig_id: {seq_id: {"3di": ndarray,
-            "12st": ndarray}}}`` from ``get_modernprost_predictions``.
+            "12st": ndarray, "plddt": ndarray}}}`` from
+            ``get_modernprost_predictions``.
         fasta_aa (Path): Path to the amino-acid FASTA written by phold predict.
             Supplies both the sequences and the header formatting, so the
             profile DB keys match what the combined-DB path would produce.
         profile_db_path (Path): Directory the profile databases are written to.
         logdir (Path): Directory where logs are stored.
         prefix (str): Prefix for the Foldseek database.
+        plddt_threshold (float): Zero the 3Di and 12-state profile columns of
+            residues with predicted pLDDT below this value (the amino-acid
+            profile is not masked). 0 disables masking.
 
     Returns:
         Path: prefix of the query profile DB to hand to ``foldseek search``.
@@ -237,6 +242,7 @@ def generate_foldseek_profile_db(
     # inference, zero-length prediction) and must be dropped here too.
     flat_3di: Dict = {}
     flat_12st: Dict = {}
+    flat_plddt: Dict = {}
     for contig_id, contig_profiles in profiles.items():
         for seq_id, heads in contig_profiles.items():
             header = seq_id if seq_id in aa_sequences else f"{contig_id}:{seq_id}"
@@ -248,6 +254,7 @@ def generate_foldseek_profile_db(
                 continue
             flat_3di[header] = heads["3di"]
             flat_12st[header] = heads["12st"]
+            flat_plddt[header] = heads.get("plddt")
 
     # Only build the DB over records that have a profile, so the amino-acid
     # profile DB cannot end up with keys the structural profile DBs lack.
@@ -265,6 +272,17 @@ def generate_foldseek_profile_db(
         aa_sequences, profile_db_path, prefix, phold_tsv2db_runner(logdir)
     )
 
+    masking = plddt_threshold is not None and plddt_threshold > 0
+    if masking:
+        known = [p for p in flat_plddt.values() if p is not None]
+        n_low = sum(int((p < plddt_threshold).sum()) for p in known)
+        n_total = sum(len(p) for p in known)
+        logger.info(
+            f"Masking the 3Di and 12-state profiles of {n_low} of {n_total} "
+            f"residues ({100 * n_low / max(n_total, 1):.2f}%) with predicted "
+            f"pLDDT < {plddt_threshold}"
+        )
+
     write_profile_foldseek_dbs(
         flat_3di,
         flat_12st,
@@ -273,6 +291,8 @@ def generate_foldseek_profile_db(
         profile_db_path,
         prefix,
         source_db,
+        plddt=flat_plddt if masking else None,
+        plddt_threshold=plddt_threshold if masking else None,
     )
 
     return profile_db_path / f"{prefix}_profile"
@@ -287,6 +307,7 @@ def generate_foldseek_db_from_structures(
     prefix: str,
     filter_structures: bool,
     proteins_flag: bool,
+    ss_12st: bool = False,
 ) -> None:
     """
     Generate Foldseek database from PDB files.
@@ -300,6 +321,8 @@ def generate_foldseek_db_from_structures(
         prefix (str): Prefix for the Foldseek database.
         filter_structures (bool): Flag indicating whether to filter structure files or not.
         proteins_flag (bool): Flag - True if proteins-compare is run
+        ss_12st (bool): Also write the 12-state alphabet into the _ss database
+            (``--ss-12st 1``), for searching a 12-state Phold database.
 
     Returns:
         None
@@ -394,7 +417,8 @@ def generate_foldseek_db_from_structures(
         tool="foldseek",
         input=f"",
         output=f"",
-        params=f"createdb {query_structure_dir} {structure_db_name} ",
+        params=f"createdb {query_structure_dir} {structure_db_name} "
+        + ("--ss-12st 1 " if ss_12st else ""),
         logdir=logdir,
     )
 

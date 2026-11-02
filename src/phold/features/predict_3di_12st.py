@@ -17,7 +17,9 @@ Two tasks are supported, following the checkpoint's training:
     keep the full per-residue distributions and write them as profile text.
     ``phold compare`` searches Foldseek profile databases built from them.
     The argmax FASTAs are still written, so the outputs stay inspectable and
-    the per-CDS confidence column works the same way in both tasks.
+    the per-CDS confidence column works the same way in both tasks. The
+    model's pLDDT head predicts per-residue pLDDT in the same forward pass;
+    it is written out and used to mask low-confidence profile columns.
 
 Masking note: ``--mask_threshold`` cannot be applied to the 3Di string here.
 The combined encoding packs ``3di_index * 12 + ss12_index`` into one byte and
@@ -53,6 +55,40 @@ MODEL_PREFIX = "modernprost"
 def mean_probs_filename(prefix: str) -> str:
     """Name of the per-CDS mean-confidence CSV written by this module."""
     return f"{prefix}_{MODEL_PREFIX}_3di_mean_probabilities.csv"
+
+
+def plddt_filename(prefix: str) -> str:
+    """Name of the per-residue predicted pLDDT archive (pssm task only)."""
+    return f"{prefix}_{MODEL_PREFIX}_plddt.npz"
+
+
+def write_plddt(
+    plddt: Dict[str, Any],
+    out_dir: Path,
+    prefix: str,
+    ordered_keys: List[str],
+    header_map: Dict[str, str],
+) -> None:
+    """Write predicted pLDDT: exact per-residue values and a per-CDS summary.
+
+    ``{prefix}_modernprost_plddt.npz`` holds one float32 array per protein,
+    keyed by its FASTA header, so profile databases can be re-masked at any
+    cutoff without re-running inference. ``{prefix}_modernprost_plddt.tsv``
+    holds each protein's length and mean pLDDT.
+    """
+    import numpy as np
+
+    arrays = {header_map[k]: plddt[k] for k in ordered_keys if k in plddt}
+    with atomic_write_path(Path(out_dir) / plddt_filename(prefix)) as tmp:
+        with open(tmp, "wb") as fh:
+            np.savez_compressed(fh, **arrays)
+
+    tsv_path = Path(out_dir) / f"{prefix}_{MODEL_PREFIX}_plddt.tsv"
+    with atomic_write_path(tsv_path) as tmp:
+        with open(tmp, "w") as fh:
+            fh.write("cds_id\tlength\tmean_plddt\n")
+            for header, values in arrays.items():
+                fh.write(f"{header}\t{len(values)}\t{float(np.mean(values)):.2f}\n")
 
 
 def get_modernprost_predictions(
@@ -116,8 +152,8 @@ def get_modernprost_predictions(
     Returns:
         ``(predictions_3di, predictions_12st, profiles)`` — the first two nested
         ``{contig_id: {seq_id: (pred, mean_prob, all_prob)}}``, and ``profiles``
-        a nested ``{contig_id: {seq_id: {"3di": ndarray, "12st": ndarray}}}``
-        that is empty unless ``task="pssm"``.
+        a nested ``{contig_id: {seq_id: {"3di": ndarray, "12st": ndarray,
+        "plddt": ndarray}}}`` that is empty unless ``task="pssm"``.
     """
     # Deferred: torch / transformers (see the module docstring's note).
     from pholdlib.modernprost.inference import (
@@ -191,6 +227,8 @@ def get_modernprost_predictions(
         save_per_residue_embeddings=save_per_residue_embeddings,
         save_per_protein_embeddings=save_per_protein_embeddings,
         desc="Predicting 3Di + 12st",
+        # pLDDT (same forward pass) masks the profile DB, so pssm task only
+        plddt=task == PSSM_TASK,
     )
     all_fail_ids.extend(result.fail_ids)
 
@@ -221,7 +259,11 @@ def get_modernprost_predictions(
         }
         if task == PSSM_TASK:
             profiles[record_id] = {
-                k: {"3di": result.profiles_3di[k], "12st": result.profiles_12st[k]}
+                k: {
+                    "3di": result.profiles_3di[k],
+                    "12st": result.profiles_12st[k],
+                    "plddt": result.plddt.get(k),
+                }
                 for k in keys
                 if k in result.profiles_3di and k in result.profiles_12st
             }
@@ -278,5 +320,6 @@ def get_modernprost_predictions(
             write_profiles_text(result.profiles_3di, tmp, THREEDI_ALPHABET, ordered_keys)
         with atomic_write_path(Path(out_path) / f"{prefix}_profile_12st.txt") as tmp:
             write_profiles_text(result.profiles_12st, tmp, SS12_ALPHABET, ordered_keys)
+        write_plddt(result.plddt, out_path, prefix, ordered_keys, header_map)
 
     return predictions_3di, predictions_12st, profiles

@@ -295,15 +295,18 @@ def subcommand_compare(
     if profiles is None:
         profiles = detected_profiles
 
-    if structures and (ss_12st or profiles):
-        # Structure input goes through `foldseek createdb`, which produces the
-        # target DB's own alphabet; there are no ModernProst predictions to use.
-        logger.warning(
-            "Ignoring the 12-state / profile settings: --structures builds the "
-            "query database directly from structure files."
-        )
-        ss_12st = False
+    if structures:
+        # Structure input goes through `foldseek createdb`, which computes the
+        # query's 3Di (and 12-state) states from the coordinates; there are no
+        # ModernProst predictions to use. The alphabet follows the target DB:
+        # a 12-state Phold DB is searched in combined 3Di+12-state mode.
+        if profiles:
+            logger.warning(
+                "Ignoring the profile setting: --structures builds the query "
+                "database directly from structure files."
+            )
         profiles = False
+        ss_12st = check_db_12st_support(database)
 
     if profiles and not ss_12st:
         logger.error(
@@ -568,6 +571,7 @@ def subcommand_compare(
                 prefix,
                 filter_structures,
                 proteins_flag,
+                ss_12st=ss_12st,
             )
         elif profiles:
             # The profile databases were already built by phold predict — it

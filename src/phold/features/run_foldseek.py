@@ -6,6 +6,10 @@ from pholdlib.prostt5.device import cuda_visible_devices_value, parse_gpus
 
 from phold.utils.external_tools import ExternalTool
 
+# --k-score for profile queries: no sequence k-mer threshold, profile k-mer
+# threshold 82.
+PROFILE_K_SCORE = "seq:2147483647,prof:82"
+
 
 def run_foldseek_search(
     query_db: Path,
@@ -92,6 +96,12 @@ def run_foldseek_search(
         # not the default in your Foldseek build.
         if evalue_12st_profile_comp not in (None, "off"):
             cmd += f" --evalue-12st-profile-comp {evalue_12st_profile_comp}"
+
+        # Profile k-mer score threshold for the prefilter, benchmarked on
+        # SCOPe40 with the -pssm models (Foldseek 583229dc). Sequence queries
+        # keep Foldseek's default. A --k-score in --extra_foldseek_params wins.
+        if not (extra_foldseek_params and "--k-score" in extra_foldseek_params):
+            cmd += f" --k-score {PROFILE_K_SCORE}"
 
     if extra_foldseek_params:
         cmd += f" {extra_foldseek_params}"
