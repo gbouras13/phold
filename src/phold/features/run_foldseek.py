@@ -10,6 +10,11 @@ from phold.utils.external_tools import ExternalTool
 # threshold 82.
 PROFILE_K_SCORE = "seq:2147483647,prof:82"
 
+# E-value and scoring settings for 3Di + 12-state searches, as benchmarked on
+# SCOPe40 with Foldseek 583229dc: the whole-query 3Di + 12-state composition
+# e-value neural net, and subtracting the reverse-alignment score.
+SS12_SEARCH_PARAMS = {"--evalue-nn-mode": "2", "--use-reverse-score": "1"}
+
 
 def run_foldseek_search(
     query_db: Path,
@@ -61,11 +66,11 @@ def run_foldseek_search(
         profiles (bool): The query database is a Foldseek profile database
             (the ModernProst ``-pssm`` models) rather than a sequence database.
         evalue_12st_profile_comp (Optional[str]): Composition source for the
-            12-state e-value neural net on profile queries — Foldseek's
-            ``--evalue-12st-profile-comp``: ``"0"`` legacy whole-query,
-            ``"1"`` windowed query/target, ``"2"`` legacy whole-query
-            3Di+12-state. Only applied on the profile path. ``None`` (or
-            ``"off"``) omits the flag so Foldseek's own default applies.
+            12-state e-value neural net (``--evalue-nn-mode 2``) on profile
+            queries — Foldseek's ``--evalue-12st-profile-comp``: ``"0"`` the
+            profile's centre sequence, ``"1"`` recovered from the profile
+            scores. Only applied on the profile path. ``None`` (or ``"off"``)
+            omits the flag so Foldseek's own default (0) applies.
 
     Returns:
         None
@@ -80,20 +85,21 @@ def run_foldseek_search(
     if foldseek_gpu:
         cmd = f"search {query_db} {target_db}_gpu {result_db} {temp_db} --threads {str(threads)} -e {evalue}  --gpu 1 --prefilter-mode 1 --max-seqs {max_seqs}"
 
-    # ModernProst: score the 12-state channel alongside 3Di.
+    # ModernProst: score the 12-state channel alongside 3Di, with the SCOPe40
+    # e-value settings. Values set in --extra_foldseek_params win.
     if ss_12st:
         cmd += " --ss-12st 1"
+        for flag, value in SS12_SEARCH_PARAMS.items():
+            if not (extra_foldseek_params and flag in extra_foldseek_params):
+                cmd += f" {flag} {value}"
 
     # Profile queries carry their own structural bit-scores, so Foldseek's
     # structure-bits re-sort would re-rank them by a score they don't have.
     if profiles:
         cmd += " --sort-by-structure-bits 0"
 
-        # Derive the 12-state e-value NN's composition from the reconstructed
-        # profile frequencies rather than the profile's centre sequence. Only
-        # takes effect when Foldseek is using the NN e-value model
-        # (--evalue-nn-mode 2); pass that via --extra_foldseek_params if it is
-        # not the default in your Foldseek build.
+        # Composition source for the 12-state e-value NN (--evalue-nn-mode 2).
+        # Omitted by default, so Foldseek's own default applies, as on SCOPe40.
         if evalue_12st_profile_comp not in (None, "off"):
             cmd += f" --evalue-12st-profile-comp {evalue_12st_profile_comp}"
 

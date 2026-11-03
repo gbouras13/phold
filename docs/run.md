@@ -44,7 +44,11 @@ The `modernprost-*` models are a single encoder that predicts 3Di **and** a 12-s
 
 The `-pssm` checkpoints keep the full per-residue probability distribution rather than collapsing it to a single most-likely state, and are searched as Foldseek profile databases. `--task classification|pssm` overrides this; the default `auto` uses whichever task the chosen model was trained for.
 
-Profile searches are additionally run with `--evalue-12st-profile-comp 1`, which reconstructs residue frequencies from the profile and derives the 12-state e-value from those rather than from the profile's centre sequence. Change it with `--evalue_12st_profile_comp 0|1|2|off` (`off` leaves Foldseek's default). It only takes effect when Foldseek is using its neural-net e-value model (`--evalue-nn-mode 2`) — add that via `--extra_foldseek_params` if it is not the default in your Foldseek build.
+Every 3Di + 12-state search (ModernProst models, and `--structures` against a 12-state database) runs with `--ss-12st 1 --evalue-nn-mode 2 --use-reverse-score 1`, the settings benchmarked on SCOPe40 with Foldseek 583229dc. Profile searches (`-pssm` models) also use `--sort-by-structure-bits 0 --k-score seq:2147483647,prof:82`. Any of these flags given in `--extra_foldseek_params` takes precedence.
+
+For profile queries, `--evalue_12st_profile_comp 0|1|off` sets where the 12-state e-value neural net takes the query composition from: `0` the profile's centre sequence, `1` frequencies recovered from the profile scores. The default `off` leaves Foldseek's own default (`0`), as on SCOPe40.
+
+With the `-pssm` models, `--plddt_threshold` (default 50; 0 disables) zeroes the 3Di and 12-state profile columns of residues whose pLDDT, predicted by the model's pLDDT head, is below the threshold. The per-residue pLDDT is written to `{prefix}_modernprost_plddt.npz` and a per-protein summary to `{prefix}_modernprost_plddt.tsv`.
 
 ```bash
 # download a ModernProst model alongside the database

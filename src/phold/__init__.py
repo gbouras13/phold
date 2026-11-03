@@ -370,18 +370,17 @@ def compare_options(func):
         ),
         click.option(
             "--evalue_12st_profile_comp",
-            type=click.Choice(["0", "1", "2", "off"], case_sensitive=False),
-            default="1",
+            type=click.Choice(["0", "1", "off"], case_sensitive=False),
+            default="off",
             show_default=True,
             help=(
                 "Composition source for Foldseek's 12-state e-value neural net "
-                "on profile queries (--model modernprost-pssm / "
-                "modernprost-50M-pssm). 1 reconstructs frequencies from the "
-                "profile and uses those, rather than its centre sequence. "
-                "0 = legacy whole-query, 2 = legacy whole-query 3Di+12-state, "
-                "off = leave Foldseek's default. Only takes effect with "
-                "Foldseek's NN e-value model (--evalue-nn-mode 2); no effect "
-                "outside the profile path."
+                "(--evalue-nn-mode 2, which phold uses for all 3Di+12-state "
+                "searches) on profile queries (--model modernprost-pssm / "
+                "modernprost-50M-pssm): 0 = the profile's centre sequence, "
+                "1 = recovered from the profile scores, off = leave Foldseek's "
+                "default (0, as benchmarked on SCOPe40). No effect outside the "
+                "profile path."
             ),
         ),
         click.option(
